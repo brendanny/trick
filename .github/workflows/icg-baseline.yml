@@ -1,0 +1,37 @@
+name: ICG baseline tooling
+
+on:
+  push:
+    branches: [master, icg-rewrite]
+    paths:
+      - 'tools/icg_baseline/**'
+      - 'test/**'
+      - '.github/workflows/icg-baseline.yml'
+  pull_request:
+    paths:
+      - 'tools/icg_baseline/**'
+      - 'test/**'
+      - '.github/workflows/icg-baseline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    name: Harness / Python ${{ matrix.python }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Test evidence collector
+        run: python -m unittest discover -s tools/icg_baseline -v
+      - name: Validate regression corpus
+        run: python tools/icg_baseline/baseline.py list

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {"id": "io", "directory": "test/SIM_test_io", "covers": ["I/O and checkpoint annotations", "units", "pointers"]},
+    {"id": "enums", "directory": "test/SIM_anon_enum", "covers": ["anonymous enums"]},
+    {"id": "inheritance", "directory": "test/SIM_test_inherit", "covers": ["inherited SimObject jobs"]},
+    {"id": "templates", "directory": "test/SIM_test_templates", "covers": ["nested templates", "enum template arguments"]},
+    {"id": "abstract", "directory": "test/SIM_test_abstract", "covers": ["abstract classes"]},
+    {"id": "deleted-constructor", "directory": "test/SIM_delete_default_constructor", "covers": ["deleted default constructors"]},
+    {"id": "member-initializers", "directory": "test/SIM_default_member_initializer", "covers": ["default member initializers"]},
+    {"id": "stl", "directory": "test/SIM_stls", "covers": ["STL metadata", "checkpoint helpers"]},
+    {"id": "exclusions", "directory": "test/SIM_exclusion_mechanisms", "covers": ["ICG and SWIG exclusions", "symlinks", "trickified libraries"]},
+    {"id": "skipped-files", "directory": "test/SIM_test_icg_file_skipped", "covers": ["headers without generated metadata"]},
+    {"id": "system-includes", "directory": "test/SIM_isystem", "covers": ["isystem include handling"]},
+    {"id": "sdefine", "directory": "test/SIM_parse_s_define", "covers": ["S_define syntax"]}
+  ],
+  "artifacts": [
+    {"id": "sdefine-header", "required": true, "patterns": ["S_source.hh"]},
+    {"id": "sdefine-source", "required": true, "patterns": ["build/S_source.cpp"]},
+    {"id": "legacy-metadata", "required": true, "patterns": ["build/**/io_*.cpp"]},
+    {"id": "registry", "required": true, "patterns": ["build/class_map.cpp"]},
+    {"id": "registry-declarations", "required": true, "patterns": ["build/extern_init_attr.h"]},
+    {"id": "icg-make", "required": true, "patterns": ["build/Makefile_io_src"]},
+    {"id": "icg-dependencies", "required": true, "patterns": ["build/Makefile_ICG"]},
+    {"id": "icg-link", "required": true, "patterns": ["build/io_link_list"]},
+    {"id": "icg-processed", "required": true, "patterns": ["build/ICG_processed"]},
+    {"id": "icg-policy", "required": false, "patterns": ["build/ICG_ext_lib", "build/ICG_no_found", "build/trickify_io_link_list"]},
+    {"id": "sie-classes", "required": true, "patterns": ["build/classes.resource"]},
+    {"id": "sie-other", "required": false, "patterns": ["build/top_level_objects.resource", "S_sie.resource"]},
+    {"id": "build-planning", "required": false, "patterns": ["build/Makefile_src*", "build/Makefile_S_define", "build/Makefile_sim", "build/Makefile_overrides", "build/CP_*", "build/model_link_list", "build/py_link_list", "build/trickify_py_link_list", "build/S_library_list", "build/trickify_deps"]},
+    {"id": "swig", "required": false, "patterns": ["build/Makefile_swig*", "build/**/*.i", "build/**/*_py.cpp", "build/**/top.cpp"]}
+  ]
+}
