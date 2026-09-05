@@ -131,6 +131,47 @@ class BaselineTests(unittest.TestCase):
             make_snapshot(self.root), make_snapshot(self.base / "other checkout")
         )
 
+    def test_normalization_accepts_spelled_and_resolved_symlink_roots(self):
+        alias = self.base.resolve() / "linked checkout"
+        alias.symlink_to(self.root.resolve(), target_is_directory=True)
+        sim_alias = alias / self.case["directory"]
+        text = (
+            f"{sim_alias}/model.hh\n{self.sim.resolve()}/model.hh\n"
+            f"{alias}/include/header.hh\n{self.root.resolve()}/include/header.hh\n"
+            f"build{sim_alias}/io_fixture.cpp\n"
+            f"{alias}-other/model.hh\n"
+        )
+        self.assertEqual(
+            b.normalize(text, alias, sim_alias),
+            "${SIM_ROOT}/model.hh\n${SIM_ROOT}/model.hh\n"
+            "${TRICK_ROOT}/include/header.hh\n${TRICK_ROOT}/include/header.hh\n"
+            "build${SIM_ROOT}/io_fixture.cpp\n"
+            f"{alias}-other/model.hh\n",
+        )
+
+    def test_capture_preserves_configured_symlink_spelling(self):
+        alias = self.base.resolve() / "linked checkout"
+        alias.symlink_to(self.root.resolve(), target_is_directory=True)
+        sim_alias = alias / self.case["directory"]
+        path = self.artifact(
+            f'#include "{sim_alias}/model.hh"\n'
+            f'#include "{self.root.resolve()}/include/header.hh"\n',
+            f"build{sim_alias}/io_fixture.cpp",
+        )
+        self.root = alias
+        aliased = self.capture("aliased")
+        path.unlink()
+        self.root = alias.resolve()
+        self.artifact(
+            f'#include "{self.sim.resolve()}/model.hh"\n'
+            f'#include "{self.root}/include/header.hh"\n',
+            f"build{self.sim.resolve()}/io_fixture.cpp",
+        )
+        resolved = self.capture("resolved")
+        self.assertEqual(self.cli("compare", aliased, resolved)[0], 0)
+        data = json.loads(aliased.read_text())
+        self.assertIn("build${SIM_ROOT}/io_fixture.cpp", data["artifacts"])
+
     def test_atomic_writer_does_not_touch_identical_output(self):
         path = self.base / "nested/result.json"
         b.write_changed(path, b"first")

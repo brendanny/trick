@@ -108,6 +108,9 @@ are failures. Individual optional artifacts are still compared when present.
 
 Normalization replaces configured absolute simulation and checkout roots with
 `${SIM_ROOT}` and `${TRICK_ROOT}`, including the mirrored paths beneath `build`.
+Both the configured spelling and the resolved path are recognized, including
+symlink aliases such as macOS's `/var` and `/private/var`. Filesystem containment
+checks continue to use resolved paths.
 It preserves other paths, whitespace, comments, ordering, numeric offsets, units,
 symbol names, timestamps embedded in text, and XML content. It does not parse C++
 or interpret metadata. Root-derived SWIG hashes and other non-path differences

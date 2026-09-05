@@ -122,7 +122,13 @@ def load_manifest(path: Path, root: Path) -> dict:
 
 def normalize(text: str, root: Path, sim: Path) -> str:
     """Replace only configured absolute roots, longest first; retain all other text."""
-    roots = {str(root.resolve()): "${TRICK_ROOT}", str(sim.resolve()): "${SIM_ROOT}"}
+    # Generated text may use either spelling (e.g. /var and /private/var on
+    # macOS). Preserve the configured spelling as well as its resolved path.
+    roots = {
+        str(alias): token
+        for path, token in ((root, "${TRICK_ROOT}"), (sim, "${SIM_ROOT}"))
+        for alias in (path.absolute(), path.resolve())
+    }
     pattern = "|".join(re.escape(p) for p in sorted(roots, key=len, reverse=True))
     # A boundary prevents /tmp/trick from also masking /tmp/trick-other.
     return re.sub(f"({pattern})(?=/|$|[\\s\"':])", lambda m: roots[m[1]], text)
@@ -130,6 +136,7 @@ def normalize(text: str, root: Path, sim: Path) -> str:
 
 def collect(manifest: dict, root: Path, case: dict, *, required: bool = True) -> dict:
     sim = contained(root, case["directory"])
+    spelled_sim = root / case["directory"]
     artifacts = {}
     for group in manifest["artifacts"]:
         matches = sorted({
@@ -142,8 +149,8 @@ def collect(manifest: dict, root: Path, case: dict, *, required: bool = True) ->
                 raise BaselineError(f"artifact symlink escapes simulation: {path}")
             raw = path.read_bytes()
             # Fail on unexpected binary output instead of silently losing bytes.
-            text = normalize(raw.decode("utf-8"), root, sim)
-            name = normalize(path.relative_to(sim).as_posix(), root, sim)
+            text = normalize(raw.decode("utf-8"), root, spelled_sim)
+            name = normalize(path.relative_to(sim).as_posix(), root, spelled_sim)
             if name in artifacts:
                 raise BaselineError(
                     f"overlapping artifact patterns or normalized path: {name}"
@@ -358,7 +365,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.action == "compare":
             return compare(args.old, args.new)
-        root = args.root.resolve()
+        # Keep aliases available for normalization; contained() still resolves
+        # paths before checking containment and accessing simulation files.
+        root = args.root.absolute()
         manifest = load_manifest(args.manifest, root)
         if args.action == "list":
             for case in manifest["cases"]:
