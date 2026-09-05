@@ -1,0 +1,357 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v1.schema.json",
+  "title": "Trick ICG extracted facts",
+  "description": "Clang-derived facts before Trick selection and generation policy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_kind",
+    "provenance",
+    "files",
+    "types",
+    "declarations",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "document_kind": {"const": "trick.icg.extracted-facts"},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "files": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/file"}
+    },
+    "types": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/type"}
+    },
+    "declarations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/declaration"}
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/diagnostic"}
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z]+:[^\\s]+$"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extractor_version",
+        "frontend_api",
+        "frontend_version",
+        "translation_unit",
+        "working_directory",
+        "arguments",
+        "target_triple",
+        "language_standard",
+        "input_digest"
+      ],
+      "properties": {
+        "extractor_version": {"type": "string", "minLength": 1},
+        "frontend_api": {"const": "libtooling"},
+        "frontend_version": {"type": "string", "minLength": 1},
+        "translation_unit": {"$ref": "#/$defs/id"},
+        "working_directory": {"type": "string"},
+        "arguments": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "target_triple": {"type": "string", "minLength": 1},
+        "language_standard": {"const": "c++17"},
+        "input_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "environment": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spelled", "real", "portable"],
+      "properties": {
+        "spelled": {"type": "string"},
+        "real": {"type": "string"},
+        "portable": {"type": "string"}
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "classification", "digest", "includes"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "path": {"$ref": "#/$defs/path"},
+        "classification": {"enum": ["user", "trick", "system"]},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "includes": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/include"}
+        }
+      }
+    },
+    "include": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_id", "spelling", "angled", "source"],
+      "properties": {
+        "file_id": {"$ref": "#/$defs/id"},
+        "spelling": {"type": "string"},
+        "angled": {"type": "boolean"},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_id", "line", "column", "offset"],
+      "properties": {
+        "file_id": {"$ref": "#/$defs/id"},
+        "line": {"type": "integer", "minimum": 1},
+        "column": {"type": "integer", "minimum": 1},
+        "offset": {"type": "integer", "minimum": 0}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spelling", "expansion", "end", "macro_expansion"],
+      "properties": {
+        "spelling": {"$ref": "#/$defs/point"},
+        "expansion": {"$ref": "#/$defs/point"},
+        "end": {"$ref": "#/$defs/point"},
+        "macro_expansion": {"type": "boolean"}
+      }
+    },
+    "qualifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["const", "volatile", "restrict"],
+      "properties": {
+        "const": {"type": "boolean"},
+        "volatile": {"type": "boolean"},
+        "restrict": {"type": "boolean"}
+      }
+    },
+    "extent": {
+      "oneOf": [
+        {"type": "integer", "minimum": 0},
+        {"const": "incomplete"},
+        {"const": "dependent"}
+      ]
+    },
+    "template_argument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "spelling"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "type",
+            "integral",
+            "declaration",
+            "null_pointer",
+            "template",
+            "template_expansion",
+            "expression",
+            "pack"
+          ]
+        },
+        "spelling": {"type": "string"},
+        "type_id": {"$ref": "#/$defs/id"},
+        "declaration_id": {"$ref": "#/$defs/id"},
+        "signed_value": {"type": "string", "pattern": "^-?[0-9]+$"},
+        "unsigned_value": {"type": "string", "pattern": "^[0-9]+$"},
+        "elements": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/template_argument"}
+        }
+      }
+    },
+    "type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "spelling", "canonical_id", "qualifiers"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {
+          "enum": [
+            "builtin",
+            "record",
+            "enum",
+            "pointer",
+            "lvalue_reference",
+            "rvalue_reference",
+            "array",
+            "function",
+            "alias",
+            "template_specialization",
+            "dependent",
+            "auto",
+            "unknown"
+          ]
+        },
+        "spelling": {"type": "string"},
+        "canonical_id": {"$ref": "#/$defs/id"},
+        "qualifiers": {"$ref": "#/$defs/qualifiers"},
+        "declaration_id": {"$ref": "#/$defs/id"},
+        "pointee_id": {"$ref": "#/$defs/id"},
+        "element_id": {"$ref": "#/$defs/id"},
+        "extents": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/extent"}
+        },
+        "result_id": {"$ref": "#/$defs/id"},
+        "parameter_ids": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/id"}
+        },
+        "template_arguments": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/template_argument"}
+        }
+      }
+    },
+    "annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["syntax", "payload", "source"],
+      "properties": {
+        "syntax": {"enum": ["comment", "clang-annotate", "type-annotate"]},
+        "payload": {"type": "string"},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "reason_code"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "status": {"enum": ["supported", "unsupported", "unknown", "degraded"]},
+        "reason_code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}
+      }
+    },
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["declaration_id", "type_id", "access", "virtual", "offset_bits", "source"],
+      "properties": {
+        "declaration_id": {"$ref": "#/$defs/id"},
+        "type_id": {"$ref": "#/$defs/id"},
+        "access": {"enum": ["public", "protected", "private", "none"]},
+        "virtual": {"type": "boolean"},
+        "offset_bits": {"type": ["integer", "null"], "minimum": 0},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "enumerator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "signed_value", "unsigned_value", "source"],
+      "properties": {
+        "name": {"type": "string"},
+        "signed_value": {"type": "string", "pattern": "^-?[0-9]+$"},
+        "unsigned_value": {"type": "string", "pattern": "^[0-9]+$"},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type_id", "has_default"],
+      "properties": {
+        "name": {"type": "string"},
+        "type_id": {"$ref": "#/$defs/id"},
+        "has_default": {"type": "boolean"},
+        "default_spelling": {"type": "string"}
+      }
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "qualified_name",
+        "usr",
+        "source",
+        "access",
+        "origin",
+        "definition",
+        "annotations",
+        "capabilities"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["record", "field", "enum", "callable", "variable", "alias", "friend"]},
+        "name": {"type": "string"},
+        "qualified_name": {"type": "string"},
+        "usr": {"type": ["string", "null"]},
+        "source": {"$ref": "#/$defs/source"},
+        "access": {"enum": ["public", "protected", "private", "none"]},
+        "origin": {"enum": ["user", "trick", "system"]},
+        "definition": {"type": "boolean"},
+        "semantic_parent_id": {"$ref": "#/$defs/id"},
+        "lexical_parent_id": {"$ref": "#/$defs/id"},
+        "canonical_declaration_id": {"$ref": "#/$defs/id"},
+        "type_id": {"$ref": "#/$defs/id"},
+        "record_tag": {"enum": ["class", "struct", "union"]},
+        "complete": {"type": "boolean"},
+        "abstract": {"type": "boolean"},
+        "pod": {"type": "boolean"},
+        "standard_layout": {"type": "boolean"},
+        "trivial": {"type": "boolean"},
+        "size_bits": {"type": ["integer", "null"], "minimum": 0},
+        "alignment_bits": {"type": ["integer", "null"], "minimum": 0},
+        "bases": {"type": "array", "items": {"$ref": "#/$defs/base"}},
+        "field_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+        "nested_declaration_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+        "static": {"type": "boolean"},
+        "mutable": {"type": "boolean"},
+        "bitfield": {"type": "boolean"},
+        "bit_width": {"type": ["integer", "null"], "minimum": 0},
+        "offset_bits": {"type": ["integer", "null"], "minimum": 0},
+        "scoped": {"type": "boolean"},
+        "underlying_type_id": {"$ref": "#/$defs/id"},
+        "enumerators": {"type": "array", "items": {"$ref": "#/$defs/enumerator"}},
+        "callable_kind": {"enum": ["constructor", "destructor", "method", "function", "conversion"]},
+        "return_type_id": {"$ref": "#/$defs/id"},
+        "parameters": {"type": "array", "items": {"$ref": "#/$defs/parameter"}},
+        "const": {"type": "boolean"},
+        "ref_qualifier": {"enum": ["none", "lvalue", "rvalue"]},
+        "noexcept": {"enum": ["true", "false", "dependent", "unknown"]},
+        "virtual": {"type": "boolean"},
+        "pure": {"type": "boolean"},
+        "final": {"type": "boolean"},
+        "deleted": {"type": "boolean"},
+        "defaulted": {"type": "boolean"},
+        "explicit": {"type": "boolean"},
+        "annotations": {"type": "array", "items": {"$ref": "#/$defs/annotation"}},
+        "capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}}
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "code", "message", "source"],
+      "properties": {
+        "severity": {"enum": ["ignored", "note", "warning", "error", "fatal"]},
+        "code": {"type": "string"},
+        "message": {"type": "string"},
+        "source": {"anyOf": [{"$ref": "#/$defs/source"}, {"type": "null"}]},
+        "fixits": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

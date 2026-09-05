@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "document_kind": "trick.icg.extracted-facts",
+  "provenance": {
+    "extractor_version": "0.1.0-spike",
+    "frontend_api": "libtooling",
+    "frontend_version": "17.0.6",
+    "translation_unit": "file:fixture",
+    "working_directory": "${BUILD_ROOT}",
+    "arguments": ["clang++", "-std=c++17", "fixture.hh"],
+    "target_triple": "x86_64-unknown-linux-gnu",
+    "language_standard": "c++17",
+    "input_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "environment": {}
+  },
+  "files": [
+    {
+      "id": "file:fixture",
+      "path": {
+        "spelled": "fixture.hh",
+        "real": "${SOURCE_ROOT}/fixture.hh",
+        "portable": "fixture.hh"
+      },
+      "classification": "user",
+      "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "includes": []
+    }
+  ],
+  "types": [
+    {
+      "id": "type:int",
+      "kind": "builtin",
+      "spelling": "int",
+      "canonical_id": "type:int",
+      "qualifiers": {"const": false, "volatile": false, "restrict": false}
+    },
+    {
+      "id": "type:sample",
+      "kind": "record",
+      "spelling": "Sample",
+      "canonical_id": "type:sample",
+      "qualifiers": {"const": false, "volatile": false, "restrict": false},
+      "declaration_id": "decl:sample"
+    }
+  ],
+  "declarations": [
+    {
+      "id": "decl:sample",
+      "kind": "record",
+      "name": "Sample",
+      "qualified_name": "Sample",
+      "usr": "c:@S@Sample",
+      "source": {
+        "spelling": {"file_id": "file:fixture", "line": 1, "column": 1, "offset": 0},
+        "expansion": {"file_id": "file:fixture", "line": 1, "column": 1, "offset": 0},
+        "end": {"file_id": "file:fixture", "line": 3, "column": 2, "offset": 33},
+        "macro_expansion": false
+      },
+      "access": "none",
+      "origin": "user",
+      "definition": true,
+      "canonical_declaration_id": "decl:sample",
+      "type_id": "type:sample",
+      "record_tag": "struct",
+      "complete": true,
+      "abstract": false,
+      "pod": true,
+      "standard_layout": true,
+      "trivial": true,
+      "size_bits": 32,
+      "alignment_bits": 32,
+      "bases": [],
+      "field_ids": ["decl:sample.value"],
+      "nested_declaration_ids": [],
+      "annotations": [],
+      "capabilities": [
+        {"name": "frontend-record-layout", "status": "supported", "reason_code": "SUPPORTED"}
+      ]
+    },
+    {
+      "id": "decl:sample.value",
+      "kind": "field",
+      "name": "value",
+      "qualified_name": "Sample::value",
+      "usr": "c:@S@Sample@FI@value",
+      "source": {
+        "spelling": {"file_id": "file:fixture", "line": 2, "column": 5, "offset": 20},
+        "expansion": {"file_id": "file:fixture", "line": 2, "column": 5, "offset": 20},
+        "end": {"file_id": "file:fixture", "line": 2, "column": 14, "offset": 29},
+        "macro_expansion": false
+      },
+      "access": "public",
+      "origin": "user",
+      "definition": true,
+      "semantic_parent_id": "decl:sample",
+      "lexical_parent_id": "decl:sample",
+      "canonical_declaration_id": "decl:sample.value",
+      "type_id": "type:int",
+      "static": false,
+      "mutable": false,
+      "bitfield": false,
+      "bit_width": null,
+      "offset_bits": 0,
+      "annotations": [],
+      "capabilities": []
+    }
+  ],
+  "diagnostics": []
+}

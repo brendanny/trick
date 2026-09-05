@@ -1,0 +1,76 @@
+name: ICG capability and schema
+
+on:
+  push:
+    branches: [master, icg-rewrite]
+    paths:
+      - 'tools/icg_capability/**'
+      - 'tools/icg_schema/**'
+      - 'trick_source/codegen/TrickCodeGen/ir/**'
+      - '.github/workflows/icg-capability.yml'
+  pull_request:
+    paths:
+      - 'tools/icg_capability/**'
+      - 'tools/icg_schema/**'
+      - 'trick_source/codegen/TrickCodeGen/ir/**'
+      - '.github/workflows/icg-capability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  libclang-17:
+    name: libclang 17 capability evidence
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install LLVM 17
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 17 all
+      - name: Build probe
+        run: |
+          cmake -S tools/icg_capability -B build/icg-capability \
+            -DLLVM_ROOT=/usr/lib/llvm-17 -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/icg-capability --parallel
+      - name: Verify observations and decision
+        run: |
+          python3 -m unittest discover -s tools/icg_capability -v
+          build/icg-capability/libclang17_probe \
+            tools/icg_capability/fixture.hh > build/icg-capability/observations.json
+          python3 tools/icg_capability/evaluate.py \
+            build/icg-capability/observations.json \
+            --expected tools/icg_capability/llvm17-results.json \
+            --output build/icg-capability/results.json
+          ctest --test-dir build/icg-capability --output-on-failure
+      - uses: actions/upload-artifact@v7
+        with:
+          name: libclang-17-capability-evidence
+          path: |
+            build/icg-capability/observations.json
+            build/icg-capability/results.json
+          if-no-files-found: error
+          retention-days: 30
+
+  schema:
+    name: Extracted facts schema / Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install 'jsonschema>=4.18,<5'
+      - name: Test schema and graph validation
+        run: python -m unittest discover -s tools/icg_schema -v
+      - name: Validate checked-in fixture
+        run: |
+          python tools/icg_schema/validate.py \
+            --schema trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json \
+            trick_source/codegen/TrickCodeGen/ir/fixtures/minimal-record.json

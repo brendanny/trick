@@ -81,9 +81,10 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Actual normalized legacy output baselines | Pending configured Trick runs and review |
 | Small/medium/large representative corpus | Focused cases selected; medium/large selection pending |
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
-| LLVM 17 libclang capability and GCC 8.5/12 layout probes | Pending |
+| LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |
+| GCC 8.5/12 layout and generated-operation probes | Pending |
 | Runtime/Python behavior, S_define, binding spikes | Pending |
-| Exact platform packages and ADR decisions | Pending |
+| Exact platform packages and ADR decisions | Package matrix pending; ICG-001 and ICG-002 accepted, eight initial ADRs pending |
 
 The next increment should obtain actual baseline evidence and implement the
 capability spike, not select an extractor API from assumed coverage.

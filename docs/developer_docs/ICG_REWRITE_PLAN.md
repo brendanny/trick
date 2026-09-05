@@ -112,11 +112,11 @@ Important properties:
 
 ## 6. Clang interface decision
 
-### Recommendation and decision gate
+### Decision
 
-Evaluate libclang 17's stable C API first, against the full legacy metadata and planned binding contract. LLVM 16 closes several concrete gaps identified in the original LLVM 14 assessment; LibTooling is now the fallback for demonstrated missing semantics, not a preselected winner.
+The focused libclang 17.0.6 capability spike found three required gaps: no usable base-offset query, no cursor for an implicit default constructor, and no C API for the elements of an exposed variadic template pack. [ICG-001](architecture/ICG-001-extractor-api.md) therefore selects a narrowly isolated Clang 17 LibTooling implementation. The checked-in probe and results remain reproducible decision evidence.
 
-Retain the C++17 extractor/process boundary and owned IR either way. If libclang passes the capability suite without reconstructing C++ from strings, use it. If a required fact remains inaccessible, use a narrowly isolated Clang 17 LibTooling implementation. Do not maintain two production extractors or parse each translation unit twice.
+Retain the C++17 extractor/process boundary and owned IR. Do not maintain two production extractors or parse each translation unit twice.
 
 LLVM distinguishes the stable high-level C API from LibTooling's full AST control ([Clang interface guidance](https://releases.llvm.org/17.0.1/tools/clang/docs/Tooling.html)). The capability prototype, not the interface's name, decides the implementation.
 
@@ -146,8 +146,10 @@ Sources: [Clang 15 release notes](https://releases.llvm.org/15.0.0/tools/clang/d
 | Deleted methods and assignment operators | New queries in LLVM 16 | Explicitly/implicitly deleted operations, access, and generated GCC compilation |
 | Explicit constructors/conversions | New query in LLVM 17 | Verify emitted binding policy |
 | Immediate field offset, size/alignment, bit width | Available, with dependent-width fix | Packed/anonymous/bitfield cases and negative query results |
-| Base/virtual-base layout for flattened legacy metadata | Unresolved blocker candidate; field-offset APIs are not a proven replacement | Reproduce current inheritance semantics or document why LibTooling is required |
-| Implicit special members, friend access, complete template/source fidelity | Not proven by the new API list | Exercise real legacy headers and future binding requirements |
+| Base/virtual-base layout for flattened legacy metadata | Blocker: base cursors return `-1` from the field-offset query | Reproduce current inheritance semantics through LibTooling and GCC layout probes |
+| Implicit special members | Blocker: records requiring an implicit constructor expose no constructor cursor | Match current `needsImplicitDefaultConstructor` behavior through LibTooling |
+| Variadic pack elements | Blocker: the specialization exposes one opaque pack argument | Extract each element through LibTooling without string splitting |
+| Friend access and remaining source fidelity | Focused friend/access case passes; real-header coverage remains incomplete | Exercise real legacy headers and future binding requirements |
 
 The existing ICG uses base/vbase layout and implicit-constructor information directly in [ClassVisitor.cpp](https://github.com/nasa/trick/blob/3ad6b23e52972024093ff499494537109045ab77/trick_source/codegen/Interface_Code_Gen/ClassVisitor.cpp). The new deleted-method query alone does not prove construction is legal, and improved template queries do not prove complete pack support.
 
@@ -164,7 +166,7 @@ The existing ICG uses base/vbase layout and implicit-constructor information dir
 
 Test virtual/diamond inheritance, private/protected friend access, implicit/deleted/default constructors and destructors, class/partial template specializations and packs, macros/comments, anonymous types, and dependent bitfields. Compile generated operations with GCC 8.5 and GCC 12. Record each result as supported, unsupported, or supported with an explicit portable generated operation.
 
-Choose libclang only if the mandatory legacy contract passes. Otherwise document the smallest concrete blockers and choose LibTooling. A strict C-API-only constraint may require earlier runtime addressing changes; that is a scope decision, not a hidden workaround.
+The spike documents the smallest concrete blockers and selects LibTooling. A strict C-API-only constraint would require earlier runtime addressing and type-model changes; that would be a separate scope decision.
 
 ## 7. Compiler invocation and GCC/Clang mismatch
 
@@ -566,8 +568,8 @@ Record metrics by stage (`sdefine`, `extract`, IR read/write, each backend, gene
 
 Create short ADRs before Phase 1 for:
 
-1. **ICG-001 — Extractor API:** libclang 17-first capability evaluation, with LibTooling fallback only for demonstrated blockers.
-2. **ICG-002 — IR contract:** JSON/schema/versioning/identity/path normalization and compatibility rules.
+1. **[ICG-001 — Extractor API](architecture/ICG-001-extractor-api.md):** accepted; use LibTooling for the demonstrated base-layout, implicit-special-member, and pack-element blockers.
+2. **[ICG-002 — IR contract](architecture/ICG-002-ir-contract.md):** accepted for the Phase 1 vertical slice; strict versioned JSON with graph validation.
 3. **ICG-003 — LLVM distribution:** pinned LLVM 17 extractor vs tested system-version adapters.
 4. **ICG-004 — GCC/Clang argument normalization:** classifications, failure behavior, compiler-macro policy.
 5. **ICG-005 — Legacy layout bridge:** what remains Clang-derived and which GCC probes are mandatory.
