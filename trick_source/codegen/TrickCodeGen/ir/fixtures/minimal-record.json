@@ -1,8 +1,8 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "document_kind": "trick.icg.extracted-facts",
   "provenance": {
-    "extractor_version": "0.1.0-spike",
+    "extractor_version": "0.2.0-synthetic-fixture",
     "frontend_api": "libtooling",
     "frontend_version": "17.0.6",
     "translation_unit": "file:fixture",

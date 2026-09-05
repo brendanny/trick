@@ -83,11 +83,13 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |
 | First C++17 LibTooling extraction target | Implemented as a standalone, main-file record slice; [scope and tests](../../trick_source/codegen/TrickCodeGen/README.md) |
+| Core structured type/declaration graph | Implemented for pointers/references/arrays/aliases and recursive/nested/referenced records; namespace/fallback identity and broader type kinds pending |
 | GCC 8.5/12 layout and generated-operation probes | Pending |
 | Runtime/Python behavior, S_define, binding spikes | Pending |
 | Exact platform packages and ADR decisions | Package matrix pending; ICG-001 and ICG-002 accepted, eight initial ADRs pending |
 
 The capability decision and first standalone extractor slice are implemented.
-Next expand the structured type/declaration/source model (step 4 of the rewrite
-sequence), while obtaining actual legacy baseline evidence and closing the
+The core structural-model increment is also implemented. Next extend namespace
+and anonymous declaration identity/source coverage, while obtaining actual legacy
+baseline evidence and closing the
 remaining Phase 0 gates. This does not authorize switching the production ICG.

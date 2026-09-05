@@ -83,12 +83,15 @@ namespace trick::icg
                 result.emplace_back(llvm::json::Object(entry.second));
             return result;
         };
+        llvm::json::Array typeNodes;
+        for (const auto& entry : types)
+            typeNodes.emplace_back(entry.second.json());
         return llvm::json::Object {
-            { "schema_version", 1                              },
+            { "schema_version", 2                              },
             { "document_kind",  "trick.icg.extracted-facts"    },
             { "provenance",     llvm::json::Object(provenance) },
             { "files",          nodes(files)                   },
-            { "types",          nodes(types)                   },
+            { "types",          std::move(typeNodes)           },
             { "declarations",   nodes(declarations)            },
             { "diagnostics",    llvm::json::Array(diagnostics) }
         };

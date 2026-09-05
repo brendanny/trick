@@ -54,18 +54,22 @@ jobs:
           cmake --build build/icg-extract --parallel 2
       - name: Test actual extraction and failure paths
         run: ctest --test-dir build/icg-extract --output-on-failure
-      - name: Capture and validate first real facts
+      - name: Capture and validate facts fixtures
         run: |
-          build/icg-extract/trick-icg-extract \
-            trick_source/codegen/TrickCodeGen/tests/fixtures/record.hh -- \
-            > build/icg-extract/record.json
-          python tools/icg_schema/validate.py \
-            --schema trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json \
-            build/icg-extract/record.json
+          for fixture in record structured; do
+            build/icg-extract/trick-icg-extract \
+              "trick_source/codegen/TrickCodeGen/tests/fixtures/$fixture.hh" -- \
+              > "build/icg-extract/$fixture.json"
+            python tools/icg_schema/validate.py \
+              --schema trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json \
+              "build/icg-extract/$fixture.json"
+          done
           python -m unittest discover -s tools/icg_schema -v
       - uses: actions/upload-artifact@v7
         with:
           name: extracted-facts-${{ matrix.os }}-python-${{ matrix.python }}
-          path: build/icg-extract/record.json
+          path: |
+            build/icg-extract/record.json
+            build/icg-extract/structured.json
           if-no-files-found: error
           retention-days: 30

@@ -1,6 +1,7 @@
-# First LibTooling extractor slice
+# LibTooling extractor: structural model slice
 
-`trick-icg-extract` implements step 3 of the [rewrite sequence](../../../docs/developer_docs/ICG_REWRITE_PLAN.md#20-suggested-first-implementation-sequence).
+`trick-icg-extract` implements step 3 and the core structural-model portion of
+step 4 of the [rewrite sequence](../../../docs/developer_docs/ICG_REWRITE_PLAN.md#20-suggested-first-implementation-sequence).
 It is a standalone development target, **not** a replacement for `trick-ICG`.
 The production build, runtime ABI, and generated metadata are unchanged.
 
@@ -63,7 +64,7 @@ applies. No code-generation options are silently stripped: other options, respon
 files, compiler plugins, alternate dialects, and extra source inputs are rejected.
 This is **not yet the GCC argument classifier** or a compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-1 facts document
+Successful extraction writes one deterministic, schema-version-2 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction
@@ -81,28 +82,65 @@ Clang's human warning/error-count summaries. Fix-it edits are not yet extracted.
 
 ## Implemented facts and deliberate limits
 
-This slice extracts complete named top-level structs/classes/unions **in the main
-file**, with named builtin-typed, non-bitfield data members. It records record
-size/alignment and traits, source-order fields, access/mutability/qualifiers,
-frontend field offsets, raw comments and `clang::annotate` payloads, stable USRs,
-and spelling/expansion source locations. End locations for declaration ranges
+This slice starts with named records and aliases **in the main file**, and closes
+their record/alias dependencies, including declarations in other headers. Nested
+named records and aliases retain semantic and lexical parent links. Unreferenced
+included declarations are not selected; referenced unsupported declarations fail
+the whole extraction. This is dependency closure, not Trick selection policy.
+
+For complete records it records size/alignment and traits, source-order fields,
+access/mutability/qualifiers, frontend field offsets, raw comments and
+`clang::annotate` payloads, stable USRs, and spelling/expansion source locations.
+Forward declarations are folded into a single record node at its definition when
+one exists in the translation unit. Otherwise the node is incomplete, with no
+field facts, null size/alignment, and `INCOMPLETE_TYPE` layout capability. It does
+not query Clang's layout or definition-only base APIs for incomplete records.
+Per-redeclaration source/annotation history is not yet modeled; the selected
+definition (or canonical forward declaration) supplies that node's source.
+End locations for declaration ranges
 are exclusive, following the final token; point diagnostics need not span a token.
 No Trick annotation policy is applied. Size and offset units are bits, with the
 target's character width supplied by Clang.
 
-The frontend adapter copies facts into owned JSON values while the AST is alive.
+The frontend adapter copies facts into owned values while the AST is alive.
 Serialization occurs after the frontend action ends; no Clang object or borrowed
 source buffer crosses that lifetime boundary. Object keys and node arrays are
 sorted; fields, includes, diagnostics, and arguments retain semantic order.
-Declaration IDs hash USRs; builtin type IDs use spelling plus qualifiers and record
-type IDs use record identity. Missing USRs are rejected in this limited slice,
-not assigned an invented identity. The full fallback/structural identity model is
-still step 4.
+
+`TypeNode` is a typed, frontend-independent value model. `TypeGraph` is a
+translation-unit-local interner for builtin types, record references, typedef/using
+aliases, pointers, lvalue/rvalue references, and fixed/incomplete arrays. Each array
+node describes one dimension; multidimensional arrays nest via `element_id`.
+Thus an array of pointers and a pointer to an array have different edge order,
+not just different display strings. Function/member-pointer/vector/dependent
+types remain unsupported.
+
+Type IDs hash kind, local CVR qualifiers, and structural child/declaration IDs
+(normalized builtin names for leaf types), not rendered composite type strings.
+Alias nodes reference their declaration; its `underlying_type_id` preserves the
+next sugared type layer, while `canonical_id` links directly to the fully desugared
+type. CVR qualifiers are local to a layer: `const int *` and `int *const` differ.
+Array qualification is normalized onto its elements, including through aliases;
+reference collapsing follows the frontend's semantic reference type. Tag keywords
+and redundant parentheses do not create extra graph nodes. Display spelling is
+diagnostic information, not a round-trip source representation or identity key.
+
+Declaration IDs hash USRs, with forward declarations and definitions sharing one
+node. A worklist extracts dependency declarations after type interning, permitting
+self/mutually recursive record references without recursive field expansion.
+Missing USRs and anonymous declarations are still rejected: the fallback identity
+model and namespace contexts remain explicit follow-up work. Node IDs are opaque;
+the extractor-version bump to 0.2.0 invalidates earlier evidence fingerprints.
+Facts schema version 2 formalizes structural edge, array qualification/dimension,
+canonical-target, and ownership invariants. The synthetic minimal fixture is
+migrated to v2; the current reader rejects v1 facts rather than treating their
+previously underspecified structures as v2. The independent diagnostics envelope
+remains version 1, with unchanged file/diagnostic shapes.
 
 Physical input files, their bytes' SHA-256 digests, and resolved include directives
 are recorded through preprocessor callbacks. Forced includes are tracked as inputs
 even when their directive comes from Clang's synthetic command-line buffer.
-Included declarations are outside this slice's extraction scope. `--source-root`
+Only referenced included records/aliases enter the declaration graph. `--source-root`
 (default: current directory) makes contained physical paths portable relative to
 that root. File IDs use those portable paths after resolving symlinks, so `/var`
 and `/private/var` aliases do not change IDs. External paths remain absolute until
@@ -115,9 +153,20 @@ arguments, environment, frontend facts, physical inputs, and exact paths. It is
 not relocatable and does not capture all filesystem probes, volatile predefined
 macros, or every possible environment influence. No cache is created or reused.
 
-Inheritance, templates, namespaces, enums, aliases, pointers/references/arrays,
-bitfields, methods, friends, nested/anonymous records, and forward declarations in
-the main file fail explicitly rather than producing apparently complete facts.
-The next slice should extend the structured type/declaration/file model and its
-fixtures, then grow extraction coverage. Legacy differential baselines and the
-remaining Phase 0 gates still need completion before any production switch.
+Inheritance, templates, namespaces, enums, bitfields, methods, friends, anonymous
+records, and unsupported structural type kinds in the selected declaration closure
+fail explicitly rather than producing apparently complete facts. The graph
+validator checks required/kind-specific edges, self-canonical targets, canonical
+pointee/element consistency, alias targets, member ownership, incomplete layout,
+and direct structural cycles. Record-reference cycles are valid; pointer/alias
+type cycles with no intervening record declaration are not. It still does not
+prove every invariant for not-yet-implemented schema kinds.
+
+The checked-in `tests/fixtures/structured.hh` exercises aliases, recursive/header
+records, arrays, and incomplete/reference types. CI captures both this and the
+original `record.hh` output for inspection on Linux and macOS.
+
+Next extend namespace/anonymous declaration identity and source coverage before
+growing enum, bitfield, inheritance, and callable extraction. Legacy differential
+baselines, the multi-root file model, and the remaining Phase 0 gates still need
+completion before any production switch.

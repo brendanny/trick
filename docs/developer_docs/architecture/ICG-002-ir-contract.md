@@ -14,8 +14,9 @@ and testable before compact encoding is justified.
 ## Decision
 
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
-`schema_version`. JSON Schema draft 2020-12 defines the wire shape. Version 1 is
-strict: unknown properties and dangling graph references fail validation.
+`schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
+strict: unknown properties and dangling graph references fail validation. The
+current facts schema is version 2; the independent diagnostics envelope is v1.
 
 The document contains frontend facts only:
 
@@ -50,7 +51,7 @@ complete set once the extractor implements it.
 
 Before the first production cache is written, every incompatible shape or meaning
 change increments `schema_version`. Readers reject versions they do not support.
-After version 1 freezes, compatible optional additions require an explicitly
+After the initial wire contract freezes, compatible optional additions require an explicitly
 revised schema and reader review; silently ignoring unknown properties is not a
 compatibility strategy.
 
@@ -62,5 +63,14 @@ compatibility strategy.
 - The [first extractor](../../../trick_source/codegen/TrickCodeGen/README.md) now
   produces this contract through owned JSON values with deterministic serialization.
   Its input digest is explicitly an evidence fingerprint, not the complete,
-  relocatable production cache key described above. Typed nodes, kind-specific
-  invariants, and structural/fallback identity grow with the next slice.
+  relocatable production cache key described above.
+- Extractor 0.2.0 adds owned typed nodes and structural identity for builtin,
+  record, alias, pointer/reference, and array types, with kind-aware validation.
+  Aliases retain declaration/underlying links and a fully desugared canonical link;
+  arrays use one node per dimension and normalize qualification onto elements.
+  Record redeclarations fold to a definition where available, otherwise to an
+  incomplete canonical declaration. Tightening these meanings advances the facts
+  schema to version 2, even though its field names remain unchanged. The synthetic
+  minimal fixture is migrated, and the reader rejects v1 facts. This increment
+  does not freeze the contract or complete fallback identity, namespace contexts,
+  the multi-root file model, or the remaining type kinds.

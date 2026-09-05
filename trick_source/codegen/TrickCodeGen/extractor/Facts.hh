@@ -1,5 +1,7 @@
 #pragma once
 
+#include "TypeNode.hh"
+
 #include "llvm/Support/JSON.h"
 
 #include <map>
@@ -10,12 +12,12 @@ namespace trick::icg
 
     // Owned wire values only. No AST, SourceManager, StringRef, or frontend lifetime
     // escapes the adapter. The schema is the public process boundary; this small
-    // builder will gain typed nodes as the structural type graph grows.
+    // Types have a typed value model; declaration/file builders still use JSON.
     struct Facts
     {
             llvm::json::Object provenance;
             std::map<std::string, llvm::json::Object> files;
-            std::map<std::string, llvm::json::Object> types;
+            std::map<std::string, TypeNode> types;
             std::map<std::string, llvm::json::Object> declarations;
             llvm::json::Array diagnostics;
             bool failed = false;

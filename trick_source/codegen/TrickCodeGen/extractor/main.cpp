@@ -1,5 +1,6 @@
 #include "Config.hh"
 #include "Facts.hh"
+#include "TypeGraph.hh"
 
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -252,11 +253,47 @@ namespace
     {
             Facts& facts;
             Sources& sources;
+            clang::ASTContext* context = nullptr;
+            std::unique_ptr<trick::icg::TypeGraph> types;
+            std::vector<const clang::NamedDecl*> pending;
+            std::set<std::string> queued;
 
             void unsupported(clang::ASTContext& ctx, const clang::Decl* decl, const std::string& message)
             {
                 facts.diagnose("error", "ICG_UNSUPPORTED_DECLARATION", message,
                                sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts()));
+            }
+
+            std::string request(const clang::NamedDecl* decl)
+            {
+                if (const auto* record = llvm::dyn_cast<clang::CXXRecordDecl>(decl))
+                    decl = record->getDefinition() ? record->getDefinition() : record->getCanonicalDecl();
+                else if (const auto* alias = llvm::dyn_cast<clang::TypedefNameDecl>(decl))
+                    decl = alias->getCanonicalDecl();
+                else
+                {
+                    unsupported(*context, decl, "Only record and alias declaration references are supported");
+                    return { };
+                }
+                if (!decl->getIdentifier() || usr(decl).empty())
+                {
+                    unsupported(*context, decl,
+                                "Anonymous declarations and missing USRs require the fallback identity model");
+                    return { };
+                }
+                auto id = declarationID(decl);
+                if (!queued.insert(id).second)
+                    return id;
+                for (const auto* parent : { decl->getDeclContext(), decl->getLexicalDeclContext() })
+                {
+                    if (const auto* record = llvm::dyn_cast<clang::CXXRecordDecl>(parent))
+                        request(record);
+                    else if (!parent->isTranslationUnit())
+                        unsupported(*context, decl,
+                                    "Namespace and other non-record declaration contexts are not yet supported");
+                }
+                pending.push_back(decl);
+                return id;
             }
 
             Object common(clang::ASTContext& ctx, const clang::NamedDecl* decl, const char* kind)
@@ -286,68 +323,86 @@ namespace
                 for (const auto& annotation : annotations)
                     if (annotation.getAsObject()->get("source")->kind() == Value::Null)
                         unsupported(ctx, decl, "Annotation has no supported physical source location");
-                return Object {
-                    { "id",                       declarationID(decl)              },
-                    { "kind",                     kind                             },
-                    { "name",                     decl->getNameAsString()          },
-                    { "qualified_name",           decl->getQualifiedNameAsString() },
-                    { "usr",                      usr(decl)                        },
-                    { "source",                   std::move(location)              },
-                    { "access",                   access(decl->getAccess())        },
-                    { "origin",                   "user"                           },
-                    { "definition",               true                             },
-                    { "canonical_declaration_id", declarationID(decl)              },
-                    { "annotations",              std::move(annotations)           },
-                    { "capabilities",             Array { }                        }
+                Object node {
+                    { "id",                       declarationID(decl)                                                              },
+                    { "kind",                     kind                                                                             },
+                    { "name",                     decl->getNameAsString()                                                          },
+                    { "qualified_name",           decl->getQualifiedNameAsString()                                                 },
+                    { "usr",                      usr(decl)                                                                        },
+                    { "source",                   std::move(location)                                                              },
+                    { "access",                   access(decl->getAccess())                                                        },
+                    { "origin",                   ctx.getSourceManager().isInSystemHeader(decl->getLocation()) ? "system" : "user" },
+                    { "definition",               true                                                                             },
+                    { "canonical_declaration_id", declarationID(decl)                                                              },
+                    { "annotations",              std::move(annotations)                                                           },
+                    { "capabilities",             Array { }                                                                        }
                 };
+                if (const auto* parent = llvm::dyn_cast<clang::CXXRecordDecl>(decl->getDeclContext()))
+                    node["semantic_parent_id"] = request(parent);
+                if (const auto* parent = llvm::dyn_cast<clang::CXXRecordDecl>(decl->getLexicalDeclContext()))
+                    node["lexical_parent_id"] = request(parent);
+                return node;
             }
 
-            std::string type(clang::QualType value, const clang::CXXRecordDecl* record = nullptr)
+            void alias(clang::ASTContext& ctx, const clang::TypedefNameDecl* decl)
             {
-                auto spelling = value.getAsString();
-                auto id       = "type:" + digest(record ? "record:" + usr(record) : "builtin:" + spelling);
-                Object node {
-                    { "id",           id                                     },
-                    { "kind",         record ? "record" : "builtin"          },
-                    { "spelling",     spelling                               },
-                    { "canonical_id", id                                     },
-                    { "qualifiers",
-                     Object { { "const", value.isConstQualified() },
-                               { "volatile", value.isVolatileQualified() },
-                               { "restrict", value.isRestrictQualified() } } }
-                };
-                if (record)
-                    node["declaration_id"] = declarationID(record);
-                facts.types.emplace(id, std::move(node));
-                return id;
+                auto node                  = common(ctx, decl, "alias");
+                node["type_id"]            = types->get(ctx.getTypedefType(decl), decl);
+                node["underlying_type_id"] = types->get(decl->getUnderlyingType(), decl);
+                facts.declarations.emplace(declarationID(decl), std::move(node));
             }
 
             void record(clang::ASTContext& ctx, const clang::CXXRecordDecl* decl)
             {
-                if (!decl->isCompleteDefinition() || decl->getIdentifier() == nullptr || decl->isDependentType()
-                    || decl->getNumBases() != 0 || decl->getDescribedClassTemplate()
+                if (decl->getIdentifier() == nullptr || decl->isDependentType()
+                    || (decl->isCompleteDefinition() && decl->getNumBases() != 0) || decl->getDescribedClassTemplate()
                     || llvm::isa<clang::ClassTemplateSpecializationDecl>(decl))
                 {
-                    unsupported(ctx, decl, "Only complete named non-template records without bases are supported");
+                    unsupported(ctx, decl, "Only named non-template records without bases are supported");
                     return;
                 }
+                auto node                      = common(ctx, decl, "record");
+                node["type_id"]                = types->get(ctx.getRecordType(decl), decl);
+                node["record_tag"]             = decl->isUnion() ? "union" : (decl->isClass() ? "class" : "struct");
+                node["definition"]             = decl->isCompleteDefinition();
+                node["complete"]               = decl->isCompleteDefinition();
+                node["bases"]                  = Array { };
+                node["field_ids"]              = Array { };
+                node["nested_declaration_ids"] = Array { };
+                if (!decl->isCompleteDefinition())
+                {
+                    node["size_bits"]      = nullptr;
+                    node["alignment_bits"] = nullptr;
+                    node["capabilities"]   = Array {
+                        Object { { "name", "frontend-record-layout" },
+                                { "status", "unknown" },
+                                { "reason_code", "INCOMPLETE_TYPE" } }
+                    };
+                    facts.declarations.emplace(declarationID(decl), std::move(node));
+                    return;
+                }
+                Array nested;
+                std::set<std::string> nestedIDs;
                 for (const auto* member : decl->decls())
                 {
-                    if (member->isImplicit() || llvm::isa<clang::AccessSpecDecl>(member))
+                    if (member->isImplicit() || llvm::isa<clang::AccessSpecDecl, clang::StaticAssertDecl>(member))
                         continue;
-                    const auto* field = llvm::dyn_cast<clang::FieldDecl>(member);
-                    if (!field || field->getIdentifier() == nullptr || field->isBitField()
-                        || !llvm::isa<clang::BuiltinType>(field->getType().getTypePtr()))
+                    if (llvm::isa<clang::CXXRecordDecl, clang::TypedefNameDecl>(member))
                     {
-                        unsupported(ctx, member, "Only named non-bitfield builtin data members are supported");
+                        auto id = request(llvm::cast<clang::NamedDecl>(member));
+                        if (nestedIDs.insert(id).second)
+                            nested.emplace_back(id);
+                        continue;
+                    }
+                    const auto* field = llvm::dyn_cast<clang::FieldDecl>(member);
+                    if (!field || field->getIdentifier() == nullptr || field->isBitField())
+                    {
+                        unsupported(ctx, member,
+                                    "Only named non-bitfield data members and nested records/aliases are supported");
                         return;
                     }
                 }
                 const auto& layout             = ctx.getASTRecordLayout(decl);
-                auto node                      = common(ctx, decl, "record");
-                node["type_id"]                = type(ctx.getRecordType(decl), decl);
-                node["record_tag"]             = decl->isUnion() ? "union" : (decl->isClass() ? "class" : "struct");
-                node["complete"]               = true;
                 node["abstract"]               = decl->isAbstract();
                 node["pod"]                    = decl->isPOD();
                 node["standard_layout"]        = decl->isStandardLayout();
@@ -355,7 +410,7 @@ namespace
                 node["size_bits"]              = layout.getSize().getQuantity() * ctx.getCharWidth();
                 node["alignment_bits"]         = layout.getAlignment().getQuantity() * ctx.getCharWidth();
                 node["bases"]                  = Array { };
-                node["nested_declaration_ids"] = Array { };
+                node["nested_declaration_ids"] = std::move(nested);
                 node["capabilities"]           = Array {
                     Object { { "name", "frontend-record-layout" },
                             { "status", "supported" },
@@ -368,7 +423,7 @@ namespace
                     auto data                  = common(ctx, field, "field");
                     data["semantic_parent_id"] = declarationID(decl);
                     data["lexical_parent_id"]  = declarationID(decl);
-                    data["type_id"]            = type(field->getType());
+                    data["type_id"]            = types->get(field->getType(), field);
                     data["static"]             = false;
                     data["mutable"]            = field->isMutable();
                     data["bitfield"]           = false;
@@ -391,18 +446,34 @@ namespace
             {
                 if (ctx.getDiagnostics().hasErrorOccurred())
                     return;
-                auto& sm                             = ctx.getSourceManager();
+                auto& sm = ctx.getSourceManager();
+                context  = &ctx;
+                types    = std::make_unique<trick::icg::TypeGraph>(
+                    facts, ctx, [this](const clang::NamedDecl* decl) { return request(decl); },
+                    [this, &ctx](const clang::Decl* decl, const std::string& message)
+                    {
+                        facts.diagnose(
+                            "error", "ICG_UNSUPPORTED_TYPE", message,
+                            sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts()));
+                    });
                 facts.provenance["translation_unit"] = sources.file(sm, sm.getMainFileID());
                 facts.provenance["target_triple"]    = ctx.getTargetInfo().getTriple().str();
                 for (const auto* decl : ctx.getTranslationUnitDecl()->decls())
                 {
                     if (decl->isImplicit() || !sm.isWrittenInMainFile(sm.getExpansionLoc(decl->getLocation())))
                         continue;
-                    if (const auto* value = llvm::dyn_cast<clang::CXXRecordDecl>(decl))
-                        record(ctx, value);
+                    if (llvm::isa<clang::CXXRecordDecl, clang::TypedefNameDecl>(decl))
+                        request(llvm::cast<clang::NamedDecl>(decl));
                     else if (!llvm::isa<clang::EmptyDecl, clang::StaticAssertDecl>(decl))
-                        unsupported(ctx, decl, "Only top-level records are extracted in this initial slice");
+                        unsupported(ctx, decl, "Only records and aliases are extracted in this slice");
                 }
+                // A worklist closes record/alias references without recursively
+                // expanding self-referential records during type interning.
+                for (size_t index = 0; index < pending.size(); ++index)
+                    if (const auto* value = llvm::dyn_cast<clang::CXXRecordDecl>(pending[index]))
+                        record(ctx, value);
+                    else
+                        alias(ctx, llvm::cast<clang::TypedefNameDecl>(pending[index]));
             }
     };
 

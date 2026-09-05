@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v1.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v2.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 2},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -133,6 +133,7 @@
       }
     },
     "qualifiers": {
+      "description": "CVR qualifiers local to this type layer. Array qualification is normalized onto element types.",
       "type": "object",
       "additionalProperties": false,
       "required": ["const", "volatile", "restrict"],
@@ -208,6 +209,9 @@
         "element_id": {"$ref": "#/$defs/id"},
         "extents": {
           "type": "array",
+          "description": "Exactly one dimension per array node; multidimensional arrays use nested element_id edges.",
+          "minItems": 1,
+          "maxItems": 1,
           "items": {"$ref": "#/$defs/extent"}
         },
         "result_id": {"$ref": "#/$defs/id"},

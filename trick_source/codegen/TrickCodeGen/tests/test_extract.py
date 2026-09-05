@@ -55,6 +55,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
+        self.assertEqual(document["schema_version"], 2)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -243,22 +244,214 @@ class ExtractTests(unittest.TestCase):
 
     def test_unsupported_declarations_fail_closed(self):
         for source in (
-            "struct Sample { int *value; };",
-            "struct Sample { int value[2]; };",
             "struct Sample { unsigned value:3; };",
             "struct Sample { void method(); };",
             "struct Base {}; struct Sample: Base {};",
-            "struct Sample;",
             "template<class T> struct Sample { T value; };",
             "namespace ns { struct Sample {}; }",
-            "typedef int Alias; struct Sample { Alias value; };",
             "enum E { A };",
-            "struct Sample { struct Nested {}; };",
             "struct { int value; } anonymous;",
         ):
             with self.subTest(source=source):
                 self.header.write_text(source)
                 self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
+
+    def test_pointer_and_reference_layers_preserve_qualifiers(self):
+        self.header.write_text(
+            "struct Sample { const int *p; int *const q = nullptr; volatile int &r; int &&s; int **pp; };\n"
+        )
+        document = self.success(self.invoke())
+        declarations = self.declarations(document)
+        types = {t["id"]: t for t in document["types"]}
+        fields = {
+            name: types[declarations["Sample::" + name]["type_id"]]
+            for name in ("p", "q", "r", "s", "pp")
+        }
+        self.assertFalse(fields["p"]["qualifiers"]["const"])
+        self.assertTrue(types[fields["p"]["pointee_id"]]["qualifiers"]["const"])
+        self.assertTrue(fields["q"]["qualifiers"]["const"])
+        self.assertFalse(types[fields["q"]["pointee_id"]]["qualifiers"]["const"])
+        self.assertEqual(fields["r"]["kind"], "lvalue_reference")
+        self.assertTrue(types[fields["r"]["pointee_id"]]["qualifiers"]["volatile"])
+        self.assertEqual(fields["s"]["kind"], "rvalue_reference")
+        self.assertEqual(types[fields["pp"]["pointee_id"]]["kind"], "pointer")
+
+    def test_array_dimensions_and_pointer_binding_are_structural(self):
+        self.header.write_text(
+            "struct Sample { int matrix[2][3]; int *pointers[2]; int (*array)[2]; int (*unknown)[]; };\n"
+        )
+        document = self.success(self.invoke())
+        declarations = self.declarations(document)
+        types = {t["id"]: t for t in document["types"]}
+        matrix = types[declarations["Sample::matrix"]["type_id"]]
+        self.assertEqual(matrix["extents"], [2])
+        self.assertEqual(types[matrix["element_id"]]["extents"], [3])
+        pointers = types[declarations["Sample::pointers"]["type_id"]]
+        array = types[declarations["Sample::array"]["type_id"]]
+        self.assertEqual(types[pointers["element_id"]]["kind"], "pointer")
+        self.assertEqual(types[array["pointee_id"]]["kind"], "array")
+        self.assertNotEqual(array["id"], pointers["id"])
+        unknown = types[declarations["Sample::unknown"]["type_id"]]
+        self.assertEqual(types[unknown["pointee_id"]]["extents"], ["incomplete"])
+
+    def test_alias_chains_and_canonical_types(self):
+        self.header.write_text(
+            "typedef int Number; using Other = Number; using Pointer = Other*; struct Sample { Other a; int b; Pointer p; int *q; const Number c = 1; };\n"
+        )
+        document = self.success(self.invoke())
+        declarations = self.declarations(document)
+        types = {t["id"]: t for t in document["types"]}
+        a = types[declarations["Sample::a"]["type_id"]]
+        self.assertEqual(a["kind"], "alias")
+        self.assertEqual(a["canonical_id"], declarations["Sample::b"]["type_id"])
+        self.assertEqual(a["declaration_id"], declarations["Other"]["id"])
+        self.assertEqual(
+            types[declarations["Other"]["underlying_type_id"]]["declaration_id"],
+            declarations["Number"]["id"],
+        )
+        p = types[declarations["Sample::p"]["type_id"]]
+        self.assertEqual(p["canonical_id"], declarations["Sample::q"]["type_id"])
+        c = types[declarations["Sample::c"]["type_id"]]
+        self.assertTrue(types[c["canonical_id"]]["qualifiers"]["const"])
+
+    def test_const_array_alias_preserves_element_qualifiers(self):
+        self.header.write_text(
+            "using Row = int[3]; struct Sample { const Row row = {}; const int direct[3] = {}; };\n"
+        )
+        document = self.success(self.invoke())
+        declarations = self.declarations(document)
+        types = {t["id"]: t for t in document["types"]}
+        row = types[declarations["Sample::row"]["type_id"]]
+        direct = types[declarations["Sample::direct"]["type_id"]]
+        self.assertEqual(row["canonical_id"], direct["canonical_id"])
+        # Array qualification is normalized onto elements, including aliases.
+        canonical = types[row["canonical_id"]]
+        self.assertFalse(canonical["qualifiers"]["const"])
+        self.assertTrue(types[canonical["element_id"]]["qualifiers"]["const"])
+
+    def test_recursive_records_and_forward_declarations(self):
+        self.header.write_text(
+            "struct B; struct A { B *b; A *self; }; struct B { A *a; }; struct B;\n"
+        )
+        document = self.success(self.invoke())
+        declarations = self.declarations(document)
+        self.assertEqual(set(declarations), {"A", "A::b", "A::self", "B", "B::a"})
+        types = {t["id"]: t for t in document["types"]}
+        b = types[declarations["A::b"]["type_id"]]
+        self.assertEqual(
+            types[b["pointee_id"]]["declaration_id"], declarations["B"]["id"]
+        )
+        self.assertTrue(declarations["B"]["definition"])
+        self.assertEqual(declarations["B"]["field_ids"], [declarations["B::a"]["id"]])
+
+    def test_incomplete_record_has_unknown_layout(self):
+        self.header.write_text("struct Opaque; struct Sample { Opaque *p; };\n")
+        declarations = self.declarations(self.success(self.invoke()))
+        opaque = declarations["Opaque"]
+        self.assertFalse(opaque["definition"])
+        self.assertFalse(opaque["complete"])
+        self.assertIsNone(opaque["size_bits"])
+        self.assertIsNone(opaque["alignment_bits"])
+        self.assertEqual(opaque["capabilities"][0]["reason_code"], "INCOMPLETE_TYPE")
+
+    def test_nested_record_alias_and_distinct_parent_contexts(self):
+        self.header.write_text(
+            "struct Outer { struct Inner; using Value = int; Inner *p; }; struct Outer::Inner { Outer::Value x; };\n"
+        )
+        declarations = self.declarations(self.success(self.invoke()))
+        outer, inner = declarations["Outer"], declarations["Outer::Inner"]
+        self.assertEqual(inner["semantic_parent_id"], outer["id"])
+        self.assertNotIn("lexical_parent_id", inner)
+        self.assertEqual(
+            set(outer["nested_declaration_ids"]),
+            {inner["id"], declarations["Outer::Value"]["id"]},
+        )
+
+    def test_referenced_header_declarations_form_a_closed_graph(self):
+        (self.root / "types.hh").write_text(
+            "struct Unused { void method(); }; struct Node { Node *next; int value; }; using NodePtr = Node*;\n"
+        )
+        self.header.write_text('#include "types.hh"\nstruct Sample { NodePtr p; };\n')
+        document = self.success(self.invoke())
+        declarations = self.declarations(document)
+        self.assertIn("Node", declarations)
+        self.assertIn("NodePtr", declarations)
+        self.assertNotIn("Unused", declarations)
+        source = declarations["Node"]["source"]["spelling"]["file_id"]
+        self.assertEqual(
+            next(f for f in document["files"] if f["id"] == source)["path"]["portable"],
+            "types.hh",
+        )
+
+    def test_unsupported_referenced_type_does_not_publish_partial_facts(self):
+        (self.root / "types.hh").write_text("struct Node { void method(); };\n")
+        self.header.write_text('#include "types.hh"\nstruct Sample { Node *p; };\n')
+        self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
+
+    def test_structural_ids_survive_root_relocation_and_field_reordering(self):
+        source = "struct Node { int *p; double value[3]; };\n"
+        self.header.write_text(source)
+        first = self.success(self.invoke())
+        other = self.root / "relocated"
+        other.mkdir()
+        (other / "record.hh").write_text("struct Node { double value[3]; int *p; };\n")
+        second = self.success(
+            self.invoke(cwd=other, options=["--source-root", str(other)])
+        )
+        for key in ("types", "declarations", "files"):
+            self.assertEqual(
+                {n["id"] for n in first[key]}, {n["id"] for n in second[key]}
+            )
+
+    def test_unsupported_structural_types_fail_closed(self):
+        for source in (
+            "struct Sample { int (*callback)(double); };",
+            "struct Sample { int Sample::*member; };",
+            "using Value = decltype(1);",
+            "using Value = int __attribute__((vector_size(16))); ",
+        ):
+            with self.subTest(source=source):
+                self.header.write_text(source)
+                self.failure(self.invoke(), "ICG_UNSUPPORTED_TYPE")
+
+    def test_checked_in_structural_fixture(self):
+        for filename in ("structured.hh", "model-types.hh"):
+            (self.root / filename).write_text(
+                (HERE / "fixtures" / filename).read_text()
+            )
+        document = self.success(self.invoke(input="structured.hh"))
+        declarations = self.declarations(document)
+        self.assertTrue(
+            {"Handle", "Model", "Opaque", "Node", "Node::Weight"} <= declarations.keys()
+        )
+        self.assertFalse(declarations["Opaque"]["complete"])
+        self.assertEqual(len(document["files"]), 2)
+
+    def test_reference_alias_collapse_and_qualified_record_links(self):
+        self.header.write_text(
+            "struct Node {}; using Ref = int&; using Collapsed = Ref&&; struct Sample { Ref l; Collapsed r; const Node *node; };\n"
+        )
+        document = self.success(self.invoke())
+        declarations = self.declarations(document)
+        types = {t["id"]: t for t in document["types"]}
+        left = types[declarations["Sample::l"]["type_id"]]
+        right = types[declarations["Sample::r"]["type_id"]]
+        self.assertEqual(left["canonical_id"], right["canonical_id"])
+        self.assertEqual(types[left["canonical_id"]]["kind"], "lvalue_reference")
+        pointer = types[declarations["Sample::node"]["type_id"]]
+        node = types[pointer["pointee_id"]]
+        self.assertTrue(node["qualifiers"]["const"])
+        self.assertEqual(node["declaration_id"], declarations["Node"]["id"])
+
+    def test_referenced_system_alias_keeps_origin(self):
+        system = self.root / "system"
+        system.mkdir()
+        (system / "types.hh").write_text("using SystemValue = unsigned long;\n")
+        self.header.write_text(
+            "#include <types.hh>\nstruct Sample { SystemValue value; };\n"
+        )
+        document = self.success(self.invoke(["-isystem", str(system)]))
+        self.assertEqual(self.declarations(document)["SystemValue"]["origin"], "system")
 
     def test_unsupported_arguments_are_not_silently_dropped(self):
         for args in (
