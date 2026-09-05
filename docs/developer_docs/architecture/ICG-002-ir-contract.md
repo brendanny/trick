@@ -59,5 +59,8 @@ compatibility strategy.
 - JSON size and parse time are measured before considering a binary encoding.
 - The checked-in minimal fixture and validator establish shape plus unique-ID and
   reference-integrity checks; they do not yet prove all kind-specific invariants.
-- The C++ value model and serializer in the next extractor increment must produce
-  this contract deterministically and add kind-specific fixtures as coverage grows.
+- The [first extractor](../../../trick_source/codegen/TrickCodeGen/README.md) now
+  produces this contract through owned JSON values with deterministic serialization.
+  Its input digest is explicitly an evidence fingerprint, not the complete,
+  relocatable production cache key described above. Typed nodes, kind-specific
+  invariants, and structural/fallback identity grow with the next slice.
