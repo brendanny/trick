@@ -28,6 +28,10 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
       - name: Install the hash-locked documentation environment
         run: |
           python -m pip install --only-binary=:all: --require-hashes -r tools/docs/requirements.txt
@@ -39,6 +43,10 @@ jobs:
         run: python tools/docs/build.py build --strict
       - name: Check corpus compatibility, metadata, search, and code preservation
         run: python tools/docs/check_site.py
+      - name: Check navigation, presentation metadata, and local resources
+        run: python tools/docs/check_experience.py
+      - name: Test native search rankings and negative fixtures (no network APIs)
+        run: node tools/docs/check_search.cjs
       - name: Attach the review artifact and diagnostic report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -50,4 +58,6 @@ jobs:
           path: |
             site/
             .docs-build/report.json
+            .docs-build/experience-report.json
+            .docs-build/search-report.json
             .docs-build/zensical-build.log

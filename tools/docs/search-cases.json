@@ -1,0 +1,8 @@
+[
+  {"query": "S_define", "target": "documentation/building_a_simulation/Simulation-Definition-File.html", "max_rank": 3},
+  {"query": "TRICK_HOME", "target": "documentation/building_a_simulation/Environment-Variables.html", "max_rank": 3},
+  {"query": "trick-CP", "target": "documentation/building_a_simulation/Making-the-Simulation.html", "max_rank": 3},
+  {"query": "exec_set_terminate_time", "target": "documentation/simulation_capabilities/Executive-Scheduler.html#commanding-to-shutdown", "max_rank": 3},
+  {"query": "checkpoint", "target": "documentation/simulation_capabilities/Checkpoints.html", "max_rank": 3},
+  {"query": "variable server", "target": "documentation/simulation_capabilities/Variable-Server.html", "max_rank": 3}
+]

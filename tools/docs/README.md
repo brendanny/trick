@@ -1,8 +1,9 @@
 # Documentation migration pilot
 
-This implements steps 1 and 2 of the Jekyll-to-Zensical migration: a reproducible
-build harness, immutable source baseline, full-corpus content conversion, and
-**non-deploying** CI. It does not switch GitHub Pages, introduce release versioning,
+This implements steps 1–3 of the Jekyll-to-Zensical migration: a reproducible
+build harness, immutable source baseline, full-corpus content conversion,
+task-oriented reader experience, and **non-deploying** CI. Browser acceptance
+for step 3 is still pending. This does not switch GitHub Pages, introduce release versioning,
 or change Doxygen or Trick's runtime dependencies.
 
 The branch is based on `brendanny/trick:master` at
@@ -12,7 +13,8 @@ images. No unrelated upstream tutorial changes are included.
 
 ## Install and run
 
-Use Python 3.11 and a virtual environment. The documentation environment is
+Use Python 3.11 and a virtual environment, plus Node.js 24 for the native search
+regression check (no npm packages). The documentation environment is
 independent of Trick's compiler, Python bindings, Java, and simulation builds.
 
 ```sh
@@ -23,6 +25,8 @@ python -m unittest discover -s tools/docs/tests -v
 python tools/docs/inventory.py --check
 python tools/docs/build.py build --strict
 python tools/docs/check_site.py
+python tools/docs/check_experience.py
+node tools/docs/check_search.cjs
 ```
 
 Run commands from the repository root. The inventory check requires the recorded
@@ -71,7 +75,7 @@ preparing the source uses a stale projection and is not the supported workflow.
 
 ## What passes now and what remains cutover work
 
-| Check | Step-2 behavior |
+| Check | Current behavior |
 | --- | --- |
 | Dependency installation | Exact versions and hashes; Zensical 0.0.59. |
 | Full corpus build | Strict build must succeed with no warnings. |
@@ -80,7 +84,11 @@ preparing the source uses a stale projection and is not the supported workflow.
 | Jekyll helpers | Publishing a helper fails the check. |
 | Seven representative pages | Missing text, headings, code blocks, or images below the recorded minimum fails. |
 | Metadata | Every page needs an explicit title and current/historical status; rendered titles are checked. |
-| Search index | All current pages must be indexed; all historical pages must be absent. Missing/invalid/empty search fails. Relevance and browser behavior are later checks. |
+| Search index | All current pages must be indexed; all historical pages must be absent. Missing/invalid/empty search fails. |
+| Native search relevance | Six Trick queries must return the intended guidance within the first three worker hits; missing targets and rank regressions fail. Browser interaction remains a separate check. |
+| Navigation and archive | Every current page has exactly one primary nav home; all historical pages are linked from the archive. |
+| Reader metadata | Authored-source edit links, canonical URLs, current-page sitemap, light/dark controls, skip links, and development label are checked. |
+| Automatic resources | HTML/CSS subresources and search configuration must resolve locally under `/trick/`; the repository-statistics component is prohibited. Runtime browser network behavior remains unverified. |
 | Historical pages | Published at their original paths, with a visible notice and links to current guidance. |
 | Code samples | Source samples must match the immutable baseline; rendered samples must match source text and order. |
 | Raw-HTML links and duplicate IDs | Every finding fails, including missing fragments; there is no allowance list. |
@@ -104,6 +112,88 @@ Outputs:
 - `.docs-build/zensical-build.log`: complete generator diagnostics.
 - `.docs-build/report.json`: structural errors, migration findings, and baseline
   coverage flags. No timestamps or absolute build paths are embedded in this report.
+- `.docs-build/experience-report.json`: navigation, archive, canonical/edit URLs,
+  presentation markup, static resource audit, and explicit browser-check status.
+- `.docs-build/search-report.json`: real search-worker hash, measured ranks and
+  first-response locations for the six acceptance queries, and negative fixtures.
+
+## Reader experience (step 3)
+
+The explicit sidebar in `zensical.toml` organizes the 101 existing current pages
+and the new archive index into Start here, Tutorials, User guide, Reference,
+How-to and troubleshooting, and Developer guide. Each page has one primary home;
+contextual links remain in the content. Tutorials follow the existing cannonball
+sequence. No baseline files, paths, asset bytes, anchors, or code samples move.
+
+The homepage gives direct routes to installation, the tutorial, and common
+references, then links to the manuals, archive, related projects, and license.
+`docs/archive.md` groups all 32 historical pages while retaining their original
+URLs, notices, and search exclusion. The pinned generator also omits these
+search-excluded pages from its sitemap. Their canonical URLs and archive links
+remain valid; sitemap omission is not a redirect or an access restriction.
+
+The bundled theme supplies section navigation, breadcrumbs, in-page navigation,
+code copying, search highlighting, and system-aware light/dark controls. Local
+`docs/stylesheets/trick.css` adds system fonts, the existing Trick logo on a white
+tile, constrained wide content, underlined prose links, visible focus outlines,
+and reduced-motion rules. There is no custom JavaScript or instant navigation.
+
+Small templates in `tools/docs/overrides/` add the development/master migration
+label and a 404 with prefix-safe recovery links. The source partial renders a
+plain repository link **without** `data-md-component="source"`: the default
+[repository component](https://zensical.org/docs/setup/repository/) requests
+GitHub statistics automatically. `repo_url` remains configured for edit actions,
+with `edit_uri = "edit/master/docs/"` targeting authored files in upstream NASA
+Trick, never `.docs-build/source`. These are eventual upstream-master edit links,
+not links to edit the fork's pilot branch. New pilot-only files will not exist at
+the upstream edit destination until the migration is integrated there.
+
+Fonts, styles, scripts, icons, search, and equation images are local. The static
+audit checks HTML subresources, CSS URLs/imports, and search index/worker paths,
+including the 404 under `/trick/`. External user-activated hyperlinks are allowed.
+This is not a JavaScript network audit or proof of network-blocked browser use.
+
+### Native search acceptance
+
+The search separator preserves underscores and hyphens in identifiers and
+commands, and splits shell `${...}` wrappers. With the default separator,
+`TRICK_HOME` split into broad terms and its environment reference was absent
+from the first ten worker hits. The configured separator returns it first,
+without modifying examples, patching the generated index, or adding a search
+service. This is supported by the pinned generator's search configuration.
+
+`check_search.cjs` reads the worker path from built theme configuration and runs
+that actual bundled worker in Node's VM with no `fetch`, XMLHttpRequest, or other
+network APIs provided. It sends the same query/filter envelope as the 0.0.59 UI;
+there is no replacement ranking algorithm. Engine upgrades must rerun these
+checks and review changes to the worker protocol, index, and ranking.
+
+| Query | Intended current guidance | Measured worker rank |
+| --- | --- | --- |
+| `S_define` | Simulation definition file | 1 |
+| `TRICK_HOME` | Build environment variables / PATH | 1 |
+| `trick-CP` | Making the simulation | 2 |
+| `exec_set_terminate_time` | Executive scheduler / Commanding to Shutdown | 1 |
+| `checkpoint` | Checkpoints | 1 |
+| `variable server` | Variable server reference | 1 |
+
+These are individual section hits in the first worker response, **before** the
+UI groups hits by page, not a claim about measured browser positions. Every case
+must stay within the first three hits. Four negative fixtures reject empty
+results, a rank regression, a wrong section, and an actual index with the target
+page removed. The content gate independently checks historical search exclusion.
+
+### Browser acceptance still required
+
+No browser/visual acceptance is claimed by these static checks. Before cutover,
+explicitly review all seven pilot pages at desktop and mobile widths in both
+palettes: navigation drawers and breadcrumbs; long tables, screenshots, equation
+images, and code blocks; keyboard focus, skip links and search controls; contrast
+and zoom; copy buttons; and search result navigation/highlights for all six terms.
+Run reading, navigation, search, and equation-image checks with third-party
+requests blocked, and inspect the browser's network log. Verify helpful 404
+behavior for a genuinely missing nested URL on the deployed host. Only that
+review can establish visual, interaction, accessibility, and network acceptance.
 
 The build's `--strict` mode is now mandatory in CI. The separate **cutover-evidence
 gate remains expected to fail**:
@@ -235,10 +325,11 @@ has read-only repository permissions, pins actions to commit SHAs, and never use
 diagnostics, and the report—not the environment or other workspace files. It is
 not a hosted preview and is not a durable rollback archive.
 
-## Handoff to step 3
+## Handoff to step 4
 
-Next, develop task-oriented navigation, the homepage, search relevance, and
-presentation. Keep production publishing separate. The Jekyll configuration and
+Next, complete the explicit browser acceptance above and the outstanding legacy
+evidence before preparing an artifact-based Pages cutover and rollback. Keep
+production publishing separate. The Jekyll configuration and
 layout, dependency lock, Doxygen, and Pages settings remain unchanged, but the
 authored Markdown now contains the conversion. Do not deploy this branch through
 the old publisher or assume it has been verified against Jekyll. Complete the

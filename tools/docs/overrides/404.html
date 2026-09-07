@@ -1,0 +1,13 @@
+{% extends "main.html" %}
+
+{% block content %}
+  <h1>Page not found</h1>
+  <p>The page may have moved, or the address may be incomplete. Search this
+  documentation using the search box, or start with one of these guides.</p>
+  <ul>
+    <li><a href="{{ config.site_url }}">Documentation home</a></li>
+    <li><a href="{{ config.site_url }}documentation/install_guide/Install-Guide.html">Install Trick</a></li>
+    <li><a href="{{ config.site_url }}faq/FAQ.html">Troubleshooting and FAQ</a></li>
+    <li><a href="{{ config.site_url }}archive.html">Historical archive</a></li>
+  </ul>
+{% endblock %}

@@ -1,0 +1,55 @@
+/* Local-only additions to the bundled theme; no external fonts or imports. */
+:root {
+  --md-text-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --md-code-font: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.md-header__button.md-logo img {
+  background: #fff;
+  border-radius: 0.15rem;
+  height: 1.4rem;
+  padding: 0.15rem 0.25rem;
+  width: auto;
+}
+
+/* Keep wide reference tables and examples within the reading column. */
+.md-content,
+.md-content__inner {
+  min-width: 0;
+}
+
+.md-typeset img,
+.md-typeset svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-typeset pre > code,
+.md-typeset .md-typeset__table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.md-typeset a:not(.md-button):not(.headerlink) {
+  text-underline-offset: 0.15em;
+}
+
+.md-typeset p a,
+.md-typeset li > a {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 0.15rem solid currentColor;
+  outline-offset: 0.15rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
