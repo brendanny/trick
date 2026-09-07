@@ -23,6 +23,7 @@ SPEC = importlib.util.spec_from_file_location(
 VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
 EXTRACTOR: Path
+PATH_ROOTS: list[str] = []
 
 
 class ExtractTests(unittest.TestCase):
@@ -40,6 +41,7 @@ class ExtractTests(unittest.TestCase):
                 "--diagnostics-format=json",
                 "--source-root",
                 str(self.root),
+                *(arg for root in PATH_ROOTS for arg in ("--path-root", root)),
                 *options,
                 input,
                 "--",
@@ -664,6 +666,8 @@ class ExtractTests(unittest.TestCase):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--extractor", required=True, type=Path)
+    parser.add_argument("--path-root", action="append", default=[])
     args, remaining = parser.parse_known_args()
     EXTRACTOR = args.extractor.resolve(strict=True)
+    PATH_ROOTS = args.path_root
     unittest.main(argv=[sys.argv[0], *remaining])

@@ -39,7 +39,16 @@ endif()
 include(CTest)
 if(BUILD_TESTING)
     find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
+    # Homebrew's stddef.h goes through libc++ wrappers outside the resource dir.
+    # Map that separate root explicitly in tests, as a caller must do in practice.
+    set(ICG_TEST_ROOT_ARGS "")
+    foreach(include_dir IN LISTS LLVM_INCLUDE_DIRS)
+        if(EXISTS "${include_dir}/c++/v1/stddef.h")
+            list(APPEND ICG_TEST_ROOT_ARGS --path-root "stdlib=${include_dir}/c++/v1")
+            break()
+        endif()
+    endforeach()
     add_test(NAME icg_extract_integration
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_extract.py"
-            --extractor "$<TARGET_FILE:trick-icg-extract>")
+            --extractor "$<TARGET_FILE:trick-icg-extract>" ${ICG_TEST_ROOT_ARGS})
 endif()

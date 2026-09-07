@@ -176,6 +176,13 @@ Original and real paths, root locations, arguments, and target provenance remain
 available for diagnostics and evidence. Rooted identity removes machine path noise;
 different OS headers and target layouts can still yield legitimate semantic differences.
 
+Homebrew's libc++ wrappers live outside Clang's resource directory. When using
+them, also pass `--path-root stdlib="$(brew --prefix llvm@17)/include/c++/v1"`.
+Map the macOS SDK separately with `--path-root sysroot="$(xcrun --show-sdk-path)"`
+when its headers are used. CTest supplies the matching LLVM installation's libc++
+root to the integration runner explicitly; the extractor still rejects other
+unmapped inputs.
+
 `input_digest` is an **evidence fingerprint, not a production cache key**. It hashes
 the deterministic document before inserting the digest, covering the recorded
 arguments, environment, frontend facts, physical inputs, and exact paths. It is
