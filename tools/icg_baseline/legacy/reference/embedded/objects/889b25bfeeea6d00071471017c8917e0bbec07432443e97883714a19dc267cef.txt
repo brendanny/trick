@@ -1,0 +1,2 @@
+build${TRICK_ROOT}/test/SIM_test_ip/models/test_ip/include/io_EmbeddedClasses.o
+build/class_map.o

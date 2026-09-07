@@ -1,8 +1,8 @@
 # ICG rewrite: Phase 0 evidence tooling
 
-This is the first implementation increment of the
+This implements evidence tooling for the
 [ICG rewrite plan](../../docs/developer_docs/ICG_REWRITE_PLAN.md), section 20,
-item 1. It collects existing codegen output before the extractor/API decision.
+item 1. It collects existing codegen output independently of the new extractor.
 It is development tooling, requires Python 3.11+, and uses only the standard
 library. It does not participate in the production build.
 
@@ -15,8 +15,66 @@ python3 -m unittest discover -s tools/icg_baseline -v
 python3 tools/icg_baseline/baseline.py list
 ```
 
-The tests use explicitly synthetic generated text. They verify the collector;
-they are not captured ICG output, semantic parity tests, or LLVM/GCC validation.
+`test_baseline.py` and the capture plumbing tests use explicitly synthetic text.
+The reference integrity tests in `test_legacy.py` additionally inspect captured
+legacy output. Neither constitutes semantic parity or runtime validation.
+
+## Reproduce the isolated legacy header evidence
+
+The [legacy reference corpus](legacy/README.md) captures four existing Trick
+regression headers with the unchanged `Interface_Code_Gen` implementation. It
+does not need a configured simulation or a full Trick installation:
+
+```sh
+cmake -S tools/icg_baseline/legacy -B /tmp/trick-legacy-build \
+  -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/trick-legacy-build --parallel 2
+python3 tools/icg_baseline/legacy.py \
+  --build-dir /tmp/trick-legacy-build \
+  --udunits-xml /usr/share/xml/udunits/udunits2.xml \
+  --output /tmp/trick-legacy-evidence \
+  --reference tools/icg_baseline/legacy/reference
+```
+
+This needs LLVM/Clang 17 development libraries, UDUNITS-2 development files and
+its XML database, CMake 3.20+, Perl, a C++17 compiler, and Python 3.11+.
+The reproducible CI package selections are in `icg-baseline.yml`. Non-system
+UDUNITS installations can set CMake's `UDUNITS_INCLUDE_DIR` and `UDUNITS_LIBRARY`.
+The evidence build writes `trick-ICG-baseline`, never `bin/trick-ICG`. It uses the
+existing source files without patches, and the production build is unchanged.
+
+The runner creates fresh workspaces beneath a **new** output directory, with one
+translation unit including each selected header. It then invokes legacy ICG
+with `-m --icg-std=c++17`, repeats without `--force`, and repeats with `--force`.
+The clean-workspace pass is called `cold`; this does not flush OS caches.
+Ambient `TRICK_*` policy and compiler include-path variables are removed; the
+runner sets `TRICK_HOME`, the selected `--compiler` (default `c++`), locale, and
+the explicit UDUNITS XML path. Compiler paths must be shell-safe because legacy
+ICG discovers standard include paths through a shell. Use a checkout path without
+spaces; this limitation comes from the legacy `trick-gte` invocation.
+
+`summary.json` records source and binary digests, source revision/status, compiler
+version, build-file digests, selected environment, XML sibling digests, and pass
+results. The full CMake cache, compile commands, and build configuration are
+copied under `build/`. Each pass has the usual snapshot sidecars, raw logs,
+timing/resource measurements, and churn report. Workspaces remain available for
+inspection. These fingerprints do not cover all transitive system inputs or
+prove that an arbitrary supplied binary was built from the current checkout;
+CI builds it immediately before capture and uploads the installed package list.
+
+The warm and forced comparisons are observations, **not assumed equality gates**:
+the unchanged standalone legacy generator appends to `classes.resource` on a
+forced run. Diffs are saved as `cold-warm.diff` and `cold-forced.diff`. With
+`--reference`, every pass is separately compared with its checked-in counterpart;
+`*-reference.diff` records discrepancies. Exit `0` means complete capture and
+(when requested) reference equality, `1` means a reference difference, `2` means
+invalid/incomplete evidence, and `3` means a failed ICG command. No failed command
+publishes a snapshot from stale output. A capture without `--reference` is not a
+regression pass. Existing output directories are never overwritten or cleaned.
+
+This is a Linux x86-64 / LLVM 17 header-level reference, not a macOS, GCC 8.5/12,
+full `trick-CP`, SWIG, runtime, or representative-performance baseline. The
+simulation workflow below remains the separate full-build evidence path.
 
 ## Collect an existing simulation
 
@@ -149,14 +207,14 @@ exit status (including negative signal status) is retained in the report.
 
 ## Remaining Phase 0 work
 
-- Capture and review actual baseline snapshots on the minimum/reference stacks;
-  no generated legacy snapshots are checked in by this increment.
+- Extend the checked-in isolated header references to configured full simulation
+  captures and the minimum/reference stacks; those gates remain open.
 - Add representative medium and real large/old simulations with reproducible
   commands and dependencies. The 12 checked-in cases are focused regressions,
   not a claimed representative performance distribution.
-- Add the virtual/diamond layout, friend access, implicit special member,
-  packed/bitfield, partial-template and pack capability corpus. Choose libclang
-  or LibTooling only after the LLVM 17 C API spike and GCC 8.5/12 probes.
+- Extend the existing capability/layout/template probes into legacy-versus-new
+  semantic metadata, generated-operation, and runtime comparisons. ICG-001 has
+  selected LibTooling; that decision does not substitute for baseline evidence.
 - Complete the contract inventory, runtime/Python behavior snapshots, semantic
   metadata comparison, and the S_define/binding spikes.
 - Review the initial ADRs and measured thresholds before advancing Phase 1.

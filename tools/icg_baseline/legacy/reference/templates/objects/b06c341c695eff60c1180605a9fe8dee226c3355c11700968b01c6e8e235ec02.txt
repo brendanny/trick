@@ -1,0 +1,3 @@
+build${TRICK_ROOT}/test/SIM_test_templates/models/io_Foo.o
+build${TRICK_ROOT}/test/SIM_test_templates/models/io_TemplateTest.o
+build/class_map.o

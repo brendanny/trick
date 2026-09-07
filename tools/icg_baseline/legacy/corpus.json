@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "scope": "isolated-legacy-headers",
+  "cases": [
+    {"id": "anonymous-enum", "header": "test/SIM_anon_enum/models/starter.h", "covers": ["anonymous class enum", "constructor wrappers"]},
+    {"id": "deleted-constructor", "header": "test/SIM_delete_default_constructor/models/empty.h", "covers": ["deleted default constructor", "allocation policy"]},
+    {"id": "embedded", "header": "test/SIM_test_ip/models/test_ip/include/EmbeddedClasses.hh", "covers": ["nested classes and enums", "bitfields", "units", "ignored types", "private declarations"]},
+    {"id": "templates", "header": "test/SIM_test_templates/models/TemplateTest.hh", "covers": ["nested concrete templates", "arrays", "enum arguments", "I/O exclusions"]}
+  ],
+  "artifacts": [
+    {"id": "legacy-metadata", "required": true, "patterns": ["build/**/io_*.cpp"]},
+    {"id": "registry", "required": true, "patterns": ["build/class_map.cpp"]},
+    {"id": "registry-declarations", "required": true, "patterns": ["build/extern_init_attr.h"]},
+    {"id": "icg-make", "required": true, "patterns": ["build/Makefile_io_src"]},
+    {"id": "icg-dependencies", "required": true, "patterns": ["build/Makefile_ICG"]},
+    {"id": "icg-link", "required": true, "patterns": ["build/io_link_list", "build/trickify_io_link_list"]},
+    {"id": "icg-processed", "required": true, "patterns": ["build/ICG_processed"]},
+    {"id": "icg-policy", "required": false, "patterns": ["build/ICG_ext_lib", "build/ICG_no_found"]},
+    {"id": "sie-classes", "required": true, "patterns": ["build/classes.resource"]}
+  ]
+}

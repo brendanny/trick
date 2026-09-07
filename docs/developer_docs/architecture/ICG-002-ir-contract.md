@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 9; the independent diagnostics envelope is v2.
+current facts schema is version 10; the independent diagnostics envelope is v2.
 
 The document contains frontend facts only:
 

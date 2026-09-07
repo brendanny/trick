@@ -1,0 +1,2 @@
+${TRICK_ROOT}/test/SIM_test_ip/models/test_ip/include/EmbeddedClasses.hh
+${SIM_ROOT}/input.cpp

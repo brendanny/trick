@@ -1,0 +1,2 @@
+# Generated, digest-addressed bytes: do not normalize line endings or whitespace.
+**/objects/*.txt -text whitespace=-blank-at-eol,-blank-at-eof

@@ -137,8 +137,16 @@ def normalize(text: str, root: Path, sim: Path) -> str:
 
 
 def collect(manifest: dict, root: Path, case: dict, *, required: bool = True) -> dict:
-    sim = contained(root, case["directory"])
     spelled_sim = root / case["directory"]
+    contained(root, case["directory"])
+    return collect_artifacts(manifest, root, spelled_sim, required=required)
+
+
+def collect_artifacts(
+    manifest: dict, root: Path, spelled_sim: Path, *, required: bool = True
+) -> dict:
+    """Collect one explicit workspace; also used by isolated legacy header runs."""
+    sim = spelled_sim.resolve()
     artifacts = {}
     for group in manifest["artifacts"]:
         matches = sorted({
@@ -243,7 +251,9 @@ def snapshot(manifest: dict, case: dict, artifacts: dict) -> dict:
     }
 
 
-def measure(command: list[str], cwd: Path, output: Path) -> dict:
+def measure(
+    command: list[str], cwd: Path, output: Path, *, env: dict | None = None
+) -> dict:
     """Use a fresh worker so RUSAGE_CHILDREN cannot include earlier measurements."""
     result = subprocess.run(
         [
@@ -257,6 +267,7 @@ def measure(command: list[str], cwd: Path, output: Path) -> dict:
         check=True,
         capture_output=True,
         text=True,
+        env=env,
     )
     return json.loads(result.stdout)
 

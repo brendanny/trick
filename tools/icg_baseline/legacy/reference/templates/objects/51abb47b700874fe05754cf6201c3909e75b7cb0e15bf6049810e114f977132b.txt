@@ -1,0 +1,3 @@
+build/Makefile_io_src: \
+    ${TRICK_ROOT}/test/SIM_test_templates/models/Foo.hh \
+    ${TRICK_ROOT}/test/SIM_test_templates/models/TemplateTest.hh

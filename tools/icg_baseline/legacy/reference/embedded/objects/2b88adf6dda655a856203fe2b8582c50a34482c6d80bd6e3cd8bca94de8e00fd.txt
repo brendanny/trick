@@ -1,0 +1,58 @@
+  <enumeration name="TopClass__PublicEmbed__PublicEmbed2__PublicEmbed3__PublicEnum4">
+    <pair label ="TopClass::PublicEmbed::PublicEmbed2::PublicEmbed3::five" value="0"/>
+    <pair label ="TopClass::PublicEmbed::PublicEmbed2::PublicEmbed3::six" value="1"/>
+  </enumeration>
+
+  <class name="TopClass__PublicEmbed__PublicEmbed2__PublicEmbed3">
+    <member
+      name="jj"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TopClass__PublicEmbed__PublicEmbed2">
+    <member
+      name="jj"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TopClass__PublicEmbed">
+    <member
+      name="ii"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <enumeration name="TopClass__PublicEnum">
+    <pair label ="TopClass::one" value="0"/>
+    <pair label ="TopClass::two" value="1"/>
+  </enumeration>
+
+  <class name="TopClass">
+    <member
+      name="bf1"
+      type="unsigned int"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bf2"
+      type="unsigned int"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="d"
+      type="double"
+      io_attributes="15"
+      units="rad">
+    </member>
+  </class>
+

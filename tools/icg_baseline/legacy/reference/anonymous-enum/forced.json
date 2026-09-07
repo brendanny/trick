@@ -1,0 +1,118 @@
+{
+  "artifact_spec": [
+    {
+      "id": "legacy-metadata",
+      "patterns": [
+        "build/**/io_*.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry",
+      "patterns": [
+        "build/class_map.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry-declarations",
+      "patterns": [
+        "build/extern_init_attr.h"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-make",
+      "patterns": [
+        "build/Makefile_io_src"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-dependencies",
+      "patterns": [
+        "build/Makefile_ICG"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-link",
+      "patterns": [
+        "build/io_link_list",
+        "build/trickify_io_link_list"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-processed",
+      "patterns": [
+        "build/ICG_processed"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-policy",
+      "patterns": [
+        "build/ICG_ext_lib",
+        "build/ICG_no_found"
+      ],
+      "required": false
+    },
+    {
+      "id": "sie-classes",
+      "patterns": [
+        "build/classes.resource"
+      ],
+      "required": true
+    }
+  ],
+  "artifacts": {
+    "build${TRICK_ROOT}/test/SIM_anon_enum/models/io_starter.cpp": {
+      "group": "legacy-metadata",
+      "sha256": "d605ed3a85828a8a7ab9639b03162cef32bcf49cdb77215d9305f8f3be092352"
+    },
+    "build/ICG_ext_lib": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_no_found": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_processed": {
+      "group": "icg-processed",
+      "sha256": "02d67a42f47a0d684fe63367888a3640257aae2e8e6c73bf0a392e6f5fd25225"
+    },
+    "build/Makefile_ICG": {
+      "group": "icg-dependencies",
+      "sha256": "a1a148aa092685c2660fc5047195738fcad5110a9a338fd12773dca103eb4a23"
+    },
+    "build/Makefile_io_src": {
+      "group": "icg-make",
+      "sha256": "b3d747d418f66986948b51eeb3f958f9b7f843830aff08832f33b2019f413992"
+    },
+    "build/class_map.cpp": {
+      "group": "registry",
+      "sha256": "1c6139945f0bce62a002716d95e0da13952c16e98756149c583f87cc2f06fd25"
+    },
+    "build/classes.resource": {
+      "group": "sie-classes",
+      "sha256": "d3858a51bef612abe30423fe228191473b330ccd0ac1dbe027a530b8fadc3582"
+    },
+    "build/extern_init_attr.h": {
+      "group": "registry-declarations",
+      "sha256": "78b923a47d52ba073aab324a22dee1763350a498309d9d20e95afe744f9cf32e"
+    },
+    "build/io_link_list": {
+      "group": "icg-link",
+      "sha256": "cbbbde2dfbfff2a1b7bc05ced7b9d719acde258b65a3174c0367dfc15e781420"
+    },
+    "build/trickify_io_link_list": {
+      "group": "icg-link",
+      "sha256": "ebf7a03a7d6a42e457a6d4881799be52fdbe0bc57fe59b0e7c218a34fb470cdd"
+    }
+  },
+  "case": "anonymous-enum",
+  "normalization_version": 2,
+  "schema_version": 2
+}

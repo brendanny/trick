@@ -1,0 +1,2 @@
+build/Makefile_io_src: \
+    ${TRICK_ROOT}/test/SIM_anon_enum/models/starter.h

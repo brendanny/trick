@@ -1,0 +1,13 @@
+Evidence-only build of unchanged Interface_Code_Gen sources
+LLVM: @LLVM_PACKAGE_VERSION@
+LLVM_DIR: @LLVM_DIR@
+C++ compiler: @CMAKE_CXX_COMPILER@
+C++ compiler ID: @CMAKE_CXX_COMPILER_ID@
+C++ compiler version: @CMAKE_CXX_COMPILER_VERSION@
+Build type: @CMAKE_BUILD_TYPE@
+C++ flags: @CMAKE_CXX_FLAGS@
+Release flags: @CMAKE_CXX_FLAGS_RELEASE@
+UDUNITS include: @UDUNITS_INCLUDE_DIR@
+UDUNITS library: @UDUNITS_LIBRARY@
+Trick source: @TRICK_ROOT@
+Trick version label override: legacy-baseline (banner only)

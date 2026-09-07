@@ -1,0 +1,468 @@
+  <enumeration name="MyEnumClass__Enum">
+  </enumeration>
+
+  <class name="MyEnumClass__Inner">
+  </class>
+
+  <class name="MyEnumClass">
+  </class>
+
+  <enumeration name="Bar">
+    <pair label ="Bar_1" value="0"/>
+    <pair label ="Bar_2" value="1"/>
+  </enumeration>
+
+  <class name="TemplateTest_TTT_var_scalar_builtins_TTT1_int__double_">
+    <member
+      name="aa"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="double"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TemplateTest_TTT_var_array_builtins_TTT1_int_2___double_3__">
+    <member
+      name="aa"
+      type="int"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="bb"
+      type="double"
+      io_attributes="15"
+      units="1">
+      <dimension>3</dimension>
+    </member>
+  </class>
+
+  <class name="TemplateTest_TTT_var_enum_TTT1_enum_Bar__enum_Bar_2__">
+    <member
+      name="aa"
+      type="Bar"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="Bar"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="TTT1_aa_Foo_int_">
+    <member
+      name="t"
+      type="int"
+      io_attributes="15"
+      units="--">
+    </member>
+  </class>
+
+  <class name="TTT1_bb_Foo_double_2__">
+    <member
+      name="t"
+      type="double"
+      io_attributes="15"
+      units="--">
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="TemplateTest_TTT_var_template_parameters_TTT1_Foo_int___Foo_double_2___3__">
+    <member
+      name="aa"
+      type="TTT1_aa_Foo_int_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="TTT1_bb_Foo_double_2__"
+      io_attributes="15"
+      units="1">
+      <dimension>3</dimension>
+    </member>
+  </class>
+
+  <class name="TTT2_a_TTT1_char__int_">
+    <member
+      name="aa"
+      type="char"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TTT2_b_Foo_char_3__">
+    <member
+      name="t"
+      type="char"
+      io_attributes="15"
+      units="--">
+      <dimension>3</dimension>
+    </member>
+  </class>
+
+  <class name="TTT1_bb_TTT2_char_">
+    <member
+      name="a"
+      type="TTT2_a_TTT1_char__int_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="b"
+      type="TTT2_b_Foo_char_3__"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="Foo_t_TTT1_int__TTT2_char___">
+    <member
+      name="aa"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="TTT1_bb_TTT2_char_"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TTT1_aa_Foo_TTT1_int__TTT2_char_____">
+    <member
+      name="t"
+      type="Foo_t_TTT1_int__TTT2_char___"
+      io_attributes="15"
+      units="--">
+    </member>
+  </class>
+
+  <class name="TTT2_a_TTT1_Foo_TTT1_int__TTT2_char_______int_">
+    <member
+      name="aa"
+      type="TTT1_aa_Foo_TTT1_int__TTT2_char_____"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TTT2_b_Foo_Foo_TTT1_int__TTT2_char______3__">
+    <member
+      name="t"
+      type="TTT1_aa_Foo_TTT1_int__TTT2_char_____"
+      io_attributes="15"
+      units="--">
+      <dimension>3</dimension>
+    </member>
+  </class>
+
+  <class name="TemplateTest_TTT_templates_of_templates_TTT2_Foo_TTT1_int__TTT2_char_______">
+    <member
+      name="a"
+      type="TTT2_a_TTT1_Foo_TTT1_int__TTT2_char_______int_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="b"
+      type="TTT2_b_Foo_Foo_TTT1_int__TTT2_char______3__"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TemplateTest">
+    <member
+      name="TTT_var_scalar_builtins"
+      type="TemplateTest_TTT_var_scalar_builtins_TTT1_int__double_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="TTT_var_array_builtins"
+      type="TemplateTest_TTT_var_array_builtins_TTT1_int_2___double_3__"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="TTT_var_enum"
+      type="TemplateTest_TTT_var_enum_TTT1_enum_Bar__enum_Bar_2__"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="TTT_var_template_parameters"
+      type="TemplateTest_TTT_var_template_parameters_TTT1_Foo_int___Foo_double_2___3__"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="TTT_templates_of_templates"
+      type="TemplateTest_TTT_templates_of_templates_TTT2_Foo_TTT1_int__TTT2_char_______"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <enumeration name="MyEnumClass__Enum">
+  </enumeration>
+
+  <class name="MyEnumClass__Inner">
+  </class>
+
+  <class name="MyEnumClass">
+  </class>
+
+  <enumeration name="Bar">
+    <pair label ="Bar_1" value="0"/>
+    <pair label ="Bar_2" value="1"/>
+  </enumeration>
+
+  <class name="TemplateTest_TTT_var_scalar_builtins_TTT1_int__double_">
+    <member
+      name="aa"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="double"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TemplateTest_TTT_var_array_builtins_TTT1_int_2___double_3__">
+    <member
+      name="aa"
+      type="int"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="bb"
+      type="double"
+      io_attributes="15"
+      units="1">
+      <dimension>3</dimension>
+    </member>
+  </class>
+
+  <class name="TemplateTest_TTT_var_enum_TTT1_enum_Bar__enum_Bar_2__">
+    <member
+      name="aa"
+      type="Bar"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="Bar"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="TTT1_aa_Foo_int_">
+    <member
+      name="t"
+      type="int"
+      io_attributes="15"
+      units="--">
+    </member>
+  </class>
+
+  <class name="TTT1_bb_Foo_double_2__">
+    <member
+      name="t"
+      type="double"
+      io_attributes="15"
+      units="--">
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="TemplateTest_TTT_var_template_parameters_TTT1_Foo_int___Foo_double_2___3__">
+    <member
+      name="aa"
+      type="TTT1_aa_Foo_int_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="TTT1_bb_Foo_double_2__"
+      io_attributes="15"
+      units="1">
+      <dimension>3</dimension>
+    </member>
+  </class>
+
+  <class name="TTT2_a_TTT1_char__int_">
+    <member
+      name="aa"
+      type="char"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TTT2_b_Foo_char_3__">
+    <member
+      name="t"
+      type="char"
+      io_attributes="15"
+      units="--">
+      <dimension>3</dimension>
+    </member>
+  </class>
+
+  <class name="TTT1_bb_TTT2_char_">
+    <member
+      name="a"
+      type="TTT2_a_TTT1_char__int_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="b"
+      type="TTT2_b_Foo_char_3__"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="Foo_t_TTT1_int__TTT2_char___">
+    <member
+      name="aa"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="TTT1_bb_TTT2_char_"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TTT1_aa_Foo_TTT1_int__TTT2_char_____">
+    <member
+      name="t"
+      type="Foo_t_TTT1_int__TTT2_char___"
+      io_attributes="15"
+      units="--">
+    </member>
+  </class>
+
+  <class name="TTT2_a_TTT1_Foo_TTT1_int__TTT2_char_______int_">
+    <member
+      name="aa"
+      type="TTT1_aa_Foo_TTT1_int__TTT2_char_____"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="bb"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TTT2_b_Foo_Foo_TTT1_int__TTT2_char______3__">
+    <member
+      name="t"
+      type="TTT1_aa_Foo_TTT1_int__TTT2_char_____"
+      io_attributes="15"
+      units="--">
+      <dimension>3</dimension>
+    </member>
+  </class>
+
+  <class name="TemplateTest_TTT_templates_of_templates_TTT2_Foo_TTT1_int__TTT2_char_______">
+    <member
+      name="a"
+      type="TTT2_a_TTT1_Foo_TTT1_int__TTT2_char_______int_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="b"
+      type="TTT2_b_Foo_Foo_TTT1_int__TTT2_char______3__"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="TemplateTest">
+    <member
+      name="TTT_var_scalar_builtins"
+      type="TemplateTest_TTT_var_scalar_builtins_TTT1_int__double_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="TTT_var_array_builtins"
+      type="TemplateTest_TTT_var_array_builtins_TTT1_int_2___double_3__"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="TTT_var_enum"
+      type="TemplateTest_TTT_var_enum_TTT1_enum_Bar__enum_Bar_2__"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="TTT_var_template_parameters"
+      type="TemplateTest_TTT_var_template_parameters_TTT1_Foo_int___Foo_double_2___3__"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="TTT_templates_of_templates"
+      type="TemplateTest_TTT_templates_of_templates_TTT2_Foo_TTT1_int__TTT2_char_______"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+

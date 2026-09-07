@@ -1,0 +1,2 @@
+build${TRICK_ROOT}/test/SIM_delete_default_constructor/models/io_empty.o
+build/class_map.o

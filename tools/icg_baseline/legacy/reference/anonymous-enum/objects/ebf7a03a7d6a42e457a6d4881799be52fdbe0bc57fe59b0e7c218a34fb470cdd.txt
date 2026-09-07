@@ -1,0 +1,1 @@
+build${TRICK_ROOT}/test/SIM_anon_enum/models/io_starter.o

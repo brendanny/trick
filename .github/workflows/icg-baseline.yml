@@ -5,11 +5,21 @@ on:
     branches: [master, icg-rewrite]
     paths:
       - 'tools/icg_baseline/**'
+      - 'trick_source/codegen/Interface_Code_Gen/**'
+      - 'trick_source/sim_services/UdUnits/**'
+      - 'include/trick/**'
+      - 'bin/trick-gte'
+      - 'libexec/trick/pm/gte.pm'
       - 'test/**'
       - '.github/workflows/icg-baseline.yml'
   pull_request:
     paths:
       - 'tools/icg_baseline/**'
+      - 'trick_source/codegen/Interface_Code_Gen/**'
+      - 'trick_source/sim_services/UdUnits/**'
+      - 'include/trick/**'
+      - 'bin/trick-gte'
+      - 'libexec/trick/pm/gte.pm'
       - 'test/**'
       - '.github/workflows/icg-baseline.yml'
   workflow_dispatch:
@@ -35,3 +45,47 @@ jobs:
         run: python -m unittest discover -s tools/icg_baseline -v
       - name: Validate regression corpus
         run: python tools/icg_baseline/baseline.py list
+
+  legacy:
+    name: Legacy headers / LLVM 17 / Ubuntu 24.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install the reference legacy toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ perl \
+            clang-17=1:17.0.6-9ubuntu1 llvm-17-dev=1:17.0.6-9ubuntu1 \
+            libclang-17-dev=1:17.0.6-9ubuntu1 libclang-cpp17-dev=1:17.0.6-9ubuntu1 \
+            libudunits2-dev=2.2.28-7build1
+          test "$(llvm-config-17 --version)" = 17.0.6
+          mkdir -p build/legacy-baseline
+          dpkg-query -W > build/legacy-baseline/packages.txt
+      - name: Build unchanged legacy ICG without installing Trick
+        run: |
+          cmake -S tools/icg_baseline/legacy -B build/legacy-baseline \
+            -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/legacy-baseline --parallel 2
+      - name: Capture cold, warm, and forced output against checked-in references
+        run: |
+          python tools/icg_baseline/legacy.py \
+            --build-dir build/legacy-baseline \
+            --udunits-xml /usr/share/xml/udunits/udunits2.xml \
+            --output build/legacy-evidence \
+            --reference tools/icg_baseline/legacy/reference
+      - name: Preserve logs and evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: legacy-header-baseline-llvm17-linux
+          path: |
+            build/legacy-evidence
+            build/legacy-baseline/packages.txt
+            build/legacy-baseline/build-info.txt
+            build/legacy-baseline/compile_commands.json
+          if-no-files-found: error
+          retention-days: 30

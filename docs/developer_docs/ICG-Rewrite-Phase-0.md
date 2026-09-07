@@ -76,9 +76,9 @@ defaults, malformed-input behavior, and precedence still need differential tests
 
 | Gate | Status after this increment |
 |---|---|
-| Focused corpus manifest and artifact capture | Implemented; harness tested with synthetic output |
+| Focused corpus manifest and artifact capture | Implemented; synthetic plumbing tests plus actual legacy header reference integrity tests |
 | Command timing, CPU/RSS, bytes/files/churn | Implemented; no production performance claim |
-| Actual normalized legacy output baselines | Pending configured Trick runs and review |
+| Actual normalized legacy output baselines | Four existing headers / 12 cold-warm-forced snapshots captured with unchanged LLVM 17 legacy ICG; [scope and observations](../../tools/icg_baseline/legacy/README.md). Configured full simulations and minimum-stack captures still pending |
 | Small/medium/large representative corpus | Focused cases selected; medium/large selection pending |
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |
@@ -102,5 +102,5 @@ Callable facts and implicit special-member summaries are now implemented as well
 Class-template signature metadata and concrete specialization graphs are implemented;
 language-linkage blocks and written/inherited callable defaults are now explicit.
 Dependent bodies and function/alias templates remain. The next priority is obtaining
-actual legacy baseline evidence and closing the
+configured full-simulation legacy baseline evidence and closing the
 remaining Phase 0 gates. This does not authorize switching the production ICG.

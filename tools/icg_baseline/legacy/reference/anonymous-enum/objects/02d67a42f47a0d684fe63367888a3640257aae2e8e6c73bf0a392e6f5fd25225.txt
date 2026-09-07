@@ -1,0 +1,2 @@
+${TRICK_ROOT}/test/SIM_anon_enum/models/starter.h
+${SIM_ROOT}/input.cpp

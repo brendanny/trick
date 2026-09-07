@@ -1,0 +1,118 @@
+{
+  "artifact_spec": [
+    {
+      "id": "legacy-metadata",
+      "patterns": [
+        "build/**/io_*.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry",
+      "patterns": [
+        "build/class_map.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry-declarations",
+      "patterns": [
+        "build/extern_init_attr.h"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-make",
+      "patterns": [
+        "build/Makefile_io_src"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-dependencies",
+      "patterns": [
+        "build/Makefile_ICG"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-link",
+      "patterns": [
+        "build/io_link_list",
+        "build/trickify_io_link_list"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-processed",
+      "patterns": [
+        "build/ICG_processed"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-policy",
+      "patterns": [
+        "build/ICG_ext_lib",
+        "build/ICG_no_found"
+      ],
+      "required": false
+    },
+    {
+      "id": "sie-classes",
+      "patterns": [
+        "build/classes.resource"
+      ],
+      "required": true
+    }
+  ],
+  "artifacts": {
+    "build${TRICK_ROOT}/test/SIM_test_ip/models/test_ip/include/io_EmbeddedClasses.cpp": {
+      "group": "legacy-metadata",
+      "sha256": "b50e5bf84f047d1dc1161198e43322f53e99d0c07c106f57caec3969ca520c13"
+    },
+    "build/ICG_ext_lib": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_no_found": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_processed": {
+      "group": "icg-processed",
+      "sha256": "1d32337ad16ee31b2ecdc0c3ba37b193a209d74bc73a045c61ce3d2b54b2d54b"
+    },
+    "build/Makefile_ICG": {
+      "group": "icg-dependencies",
+      "sha256": "8b8083c8f940cf5684aa85affd042c046d92370dbfb428bc604c6f079faaab0a"
+    },
+    "build/Makefile_io_src": {
+      "group": "icg-make",
+      "sha256": "a8bde78514ec5bf355a6f667e8e39887e9643b833a7d517e904d96e0f9d67c82"
+    },
+    "build/class_map.cpp": {
+      "group": "registry",
+      "sha256": "334100535ad2ff3e9f0e092c01679844c5c23eec41a133e795af01cf56a1c7eb"
+    },
+    "build/classes.resource": {
+      "group": "sie-classes",
+      "sha256": "2b88adf6dda655a856203fe2b8582c50a34482c6d80bd6e3cd8bca94de8e00fd"
+    },
+    "build/extern_init_attr.h": {
+      "group": "registry-declarations",
+      "sha256": "1bf42a11afc759c88c83537a4ce747eeb139da77415b39659badce3f8ea87e0f"
+    },
+    "build/io_link_list": {
+      "group": "icg-link",
+      "sha256": "889b25bfeeea6d00071471017c8917e0bbec07432443e97883714a19dc267cef"
+    },
+    "build/trickify_io_link_list": {
+      "group": "icg-link",
+      "sha256": "6f9e199a3cd20efb071ed09df2bed4e4bb360b486d9aea0d898bf5e2ab1f72e5"
+    }
+  },
+  "case": "embedded",
+  "normalization_version": 2,
+  "schema_version": 2
+}
