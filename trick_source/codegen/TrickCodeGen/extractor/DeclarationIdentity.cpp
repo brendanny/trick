@@ -52,10 +52,12 @@ namespace trick::icg
 
     DeclarationIdentity::DeclarationIdentity(
         Facts& facts, clang::ASTContext& context, std::function<llvm::json::Value(clang::SourceLocation)> point,
+        std::function<llvm::json::Value(const clang::Decl*)> source,
         std::function<llvm::json::Value(const clang::ClassTemplateSpecializationDecl*)> specialization)
         : facts(facts)
         , context(context)
         , point(std::move(point))
+        , source(std::move(source))
         , specialization(std::move(specialization))
     {
     }
@@ -182,8 +184,17 @@ namespace trick::icg
         {
             auto inserted = owners.emplace(value.id, decl);
             if (!inserted.second && inserted.first->second != decl)
+            {
+                const auto* previous = llvm::cast<clang::NamedDecl>(inserted.first->second);
                 facts.diagnose("error", "ICG_IDENTITY_COLLISION",
-                               "Distinct canonical declarations produced the same ID: " + value.id);
+                               "Declaration '" + decl->getQualifiedNameAsString() + "' collides with '"
+                                   + previous->getQualifiedNameAsString() + "' at ID " + value.id,
+                               source(decl));
+                facts.diagnose("note", "ICG_IDENTITY_PREVIOUS",
+                               "Previous declaration '" + previous->getQualifiedNameAsString() + "' is here",
+                               source(previous));
+                value.id.clear();
+            }
         }
         return identities.emplace(decl, std::move(value)).first->second;
     }

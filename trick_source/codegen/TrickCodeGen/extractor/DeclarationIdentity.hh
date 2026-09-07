@@ -29,6 +29,7 @@ namespace trick::icg
             Facts& facts;
             clang::ASTContext& context;
             std::function<llvm::json::Value(clang::SourceLocation)> point;
+            std::function<llvm::json::Value(const clang::Decl*)> source;
             std::function<llvm::json::Value(const clang::ClassTemplateSpecializationDecl*)> specialization;
             std::map<const clang::Decl*, DeclarationID> identities;
             std::map<std::string, const clang::Decl*> owners;
@@ -39,6 +40,7 @@ namespace trick::icg
         public:
             DeclarationIdentity(
                 Facts& facts, clang::ASTContext& context, std::function<llvm::json::Value(clang::SourceLocation)> point,
+                std::function<llvm::json::Value(const clang::Decl*)> source,
                 std::function<llvm::json::Value(const clang::ClassTemplateSpecializationDecl*)> specialization);
             const DeclarationID& get(const clang::NamedDecl* decl);
     };

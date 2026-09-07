@@ -57,7 +57,12 @@ namespace
             // same printing policy without asking Clang to print their context.
             decl->getDeclName().print(out, policy);
             if (const auto* specialization = llvm::dyn_cast<clang::ClassTemplateSpecializationDecl>(decl))
-                clang::printTemplateArgumentList(out, specialization->getTemplateArgs().asArray(), policy);
+            {
+                if (const auto* partial = llvm::dyn_cast<clang::ClassTemplatePartialSpecializationDecl>(decl))
+                    clang::printTemplateArgumentList(out, partial->getTemplateArgsAsWritten()->arguments(), policy);
+                else
+                    clang::printTemplateArgumentList(out, specialization->getTemplateArgs().asArray(), policy);
+            }
         }
         else if (llvm::isa<clang::NamespaceDecl>(decl))
             name = "(anonymous namespace)";
@@ -836,7 +841,14 @@ namespace
                 node["const"]          = method && method->isConst();
                 node["volatile"]       = method && method->isVolatile();
                 node["static"]         = method && method->isStatic();
-                node["linkage"]        = trick::icg::compat::linkage(decl->getLinkageInternal());
+                const auto* linkage    = trick::icg::compat::linkage(decl->getLinkageInternal());
+                if (!linkage)
+                {
+                    facts.diagnose("error", "ICG_INVALID_LINKAGE", "Callable has invalid semantic linkage",
+                                   sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts()));
+                    return;
+                }
+                node["linkage"] = linkage;
                 switch (decl->getLanguageLinkage())
                 {
                 case clang::CLanguageLinkage:
@@ -1178,6 +1190,8 @@ namespace
                 facts.provenance["translation_unit"] = sources.file(sm, sm.getMainFileID());
                 identities                           = std::make_unique<trick::icg::DeclarationIdentity>(
                     facts, ctx, [this, &sm](clang::SourceLocation location) { return sources.point(sm, location); },
+                    [this, &ctx](const clang::Decl* decl)
+                    { return sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts()); },
                     [this](const clang::ClassTemplateSpecializationDecl* decl)
                     { return specializationIdentity(decl); });
                 types = std::make_unique<trick::icg::TypeGraph>(

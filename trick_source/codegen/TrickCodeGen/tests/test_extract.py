@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import importlib.util
 import json
@@ -1471,6 +1472,68 @@ class ExtractTests(unittest.TestCase):
             s for s in nodes["Middle"]["special_members"] if s["kind"] == "destructor"
         )
         self.assertTrue(middle["virtual"])
+
+    def test_validator_reconstructs_nearest_overrides_with_fresh_digest(self):
+        self.header.write_text(
+            "struct A { virtual void f(int); virtual ~A()=default; };\n"
+            "struct B:A { void f(int); void f(double); };\n"
+            "struct C:B { void f(int); ~C()=default; };\n"
+        )
+        document = self.success(self.invoke())
+        for name, key in (
+            ("C::f", "overridden_declaration_ids"),
+            ("C::~C", "overridden_implicit_destructor_record_ids"),
+        ):
+            with self.subTest(name=name):
+                changed = copy.deepcopy(document)
+                node = self.declarations(changed)[name]
+                self.assertTrue(node[key])
+                node[key] = []
+                changed["provenance"]["graph_digest"] = VALIDATOR.graph_digest(changed)
+                with self.assertRaisesRegex(ValueError, "override targets"):
+                    VALIDATOR.validate(SCHEMA, changed)
+
+    def test_partial_specialization_display_uses_written_parameters(self):
+        self.header.write_text(
+            "namespace model { template<class T> struct Choice {}; "
+            "template<class Element> struct Choice<Element *> {}; }\n"
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        partial = nodes["model::Choice<Element *>"]
+        self.assertEqual(partial["pattern_spelling"], "model::Choice<Element *>")
+
+    def test_real_legacy_metadata_matches_fields_and_rejects_changed_layout(self):
+        sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
+        try:
+            import differential
+        finally:
+            sys.path.pop(0)
+        self.header.write_bytes(
+            (
+                ROOT / "test/SIM_test_ip/models/test_ip/include/EmbeddedClasses.hh"
+            ).read_bytes()
+        )
+        document = self.success(self.invoke())
+        snapshot = differential.REFERENCE / "embedded/cold.json"
+        artifacts = json.loads(snapshot.read_text())["artifacts"]
+        metadata = next(
+            item for item in artifacts.values() if item["group"] == "legacy-metadata"
+        )
+        legacy = differential.b.artifact_text(snapshot, metadata)
+        report = differential.compare(document, legacy, "embedded")
+        self.assertEqual(sum(map(len, report["records"].values())), 6)
+        for before, after in (
+            ("8, NULL", "9, NULL"),
+            ("{{5, 27}", "{{4, 28}"),
+            ('"d", "double"', '"d", "float"'),
+            ("ATTRIBUTES attrTopClass[]", "UNRECOGNIZED attrTopClass[]"),
+        ):
+            with self.subTest(before=before):
+                self.assertIn(before, legacy)
+                with self.assertRaises(ValueError):
+                    differential.compare(
+                        document, legacy.replace(before, after), "embedded"
+                    )
 
     def test_incomplete_record_special_member_states_are_unknown(self):
         self.header.write_text("struct Forward; void use(Forward*);\n")

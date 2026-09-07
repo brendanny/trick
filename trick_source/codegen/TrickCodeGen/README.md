@@ -67,6 +67,20 @@ spellings, declaration IDs, source evidence, layouts, annotations, and capabilit
 are all compared. Linux and macOS targets are not equated. The comparison report
 and full input artifacts are retained; an equal graph is not a parse-cache key.
 
+The same jobs also require nine independently captured diagnostic cases:
+static members, friends, member/variable/alias templates, invalid UTF-8, a parse
+error, a malformed paired argument, and a successful warning. Compare exit codes,
+empty stdout on failure, exact extractor-owned `ICG_` code sets, and Clang
+severity/count classifications. Numeric `CLANG_` IDs remain frontend-specific and
+are retained in raw stderr artifacts rather than equated across releases. The
+successful warning must also occur unchanged in the validated facts document.
+
+The macOS LLVM 23 jobs install an immutable, checksum-verified
+[Homebrew 23.1.0 recipe](https://github.com/Homebrew/homebrew-core/blob/5871454bad1c28a2de49bc06ace5b76c9fb2b84c/Formula/l/llvm.rb)
+through a temporary local tap, using its pinned bottle checksums. They do not
+resolve the rolling `llvm@23` alias. Package maintenance remains explicit; moving
+`llvm` to 24 alone will not change this lane's requested recipe or bottles.
+
 ### Frontend adapters
 
 Version conditions live in `extractor/ClangCompat.hh`, outside the owned facts:
@@ -86,6 +100,32 @@ Native layout/type-trait probes, rooted paths and symlinks, qualifiers/aliases,
 templates/packs, comment provenance/invalid UTF-8, and failure-output checks run
 against each actual frontend. This increment does not enable newer model language
 modes, experimental evaluators, warning-policy files, or profiling flags.
+
+Invalid semantic linkage now produces `ICG_INVALID_LINKAGE` with source evidence;
+it cannot become `"none"`. Identity collisions identify both names and source
+ranges (`ICG_IDENTITY_COLLISION` and `ICG_IDENTITY_PREVIOUS`) and publish no facts.
+The validator reconstructs nearest virtual override targets from base paths,
+including implicit destructors, independently of the supplied graph digest.
+Partial-specialization display names use written arguments such as `Choice<T *>`;
+canonical identity remains separate.
+
+### First comparison with actual legacy metadata
+
+On the reference x86_64 Linux target, the LLVM 17 CI lane also runs
+`tools/icg_baseline/differential.py` against three existing legacy snapshots:
+`anonymous-enum`, `deleted-constructor`, and `embedded`. It verifies the original
+source fingerprints and content-addressed legacy sidecars, extracts the actual
+headers, validates the facts, and compares record tables, field order/names,
+primitive types, offsets, and bitfield widths. The six embedded fields include
+the legacy storage-unit bit-start conversion to record-relative bit offsets.
+
+Ignored records and private nested records are explicit, checked exclusions.
+Units and source annotations are shown together for review, but unit policy,
+enum-table emission, lifecycle wrappers, and generated execution are not yet
+compared. `comparison.json`, full facts, and diagnostics are CI artifacts.
+This is a deliberately restricted reader of those captured ATTRIBUTES rows,
+not a general C++ parser or a completed legacy backend. The template corpus and
+STL closure remain outstanding; no unsupported declaration is silently skipped.
 
 ## Invocation contract
 

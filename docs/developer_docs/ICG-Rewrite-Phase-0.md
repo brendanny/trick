@@ -79,6 +79,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Focused corpus manifest and artifact capture | Implemented; synthetic plumbing tests plus actual legacy header reference integrity tests |
 | Command timing, CPU/RSS, bytes/files/churn | Implemented; no production performance claim |
 | Actual normalized legacy output baselines | Four headers / 12 checked-in snapshots plus configured `SIM_test_templates` and `SIM_test_io` cold/warm/forced/rebuilt captures; [header references](../../tools/icg_baseline/legacy/README.md) and [full-build scope](../../tools/icg_baseline/runtime/README.md). Full-build golden promotion, broader simulations, and minimum stacks remain pending |
+| Legacy metadata versus extracted facts | First differential gate covers three captured headers: record tables, six embedded fields, primitive types, offsets, bitfield widths, and explicit record exclusions. Source/sidecar fingerprints are checked. Annotation policy, enum emission, lifecycle wrappers, template/STL coverage, and generated behavior remain pending |
 | Small/medium/large representative corpus | Focused cases selected; medium/large selection pending |
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |

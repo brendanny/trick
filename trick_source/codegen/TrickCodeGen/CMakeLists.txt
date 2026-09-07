@@ -51,6 +51,13 @@ endif()
 include(CTest)
 if(BUILD_TESTING)
     find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
+    add_executable(icg-compat-test tests/test_compat.cpp)
+    set_target_properties(icg-compat-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)
+    target_include_directories(icg-compat-test SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
+    target_include_directories(icg-compat-test PRIVATE extractor "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    get_target_property(ICG_TEST_LINK_LIBRARIES trick-icg-extract LINK_LIBRARIES)
+    target_link_libraries(icg-compat-test PRIVATE ${ICG_TEST_LINK_LIBRARIES})
+    add_test(NAME icg_compat_invalid_linkage COMMAND icg-compat-test)
     # Homebrew's stddef.h goes through libc++ wrappers outside the resource dir.
     # Map that separate root explicitly in tests, as a caller must do in practice.
     set(ICG_TEST_ROOT_ARGS "")

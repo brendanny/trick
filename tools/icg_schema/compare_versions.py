@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import validate as ir
+from capture_diagnostics import validate_cases
 from jsonschema import SchemaError, ValidationError
 
 VERSIONS = tuple(range(17, 24))
@@ -65,6 +66,28 @@ def compare(schema: dict, lanes: dict[int, Path]) -> dict:
                 )
             evidence[str(major)] = {"frontend_version": version, **observed}
         report[fixture] = evidence
+    reference = None
+    evidence = {}
+    for major in VERSIONS:
+        files = sorted(lanes[major].rglob("diagnostic-cases.json"))
+        if len(files) != 1:
+            raise ValueError(f"LLVM {major}: expected one diagnostic-cases.json")
+        captured = json.loads(files[0].read_text(encoding="utf-8"))
+        if (
+            captured["schema_version"] != 1
+            or captured["frontend_version"]
+            != report["record"][str(major)]["frontend_version"]
+        ):
+            raise ValueError(f"LLVM {major}: diagnostic frontend/version mismatch")
+        validate_cases(captured["cases"])
+        if reference is None:
+            reference = captured["cases"]
+        elif captured["cases"] != reference:
+            raise ValueError(
+                f"LLVM {major}: diagnostic/failure behavior differs from LLVM 17"
+            )
+        evidence[str(major)] = captured
+    report["diagnostics"] = evidence
     return report
 
 

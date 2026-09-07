@@ -214,6 +214,6 @@ namespace trick::icg::compat
             return "external";
 #endif
         }
-        return "none";
+        return nullptr;
     }
 }

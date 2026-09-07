@@ -1125,6 +1125,67 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
         if node["kind"] != "callable":
             continue
         parents = ancestors.get(node.get("semantic_parent_id"), set())
+        # Reconstruct the nearest overridden declaration on each base path.
+        # Checking only listed edges cannot detect a producer dropping an edge.
+        expected_overrides = set()
+        expected_implicit = set()
+        if (
+            node["callable_kind"] in {"method", "destructor", "conversion"}
+            and not node["static"]
+        ):
+            pending = [
+                base["declaration_id"]
+                for base in records[node["semantic_parent_id"]]["bases"]
+            ]
+            visited = set()
+            while pending:
+                identifier = pending.pop()
+                if identifier in visited:
+                    continue
+                visited.add(identifier)
+                base = records[identifier]
+                matches = []
+                for member_id in base["callable_ids"]:
+                    member = declarations[member_id]
+                    if (
+                        not member["virtual"]
+                        or member["callable_kind"] != node["callable_kind"]
+                    ):
+                        continue
+                    if node["callable_kind"] == "destructor" or (
+                        all(
+                            node[key] == member[key]
+                            for key in (
+                                "name",
+                                "const",
+                                "volatile",
+                                "ref_qualifier",
+                                "variadic",
+                            )
+                        )
+                        and [parameter_key(p["type_id"]) for p in node["parameters"]]
+                        == [parameter_key(p["type_id"]) for p in member["parameters"]]
+                    ):
+                        matches.append(member_id)
+                if matches:
+                    expected_overrides.update(matches)
+                elif node["callable_kind"] == "destructor" and any(
+                    slot["kind"] == "destructor"
+                    and slot["state"] == "implicit"
+                    and slot["virtual"]
+                    for slot in base["special_members"]
+                ):
+                    expected_implicit.add(identifier)
+                else:
+                    pending.extend(edge["declaration_id"] for edge in base["bases"])
+        if (
+            set(node["overridden_declaration_ids"]) != expected_overrides
+            or set(node["overridden_implicit_destructor_record_ids"])
+            != expected_implicit
+        ):
+            raise ValueError(
+                f"{node['id']} has incomplete or non-nearest override targets"
+            )
         for identifier in node["overridden_declaration_ids"]:
             target = declarations[identifier]
             if (

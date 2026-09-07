@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -5,6 +6,7 @@ from pathlib import Path
 
 import compare_versions as comparison
 import validate as ir
+from capture_diagnostics import CASES
 
 ROOT = Path(__file__).resolve().parents[2]
 IR = ROOT / "trick_source/codegen/TrickCodeGen/ir"
@@ -26,6 +28,25 @@ class CompareVersionsTests(unittest.TestCase):
             fixture["provenance"]["working_directory"] = f"/build/{major}"
             for name in comparison.FIXTURES:
                 (directory / f"{name}.json").write_text(json.dumps(fixture))
+            report = {
+                "schema_version": 1,
+                "frontend_version": fixture["provenance"]["frontend_version"],
+                "cases": {
+                    name: {
+                        "source_sha256": hashlib.sha256(source).hexdigest(),
+                        "returncode": code,
+                        "stdout_empty": code != 0,
+                        "icg_codes": codes,
+                        "clang_severities": [["error", 1]]
+                        if name == "parse-error"
+                        else [["warning", 1]]
+                        if name == "warning"
+                        else [],
+                    }
+                    for name, (source, code, codes) in CASES.items()
+                },
+            }
+            (directory / "diagnostic-cases.json").write_text(json.dumps(report))
 
     def mutate(self, change, *, refresh=True):
         path = self.lanes[23] / "record.json"
@@ -37,7 +58,7 @@ class CompareVersionsTests(unittest.TestCase):
 
     def test_complete_valid_matrix_passes(self):
         report = comparison.compare(self.schema, self.lanes)
-        self.assertEqual(set(report), set(comparison.FIXTURES))
+        self.assertEqual(set(report), set(comparison.FIXTURES) | {"diagnostics"})
         self.assertEqual(set(report["record"]), {str(v) for v in comparison.VERSIONS})
 
     def test_missing_version_fails(self):
@@ -93,6 +114,27 @@ class CompareVersionsTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "unknown|missing"):
             comparison.compare(self.schema, self.lanes)
+
+    def test_missing_negative_evidence_fails(self):
+        (self.lanes[23] / "diagnostic-cases.json").unlink()
+        with self.assertRaisesRegex(ValueError, "diagnostic-cases.json"):
+            comparison.compare(self.schema, self.lanes)
+
+    def test_changed_rejection_and_diagnostics_fail(self):
+        path = self.lanes[23] / "diagnostic-cases.json"
+        original = path.read_text()
+        for key, value in (
+            ("returncode", 0),
+            ("stdout_empty", False),
+            ("icg_codes", []),
+            ("clang_severities", [["warning", 1]]),
+        ):
+            with self.subTest(key=key):
+                report = json.loads(original)
+                report["cases"]["static-member"][key] = value
+                path.write_text(json.dumps(report))
+                with self.assertRaisesRegex(ValueError, "changed"):
+                    comparison.compare(self.schema, self.lanes)
 
 
 if __name__ == "__main__":
