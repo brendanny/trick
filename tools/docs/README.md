@@ -1,9 +1,11 @@
 # Documentation migration pilot
 
-This implements steps 1–3 of the Jekyll-to-Zensical migration: a reproducible
+This implements steps 1–3 and the step-4 publishing infrastructure for the
+Jekyll-to-Zensical migration: a reproducible
 build harness, immutable source baseline, full-corpus content conversion,
-task-oriented reader experience, and **non-deploying** CI. Browser acceptance
-for step 3 is still pending. This does not switch GitHub Pages, introduce release versioning,
+task-oriented reader experience, **non-deploying** PR CI, and a separate disabled-
+by-default, approval-gated publisher. Browser acceptance and the actual production
+cutover are still pending. This does not switch GitHub Pages, introduce release versioning,
 or change Doxygen or Trick's runtime dependencies.
 
 The branch is based on `brendanny/trick:master` at
@@ -93,7 +95,8 @@ preparing the source uses a stale projection and is not the supported workflow.
 | Code samples | Source samples must match the immutable baseline; rendered samples must match source text and order. |
 | Raw-HTML links and duplicate IDs | Every finding fails, including missing fragments; there is no allowance list. |
 | Strict validation | Negative fixtures must fail against the real Zensical executable. |
-| Publication | No deployment job, Pages write permission, OIDC permission, or `gh-pages` push. |
+| Publication | PR CI has no deployment job or Pages/OIDC permissions. A separate manual publisher requires upstream master, explicit opt-in, reviewed evidence, an exact successful candidate, and the protected Pages environment. |
+| Output collisions | Source paths that would overwrite the same output or collide as files/directories fail before rendering. |
 
 The pilot covers the homepage, install guide, simple cannonball simulation,
 analytic cannonball tutorial, `S_define` reference, Variable Server reference,
@@ -116,6 +119,14 @@ Outputs:
   presentation markup, static resource audit, and explicit browser-check status.
 - `.docs-build/search-report.json`: real search-worker hash, measured ranks and
   first-response locations for the six acceptance queries, and negative fixtures.
+- `.docs-build/candidate/`: successful validated static candidate and checksum/
+  provenance manifest, produced by `python tools/docs/release.py package` from a
+  clean committed checkout after the validation sequence above.
+
+See [Publishing and recovery](PUBLISHING.md) for the step-4 trust boundaries,
+exact-artifact promotion, required evidence, optional external-link audit, and
+the coordinated cutover/rollback procedure. The checked-in approval record is
+deliberately incomplete and authorizes no deployment.
 
 ## Reader experience (step 3)
 
@@ -288,6 +299,11 @@ python tools/docs/inventory.py --legacy-html /absolute/path/to/legacy-output --o
 python tools/docs/check_site.py --baseline .docs-build/legacy-rendered.json
 ```
 
+After review, supplemental evidence may be stored as
+`tools/docs/legacy-rendered.json`; normal CI then picks it up automatically.
+`load_baseline` rejects changes to the immutable source inventory or an incomplete
+rendered capture. Source-only `legacy-routes.json` stays unchanged.
+
 Only pass output generated from the manifest's recorded `source_commit`. The
 importer records hashes and static IDs of the supplied HTML; it cannot authenticate
 that build's provenance or infer browser-generated IDs. Imported missing anchors
@@ -321,15 +337,17 @@ with a clean generator cache and fresh output.
 `.github/workflows/docs.yml` runs on PRs and pushes to `master` or
 `zensical-migration`, with a manual trigger. It always reports its named check,
 has read-only repository permissions, pins actions to commit SHAs, and never uses
-`pull_request_target`. The downloaded review artifact contains only output,
-diagnostics, and the report—not the environment or other workspace files. It is
+`pull_request_target`. It also packages and uploads a successful static candidate
+for later explicit promotion; it cannot deploy it. The downloaded review artifact
+contains only output, diagnostics, and reports—not the environment or other workspace files. It is
 not a hosted preview and is not a durable rollback archive.
 
-## Handoff to step 4
+## Handoff to production cutover
 
-Next, complete the explicit browser acceptance above and the outstanding legacy
-evidence before preparing an artifact-based Pages cutover and rollback. Keep
-production publishing separate. The Jekyll configuration and
+The artifact-based publishing workflow and runbook are now prepared. Next,
+complete explicit browser acceptance, the outstanding legacy evidence, recovery
+rehearsal, and authorized maintainer coordination before enabling publication.
+Follow `PUBLISHING.md`; no release approval is inferred from green CI. The Jekyll configuration and
 layout, dependency lock, Doxygen, and Pages settings remain unchanged, but the
 authored Markdown now contains the conversion. Do not deploy this branch through
 the old publisher or assume it has been verified against Jekyll. Complete the

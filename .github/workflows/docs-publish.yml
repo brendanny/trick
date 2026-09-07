@@ -1,0 +1,96 @@
+name: Publish approved documentation
+
+# Opt-in only. Do not add a PR trigger or workflow_run artifact promotion.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Documentation pilot push run on nasa/trick master
+        required: true
+        type: string
+      source_commit:
+        description: Full 40-character commit SHA of that run
+        required: true
+        type: string
+      site_tar_sha256:
+        description: Reviewed site.tar SHA-256 from candidate.json
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Serialize the whole promotion, including environment approval. Never cancel
+# an in-flight production deployment in favor of a newer one.
+concurrency:
+  group: documentation-pages-production
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'nasa/trick' &&
+      github.ref == 'refs/heads/master' &&
+      vars.DOCS_PAGES_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    env:
+      DOCS_RUN_ID: ${{ inputs.run_id }}
+      DOCS_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      DOCS_SITE_TAR_SHA256: ${{ inputs.site_tar_sha256 }}
+    steps:
+      # Always load workflow helpers and approval from this trusted master
+      # revision, never execute files from the downloaded candidate artifact.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11'
+      - name: Verify source run, trusted ancestry, and checksum-bound approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/docs/release.py preflight
+      - name: Download only the selected successful run's candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: documentation-candidate
+          path: .docs-build/download
+          repository: nasa/trick
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+      - name: Verify and unpack the approved static bytes (no rebuild)
+        run: python tools/docs/release.py unpack
+      - name: Package the verified site for Pages
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: .docs-build/publish
+          retention-days: 7
+
+  deploy:
+    needs: prepare
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'nasa/trick' &&
+      github.ref == 'refs/heads/master' &&
+      vars.DOCS_PAGES_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # No checkout, source execution, dependency installation, or site build.
+      - name: Deploy the approved Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

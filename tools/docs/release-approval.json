@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "source_commit": null,
+  "site_tar_sha256": null,
+  "reviews": {
+    "legacy_routes_and_fragments": {"status": "pending", "reviewer": null, "evidence": null},
+    "desktop_mobile_light_dark": {"status": "pending", "reviewer": null, "evidence": null},
+    "keyboard_accessibility": {"status": "pending", "reviewer": null, "evidence": null},
+    "network_independence": {"status": "pending", "reviewer": null, "evidence": null},
+    "pages_settings_and_single_publisher": {"status": "pending", "reviewer": null, "evidence": null}
+  },
+  "rollback": {
+    "source_commit": null,
+    "artifact_sha256": null,
+    "artifact_url": null,
+    "rehearsal_evidence": null
+  }
+}

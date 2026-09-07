@@ -227,16 +227,42 @@ def failed(report: dict, require_legacy: bool = False) -> bool:
     )
 
 
+def load_baseline(path: Path) -> dict:
+    baseline = json.loads(path.read_text())
+    original = json.loads((ROOT / "tools/docs/legacy-routes.json").read_text())
+    for key in ("schema_version", "source_commit", "pages", "assets", "helpers"):
+        if baseline[key] != original[key]:
+            raise ValueError(
+                f"Supplemental evidence changed the immutable baseline: {key}"
+            )
+    if baseline["coverage"].get("rendered_heading_ids"):
+        captures = baseline.get("rendered_capture", [])
+        expected = {page["expected_html"] for page in original["pages"]}
+        if (
+            len(captures) != len(expected)
+            or {page["html"] for page in captures} != expected
+        ):
+            raise ValueError(
+                "Rendered evidence must capture every baseline page exactly once"
+            )
+    return baseline
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--site", type=Path, default=ROOT / "site")
+    rendered = ROOT / "tools/docs/legacy-rendered.json"
     parser.add_argument(
-        "--baseline", type=Path, default=ROOT / "tools/docs/legacy-routes.json"
+        "--baseline",
+        type=Path,
+        default=(
+            rendered if rendered.is_file() else ROOT / "tools/docs/legacy-routes.json"
+        ),
     )
     parser.add_argument("--report", type=Path, default=ROOT / ".docs-build/report.json")
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
-    baseline = json.loads(args.baseline.read_text())
+    baseline = load_baseline(args.baseline)
     pilot = json.loads((ROOT / "tools/docs/pilot.json").read_text())
     metadata, source_errors = inspect_content(ROOT, baseline)
     report = inspect_site(args.site, baseline, pilot, metadata)

@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-from common import ROOT, is_helper
+from common import ROOT, html_path, is_helper
 
 
 def source_files(root: Path) -> dict[str, Path]:
@@ -32,6 +32,16 @@ def source_files(root: Path) -> dict[str, Path]:
                 result[name] = path
     if "index.md" not in result:
         raise ValueError("Missing docs/index.md")
+    # Detect collisions before the generator can overwrite a page with an asset.
+    outputs = {}
+    for name in result:
+        target = (html_path(name) if name.endswith(".md") else name).casefold()
+        if target in outputs:
+            raise ValueError(f"Publication collision: {outputs[target]} and {name}")
+        outputs[target] = name
+    for target, name in outputs.items():
+        if any(parent.as_posix() in outputs for parent in Path(target).parents):
+            raise ValueError(f"Publication file/directory collision: {name}")
     return result
 
 
@@ -133,7 +143,12 @@ def main() -> int:
     )
     with log_path.open("w", encoding="utf-8") as log:
         result = subprocess.run(
-            command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, timeout=300
+            command,
+            cwd=ROOT,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            timeout=300,
+            check=False,
         )
     log = log_path.read_text(encoding="utf-8")
     plain = re.sub(r"\x1b\[[0-9;]*m", "", log)
