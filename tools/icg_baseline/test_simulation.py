@@ -21,6 +21,8 @@ class SimulationTests(unittest.TestCase):
         self.expected = json.loads(self.expected_path.read_text())
         self.observed = self.root / "observations.json"
         self.observed.write_bytes(b.json_bytes(self.expected))
+        (self.root / "stdout.log").write_text("")
+        (self.root / "stderr.log").write_text("")
         self.checkpoint = self.root / "icg_model_checkpoint"
         # Synthetic text is only for testing the collector's completeness checks.
         self.checkpoint.write_text(
@@ -52,7 +54,7 @@ class SimulationTests(unittest.TestCase):
             if change == "wrong":
                 actual["restored"]["integer"] = -10
             elif change == "missing":
-                del actual["before"]["nested"]
+                del actual["before"]["reals"]
             elif change == "boolean":
                 actual["restore_status"] = False
             elif change == "unchanged":
@@ -85,6 +87,8 @@ class SimulationTests(unittest.TestCase):
         evidence = self.root / "evidence"
         evidence.mkdir()
         (evidence / "observations.json").write_bytes(self.observed.read_bytes())
+        (evidence / "stdout.log").write_text("")
+        (evidence / "stderr.log").write_text("")
         (evidence / "icg_model_checkpoint").symlink_to(target)
         with self.assertRaises(b.BaselineError):
             s.validate_runtime(evidence, self.expected_path)
@@ -109,7 +113,10 @@ class SimulationTests(unittest.TestCase):
         first = sim / "S_main_first.exe"
         first.write_text("synthetic executable")
         first.chmod(0o755)
-        self.assertEqual(s.executable(sim), first)
+        self.assertEqual(s.executable(sim), first.resolve())
+        alias = self.root / "sim-alias"
+        alias.symlink_to(sim, target_is_directory=True)
+        self.assertEqual(s.executable(alias), first.resolve())
         second = sim / "S_main_second.exe"
         second.symlink_to(first)
         with self.assertRaises(b.BaselineError):
@@ -138,6 +145,16 @@ class SimulationTests(unittest.TestCase):
         report = json.loads((output / "report.json").read_text())
         self.assertEqual(report["status"], "failed")
         self.assertEqual(report["measurement"]["returncode"], 124)
+
+    def test_logged_restore_errors_are_not_hidden_by_zero_return_status(self):
+        for marker in (
+            "Checkpoint restore failed.",
+            "Traceback (most recent call last):",
+        ):
+            (self.root / "stdout.log").write_text(marker)
+            (self.root / "stderr.log").write_text("")
+            with self.subTest(marker=marker), self.assertRaises(b.BaselineError):
+                s.validate_runtime(self.root, self.expected_path)
 
 
 if __name__ == "__main__":

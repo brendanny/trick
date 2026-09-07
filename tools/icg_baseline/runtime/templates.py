@@ -14,7 +14,6 @@ def icg_values():
         "reals": [float(model.TTT_var_array_builtins.bb[i]) for i in range(3)],
         "enum": int(model.TTT_var_enum.aa),
         "enums": [int(model.TTT_var_enum.bb[i]) for i in range(2)],
-        "nested": int(model.TTT_var_template_parameters.aa.t),
     }
 
 
@@ -38,7 +37,6 @@ def icg_observe():
     model.TTT_var_array_builtins.bb = [-1.25, 2.5, -3.75]
     model.TTT_var_enum.aa = trick.Bar_2
     model.TTT_var_enum.bb = [trick.Bar_2, trick.Bar_1]
-    model.TTT_var_template_parameters.aa.t = -17
     mutated = icg_values()
 
     # Read into the existing allocations; this tests metadata-driven restore.
@@ -53,6 +51,9 @@ def icg_observe():
         "mutated": mutated,
         "restored": icg_values(),
         "restore_status": restore_status,
+        # Current production SWIG exposes this nested specialization as an
+        # opaque pointer. Record the limitation instead of claiming access.
+        "nested_binding_available": hasattr(model.TTT_var_template_parameters.aa, "t"),
     }
     (output / "observations.json").write_text(json.dumps(result, indent=2) + "\n")
 
@@ -63,7 +64,6 @@ tso.tobj.TTT_var_array_builtins.aa = [1, 2]
 tso.tobj.TTT_var_array_builtins.bb = [1.25, -2.5, 3.75]
 tso.tobj.TTT_var_enum.aa = trick.Bar_1
 tso.tobj.TTT_var_enum.bb = [trick.Bar_1, trick.Bar_2]
-tso.tobj.TTT_var_template_parameters.aa.t = 17
 trick.var_server_set_enabled(False)
 trick.exec_set_software_frame(0.1)
 trick.add_read(0.1, "icg_observe()")

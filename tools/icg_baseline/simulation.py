@@ -41,6 +41,19 @@ def executable(sim: Path) -> Path:
 
 
 def validate_runtime(output: Path, expected_path: Path) -> dict:
+    # Legacy read_checkpoint logs a parser failure but can still return zero.
+    for name in ("stdout.log", "stderr.log"):
+        log = b.contained(output, name).read_bytes()
+        if any(
+            marker in log
+            for marker in (
+                b"Checkpoint restore failed.",
+                b"Traceback (most recent call last):",
+            )
+        ):
+            raise b.BaselineError(
+                "runtime log contains a Python or checkpoint restore error"
+            )
     actual_path = b.contained(output, "observations.json")
     actual = json.loads(actual_path.read_text())
     expected = json.loads(expected_path.read_text())
@@ -122,7 +135,7 @@ def capture(args: argparse.Namespace) -> int:
     if output.is_relative_to(sim):
         raise b.BaselineError("store evidence outside the simulation directory")
     output.mkdir(parents=True, exist_ok=False)
-    env = dict(os.environ, TRICK_HOME=str(root))
+    env = dict(os.environ, TRICK_HOME=str(root), MAKEFLAGS=f"-j{args.jobs}")
     report = {
         "schema_version": 1,
         "scope": "configured-simulation",
@@ -150,13 +163,13 @@ def capture(args: argparse.Namespace) -> int:
             b.write_changed(output / "configuration" / path.name, path.read_bytes())
     try:
         for label in ("cold", "warm", "forced", "rebuilt"):
-            command = [
-                str(root / "bin/trick-CP"),
-                f"-j{args.jobs}",
-                "TRICK_VERBOSE_BUILD=1",
-            ]
-            if label == "forced":
-                command.append("force_ICG")
+            # trick-CP forwards unrecognized arguments to the S_define parser.
+            # Parallelism belongs in MAKEFLAGS; named targets go to Make.
+            command = (
+                ["make", "-f", "makefile", "force_ICG", "TRICK_VERBOSE_BUILD=1"]
+                if label == "forced"
+                else [str(root / "bin/trick-CP"), "TRICK_VERBOSE_BUILD=1"]
+            )
             argv = [
                 sys.executable,
                 str(HERE / "baseline.py"),

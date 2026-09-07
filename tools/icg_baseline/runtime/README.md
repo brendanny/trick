@@ -42,7 +42,7 @@ does; the collector cannot reconstruct earlier build commands from a binary.
 | `cold` | Full `trick-CP` build from a fresh simulation directory, including generated-source compile/link |
 | `warm` | Repeat `trick-CP`; record content and mtime churn without assuming a no-op |
 | `runtime-warm` | Execute the linked simulation with the probe below |
-| `forced` | `trick-CP force_ICG`; includes Make startup and prerequisites |
+| `forced` | `make -f makefile force_ICG`; includes Make startup and prerequisites |
 | `rebuilt` | Full `trick-CP` after forced generation, recompiling/relinking as required |
 | `runtime-rebuilt` | Repeat the runtime probe with the resulting executable |
 
@@ -54,6 +54,8 @@ raw logs, measurements, sidecars, and churn; the summary retains configuration,
 input/expected-output digests, and the actual executable digest for each run.
 GNU `timeout` bounds complete build commands (20 minutes by default) and runtime
 commands (60 seconds), terminating their process groups on expiry.
+`--jobs` sets `MAKEFLAGS`; `trick-CP` does not accept Make's `-j` option or named
+targets as its own command-line arguments.
 
 Full generated snapshots are retained as CI artifacts and compared between
 stages, with `cold-*.diff` files. They are **observations**, not yet approved
@@ -65,7 +67,7 @@ goldens continue to be checked separately.
 ## Runtime contract
 
 The real Trick input processor executes `templates.py`. The probe sets integer,
-floating, array, enum, and nested-template fields through SWIG and observes them
+floating, array, and enum fields through SWIG and observes them
 in a scheduler callback at simulation time 0.1 seconds. It writes a synchronous
 checkpoint of `tso`, mutates those fields, calls `TMM_read_checkpoint`, and records
 the restored values. Reduced checkpoints are disabled for this object subset to
@@ -79,6 +81,14 @@ and rejects global-clear checkpoints. A zero process exit without these outputs
 is a failure, including Python errors that the simulation might otherwise log.
 The binary must also exit successfully after the callback. Results and raw
 checkpoint text are retained for inspection before and after regeneration.
+Python tracebacks and legacy checkpoint-parser failure diagnostics also fail the
+gate: the legacy reader can log a parse failure while returning zero.
+
+The existing bindings expose `TTT_var_template_parameters.aa` as an opaque
+`SwigPyObject`, without access to its `t` member. The observations explicitly
+record `nested_binding_available: false`; nested-template Python access is an
+observed coverage gap, not a successful read/write check. An intentional binding
+improvement requires reviewing this baseline expectation.
 
 This covers checkpoint reading into existing allocations. It does not cover
 executive restart, allocation reconstruction, proxy lifetimes, units conversion,

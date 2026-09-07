@@ -92,7 +92,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Review hardening | Named file roots, exact integers/scalar extents, complete member diagnostics and safe reference collection, argument/normalization regressions, content-addressed sidecars, pinned Ruff CI, versioned owned identity tags, consistent display names, capability prerequisites, and verified normalized graph fingerprints implemented |
 | GCC 8.5/12 extractor host builds | Dedicated LLVM 17 / Rocky Linux 8 CI jobs; does not establish generated-code conformance |
 | GCC 8.5/12 layout and generated-operation probes | Focused native size/alignment/public base-path, special-member type-trait, and concrete-template layout probes wired into host CI; broader layout and generated-operation gates pending |
-| Runtime/Python behavior | Configured template simulation checks scalar/array/enum/nested-template bindings and checkpoint readback into existing allocations before/after regeneration; executive restart, lifetime, units/I/O, and broader coverage pending |
+| Runtime/Python behavior | Configured template simulation checks scalar/array/enum bindings and checkpoint readback into existing allocations before/after regeneration; records the current opaque nested-template binding. Executive restart, lifetime, nested access, units/I/O, and broader coverage remain pending |
 | S_define and replacement-binding spikes | Pending; configured baseline uses the existing Perl/SWIG path |
 | Exact platform packages and ADR decisions | Package matrix pending; ICG-001 and ICG-002 accepted, eight initial ADRs pending |
 
