@@ -1,4 +1,9 @@
-| [Home](/trick) → [Developer Docs](Developer-Docs-Home) → Testing |
+---
+title: "Testing"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → Testing |
 |------------------------------------------------------------------|
 
 
@@ -57,5 +62,4 @@ After Trick has been rebuild with the instrumentation, run:
 make code-coverage
 ```
 This will generate, collect, and filter all the various coverage data collection files into `coverage.info`. This is the file that is uploaded to Coveralls in the [code_coverage.yml](https://github.com/nasa/trick/blob/master/.github/workflows/code_coverage.yml) Github Actions workflow.
-
 

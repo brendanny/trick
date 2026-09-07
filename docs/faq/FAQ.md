@@ -1,4 +1,9 @@
-| [Home](/trick) → Frequently Asked Questions (FAQ) |
+---
+title: "Frequently Asked Questions"
+documentation_status: current
+---
+
+| [Home](../index.md) → Frequently Asked Questions (FAQ) |
 |-------------------------------------------------|
 
 # Appendix
@@ -145,9 +150,9 @@ var = trick.var_get("my_sim_object.a.ii")
 ## Are there faster ways to implement events?
 Trick has a few alternatives to an input file event. Both method execute faster than a regular input processor event, but are not as flexible.
 
-01.  [A Just in Time (JIT) input file](/trick/documentation/simulation_capabilities/JIT-Input-Processor.html) is C++ code that is
+01.  [A Just in Time (JIT) input file](../documentation/simulation_capabilities/JIT-Input-Processor.md) is C++ code that is
 compiled and run during simulation execution.
-02.  [Realtime Injection](/trick/documentation/simulation_capabilities/Realtime-Injector.html) stages variable assignments and executes them in bulk at the top of a software frame.
+02.  [Realtime Injection](../documentation/simulation_capabilities/Realtime-Injector.md) stages variable assignments and executes them in bulk at the top of a software frame.
 
 <a name="arethereinputfiletemplatelimitations"></a>
 
@@ -183,4 +188,3 @@ var = trick.var_get("my_sim_object.b.a[1].t")
 
 Trick is composed entirely of information. It contains no matter, organic or otherwise. Therefore Trick contains no gluten,
 GMOs, nor is it fed by grass, vegetables, or meat. Trick could be described as environmentally conservative in that it runs on numerous POSIX (Unix-like) operating systems. Trick is of course free-range! It's Opensource!, and freely available to anyone, even dolphins with internet access.
-

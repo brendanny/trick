@@ -1,4 +1,15 @@
-| [Home](/trick) → [Developer Docs](Developer-Docs-Home) → Real-Time Clock |
+---
+title: "Real-Time Clock Design"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [developer documentation](Developer-Docs-Home.md).
+
+| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → Real-Time Clock |
 |------------------------------------------------------------------|
 
 # Real-Time Clock Design
@@ -47,4 +58,3 @@ Trick::GetTimeOfDayClock::clock_spin()
 
 @copydetails Trick::GetTimeOfDayClock::clock_stop()
 Trick::GetTimeOfDayClock::clock_stop()
-

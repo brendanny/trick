@@ -1,4 +1,9 @@
-| [Home](/trick/index) → [Documentation Home](../Documentation-Home) → Software Requirements Specification |
+---
+title: "Software Requirements Specification"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Software Requirements Specification |
 |-------------------------------------------------------------------------------------------------|
 
 # Introduction

@@ -1,9 +1,14 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Building a Simulation](Building-a-Simulation) → Trickified Project Libraries |
+---
+title: "Trickified Project Libraries"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Building a Simulation](Building-a-Simulation.md) → Trickified Project Libraries |
 |------------------------------------------------------------------|
 
 
 # Classic Trickify
-This document details the revamped form of Trickify added in Trick-25. For the original documentation, see [Trickified Project Libraries Classic](Trickified-Project-Libraries-Classic)
+This document details the revamped form of Trickify added in Trick-25. For the original documentation, see [Trickified Project Libraries Classic](Trickified-Project-Libraries-Classic.md)
 
 # Overview
 During a simulation build, Trick generates several rounds of files to support data recording, checkpointing, and Python access:
@@ -233,4 +238,3 @@ The demo Trickified library was initially built with the following command. Most
 To build the demo sim, first go to the "trickified" directory and make. Afterwards, run trick-CP like any other sim.
 
 That's all there is to it. All Trickified libraries should operate exactly the same as the demo once configured. The only difference would be setting up the initial Trickify build command.
-

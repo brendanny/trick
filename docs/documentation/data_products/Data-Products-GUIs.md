@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Data Products](Data-Products) → Data Products GUIs |
+---
+title: "Data Products GUIs"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Data Products](Data-Products.md) → Data Products GUIs |
 |------------------------------------------------------------------|
 
 There are two main GUIs for viewing Trick logged data:
@@ -881,4 +886,4 @@ The external program $TRICK_HOME/trick_source/data_products/Apps/ExternalProgram
 
 ![plot7](images/plot7.jpg)
 
-[Continue to Simulation Capabilities](../simulation_capabilities/Simulation-Capabilities)
+[Continue to Simulation Capabilities](../simulation_capabilities/Simulation-Capabilities.md)

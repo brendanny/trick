@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Data Products](Data-Products) → DP Session File Format |
+---
+title: "DP Session File Format"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Data Products](Data-Products.md) → DP Session File Format |
 |------------------------------------------------------------------|
 
 Since Trick 10, the DP Session file is changed to XML format. The Session XML Document
@@ -119,4 +124,4 @@ number for plotting.
 </session>
 ```
 
-[Continue to DP Product File Format](DP-Product-File-Format)
+[Continue to DP Product File Format](DP-Product-File-Format.md)

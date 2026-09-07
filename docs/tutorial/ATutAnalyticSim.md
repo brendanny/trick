@@ -1,8 +1,13 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Analytical Cannon Simulation |
+---
+title: "Building & Running a Trick-based Simulation"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Analytical Cannon Simulation |
 |-------------------------------------------------------------------------|
 
 <!-- Section -->
-<a id=building-and-running-a-trick-based-simulation></a>
+<a id="building-and-running-a-trick-based-simulation"></a>
 # Building & Running a Trick-based Simulation
 
 **Contents**
@@ -32,7 +37,7 @@ In this and subsequent sections, we're going to build and run a Trick-based cann
 
 ---
  
-<a id=organizing-the-simulation-code-in-directories></a>
+
 ### Organizing the Simulation Code in Directories
 
 We'll begin by creating a directory system to hold our simulation source code:
@@ -46,7 +51,7 @@ We'll begin by creating a directory system to hold our simulation source code:
 
 ---
  
-<a id=representing-the-cannonball></a>
+
 ### Representing the Cannonball
 
 To represent the cannonball model, we need to create a header file (**cannon.h**)
@@ -62,7 +67,7 @@ has impacted the ground, and the time of impact.
 The prototypes will declare two functions for initializing our CANNON data-type.
 We'll discuss these in the next section.
 
-<a id=listing_2_cannon_h></a>
+<a id="listing_2_cannon_h"></a>
 **Listing 2 - `cannon.h`**
 
 ```c
@@ -118,7 +123,7 @@ whatever you like.
 
 Type, or cut and paste the contents of **Listing 2** and save.
 
-<a id=deciphering-the-trick Comments In The Header File></a>
+<a id="deciphering-the-trick"></a>
 ### Deciphering The Trick Comments In The Header File
 
 In the file above, note the comments at the top, and to the right of each
@@ -145,7 +150,7 @@ These are each described in **Figure 2** and in the sections below.
 
 ---
  
-<a id=the-input_output-io-specification></a>
+<a id="the-input_output-io-specification"></a>
 #### The Input/Output (I/O) Specification
 
 An I/O specification is an optional field that specifies data flow
@@ -164,7 +169,7 @@ The comment field is extracted and used in GUI tools to describe variables.
 
 ---
 
-<a id=units-specification></a>
+
 #### Units Specification
 A unit specification indicates the units of measure for a variable. For example,
 in the figure above, (m/s) indicates that `init_speed` is a measure of meters
@@ -187,7 +192,7 @@ for our Trick simulations. But, we are not going to describe the full capability
 of UDUNITS2 package. In order to see **ALL** available unit definitions, one would
 need to look at the UDUNITS2 xml files that comprise the units database.
 
-Rather than requiring that, the [Common Units & Unit Prefixes](ATutUnitTables) page
+Rather than requiring that, the [Common Units & Unit Prefixes](ATutUnitTables.md) page
 lists optional prefixes, and many of the most commonly used units in simulations
 at the Johnson Space Center Engineering Branch.
 
@@ -228,7 +233,7 @@ So, one could specify **m/s&#xB2;** rather than **m/s^2**, or  **m&#xB3;**
 rather than **m^3**, or **&#x3BC;m** rather than **micrometers**. The table below
 lists Unicode characters that can be used in units specifications.
 
-<a id=unicode-characters-used-in-units-specifications></a>
+
 ### Unicode Characters Used in Units Specifications
 | Character | Unicode Number | Unicode Name          | 
 |-----------|----------------| ----------------------|
@@ -253,7 +258,7 @@ doesn't have units, use "--" as the unit specification.
 
 ---
  
-<a id=initializing-the-cannonball-simulation></a>
+
 ### Initializing the Cannonball Simulation
 
 The Trickless simulation performed a two-part initialization of the
@@ -276,7 +281,7 @@ which we created the prototypes in the cannon.h header file.
 
 We'll create the python input file in a later section.
 
-<a id=listing_3_cannon_init_c></a>
+<a id="listing_3_cannon_init_c"></a>
 **Listing 3 - `cannon_init.c`**
 
 ```c
@@ -339,7 +344,7 @@ The return values can optionally be used (by setting trick\_ret in the S\_define
 
 Type in the contents of **Listing 3** and save.
 
-<a id=updating-the-cannonball-state-over-time></a>
+
 ### Updating The Cannonball State Over Time
 
 Trick's job scheduler provides a **"Scheduled"** job type for periodically calling functions when the sim is in RUN (cyclic) mode. 
@@ -347,7 +352,7 @@ Trick's job scheduler provides a **"Scheduled"** job type for periodically calli
 In the case of our cannonball simulation, where there is an analytical solution, we can
 calculate the the cannonball state by evaluating a function at each time step.
 
-<a id=listing_4_cannon_analytic_h></a>
+<a id="listing_4_cannon_analytic_h"></a>
 **Listing 4 - `cannon_analytic.h`**
 
 ```c
@@ -374,7 +379,7 @@ int cannon_analytic(CANNON*) ;
 
 Type in the contents of **Listing 4** and save.
 
-<a id=listing_5_cannon_analytic_c></a>
+<a id="listing_5_cannon_analytic_c"></a>
 **Listing 5 - `cannon_analytic.c`**
 
 ```c
@@ -428,7 +433,7 @@ with a number of libraries to create a simulation executable.
 
 Type in the contents of **Listing 5** and save.
 
-<a id=cannonball_cleanup_and_shutdown></a>
+<a id="cannonball_cleanup_and_shutdown"></a>
 ### Cannonball Cleanup And Shutdown
 
 **shutdown** job types are called by Trick's job scheduler when the simulation ends.
@@ -436,7 +441,7 @@ These types of jobs are for doing anything that one might want to do at the end 
 
 In our case we're just going to print the final cannon ball state.
 
-<a id=listing_6_cannon_shutdown_c></a>
+<a id="listing_6_cannon_shutdown_c"></a>
 **Listing 6 - `cannon_shutdown.c `**
 
 ```c
@@ -464,7 +469,7 @@ int cannon_shutdown( CANNON* C) {
 % vi cannon_shutdown.c
 ```
 
-<a id=simulation-definition-file></a>
+<a id="simulation-definition-file"></a>
 ## The Simulation Definition File (S_define)
 
 To automate the build process of a Trick based simulation, Trick needs to
@@ -473,7 +478,7 @@ requirements of a simulations models. This starts with the simulation
 definition file (**S_define**), an example of which, that we will use to define
 our Cannonball simulation is shown in Listing 7, below.
 
-<a id=listing_7_s_define></a>
+<a id="listing_7_s_define"></a>
 **Listing 7 - `S_define`**
 
 ```c++
@@ -525,7 +530,7 @@ Trick headers that are included within each of these files may specify additiona
 source code dependencies, and so forth. Libraries may also be specified for
 linking into the final executable.
 
-Trick uses your `$TRICK_CFLAGS` environment variable ([see section 3.2 of the Trick User Guide](/trick/documentation/building_a_simulation/Environment-Variables)) in
+Trick uses your `$TRICK_CFLAGS` environment variable ([see section 3.2 of the Trick User Guide](../documentation/building_a_simulation/Environment-Variables.md)) in
 conjunction with `cannon/src` to find the listed files. The entire path
 name following the `$TRICK_CFLAGS` path must be included.
 
@@ -538,7 +543,7 @@ that provide standard Trick Simulation functionality.
 * `##include "cannon/include/cannon_analytic.h"` The S_define must `##include`
 type definitions for all of the classes and structures that it uses. It also
 needs to include prototypes for all of the functions that it calls. You may also
-put the prototypes in the `S_define` block using ([user code blocks](/trick/documentation/building_a_simulation/Simulation-Definition-File#user-code-block)), but if you need to call any of the C functions from the input file then you must include the
+put the prototypes in the `S_define` block using ([user code blocks](../documentation/building_a_simulation/Simulation-Definition-File.md#user-code-block)), but if you need to call any of the C functions from the input file then you must include the
 prototypes in a header file (the preferred method).
 
 ### Data Lines
@@ -618,7 +623,7 @@ at time=0.0). "scheduled" is the job classification.
 
 Type in the contents of **Listing 7** and save.
 
-<a id=compiling-and-building-the-simulation></a>
+
 ## Compiling, and Building the Simulation
 
 The pieces are in order. The simulation is ready to be built!
@@ -665,7 +670,7 @@ The easiest, and most portable way of setting `TRICK_CFLAGS` for your simulation
 is to create a file named **`S_overrides.mk`** in your simulation directory, and
 then add the following lines to it:
 
-<a id=listing_8_s_overrides.mk></a>
+<a id="listing_8_s_overrides.mk"></a>
 **Listing 8 - `S_overrides.mk`**
 
 ```sh
@@ -740,7 +745,7 @@ S_define.
 * trick-CP croaks - You may have a syntax error in your S_define.
 
 
-<a id=running-the-simulation></a>
+
 ## Running The Simulation
 
 You've done a lot of work to get to this point. You've created a header, a
@@ -756,7 +761,7 @@ one line). In practice, input files can get ridiculously complex. The input file
 is processed by Python. There is no need to recompile the simulation after
 changing the input file. The file is interpreted.
 
-<a id=listing_9_input_py></a>
+<a id="listing_9_input_py"></a>
 **Listing 9 - input.py**
 
 ```python
@@ -813,4 +818,4 @@ We got the same answer! But, what about the trajectory? In the next section, we�
 
 ---
 
-[Next Page](ATutRecordingData)
+[Next Page](ATutRecordingData.md)

@@ -1,3 +1,14 @@
+---
+title: "Trick Master/Slave Synchronization Design"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [developer documentation](../../developer_docs/Developer-Docs-Home.md).
+
 
 # Trick Master/Slave Synchronization Design
 
@@ -163,4 +174,3 @@ set value ready for running again.
 
 If a slave is shutting down, inform the master that it is exiting.
 [@anchor d_slave_shutdown_0 d_slave_shutdown_0]
-

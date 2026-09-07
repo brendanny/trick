@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Web Server](Webserver) → [APIs](WebServerAPIs) → HTTP Alloc API |
+---
+title: "HTTP-API: alloc_info"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → [APIs](Webserver-apis.md) → HTTP Alloc API |
 |------------------------------------------------------------------|
 
 # HTTP-API: alloc_info 
@@ -89,4 +94,4 @@ In ```SIM_cannon_numeric``` (one of Trick's example sims) the following query re
 
 ```
 
-Continue to [WS Variable Server API](ws-variable-server-api)
+Continue to [WS Variable Server API](ws-variable-server-api.md)

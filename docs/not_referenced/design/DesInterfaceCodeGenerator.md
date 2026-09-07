@@ -1,3 +1,14 @@
+---
+title: "Interface Code Generator Design"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [developer documentation](../../developer_docs/Developer-Docs-Home.md).
+
 # Interface Code Generator Design
 
 The Interface Code Generator (ICG) creates class/struct layout information, called
@@ -102,6 +113,4 @@ The following diagram shows the recursive class instantiation sequence as well
 as the data returned to the caller.
 
 ## Writing Class/Struct Attributes
-
-
 

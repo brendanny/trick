@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Checkpoints |
+---
+title: "Checkpoints"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Checkpoints |
 |------------------------------------------------------------------|
 
 The Trick CheckPointWriter is a C++ Class that implements checkpointing.
@@ -31,4 +36,4 @@ trick.load_checkpoint(<filename>, False)
 
 ```
 
-[Continue to Memory Manager](memory_manager/MemoryManager)
+[Continue to Memory Manager](memory_manager/MemoryManager.md)

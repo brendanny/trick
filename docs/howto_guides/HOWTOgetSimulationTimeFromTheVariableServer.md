@@ -1,3 +1,8 @@
+---
+title: "Get Simulation Time from the Variable Server"
+documentation_status: current
+---
+
 ## How to Get Simulation Time from the Variable Server
 
 For historical reasons ```sys.exec.out.time``` is the name given to simulation time in data recording files. ```sys.exec.out.time``` isn’t a real variable in a Trick sim. So you can’t get it from the variable server directly.  
@@ -70,4 +75,4 @@ while(True):
 ```
 
 If you are unfamiliar or rusty on how to use the Trick variable server, please see
-the [Variable Server](/trick/tutorial/TutVariableServer) section of the [Trick Tutorial](/trick/tutorial/Tutorial).
+the [Variable Server](../tutorial/TutVariableServer.md) section of the [Trick Tutorial](../tutorial/Tutorial.md).

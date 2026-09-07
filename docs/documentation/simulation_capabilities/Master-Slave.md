@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Master/Slave |
+---
+title: "Master Slave"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Master/Slave |
 |------------------------------------------------------------------|
 
 Master/Slave is a way to do distributed processing in Trick using multiple simulations.
@@ -116,4 +121,4 @@ When chkpnt_load_auto=1, the Slave restarting and reconnecting should occur with
 to restart the slave himself (and may even be typing in the checkpoint executable on the command line), so reconnect_wait_limit should be
 set accordingly.
 
-[Continue to Data Recording](Data-Record)
+[Continue to Data Recording](Data-Record.md)

@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Building a Simulation](Building-a-Simulation) → Environment Variables |
+---
+title: "Environment Variables"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Building a Simulation](Building-a-Simulation.md) → Environment Variables |
 |------------------------------------------------------------------|
 
 Trick uses a list of variables for building sims e.g. TRICK_CFLAGS and TRICK_CXXFLAGS.  Each variable has a default value that may be overridden by setting the value in the environment. Trick resolves these variables by a call to a function called "trick-gte". Type in "${TRICK_HOME}/bin/trick-gte" on the command line to see what the "Trick environment" is.
@@ -186,4 +191,4 @@ csh/tcsh
 UNIX Prompt> setenv MAKEFLAGS -j<number of processors>
 ```
 
-[Continue to Simulation Definition File](Simulation-Definition-File)
+[Continue to Simulation Definition File](Simulation-Definition-File.md)

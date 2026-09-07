@@ -1,4 +1,9 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Variable Server |
+---
+title: "Trick Variable Server"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Variable Server |
 |------------------------------------------------------------|
 
 # Trick Variable Server
@@ -27,7 +32,7 @@ realistic example. We'll be interfacing with our Cannon ball simulation.
 
 ***
 
-<a id=what-is-the-variable-server></a>
+
 ## What is The Variable Server?
 
 Every Trick simulation contains a **Variable Server**, a TCP/IP network service
@@ -40,7 +45,7 @@ server specific API also exists to get simulation data back to the client.
 The Trick Sim Control Panel, and Trick-View are, for example, both variable
 server clients.
 
-<a id=variable-server-sessions></a>
+
 ### Variable Server Sessions
 
 Each variable server connection creates a **variable server session**, whose
@@ -69,14 +74,14 @@ server, where it's executed to call functions, set variables, or both. In the
 following sections, we'll see examples of these. We'll also learn how to use the
 variable server API to get data back to the client.
 
-<a id=a-simple-variable-server-client></a>
+
 ## A Simple Variable Server Client
 
 The listing below implements a very simple variable server client for our
 cannonball simulation. It connects to the simulation, requests cannonball
 position data, and prints the periodic responses to the screen.
 
-<a id=listing-CannonDisplay_Rev1-py></a>
+<a id="listing-CannonDisplay_Rev1-py"></a>
 **Listing - CannonDisplay_Rev1.py**
 
 ```python
@@ -113,7 +118,7 @@ while(True):
     print(line)
 ```
 
-<a id=running-the-client></a>
+
 ### Running the Client
 
 To run the variable server client :
@@ -150,7 +155,7 @@ that they were specified in the script.
 0	73.17914661978513	28.24082950000001
 ```
 
-<a id=how-the-client-works></a>
+
 ### How the Client Works
 
 The script first gets the variable server's port number, and creates a TCP/IP
@@ -200,7 +205,7 @@ following format:
 ```
 0\t<variable1-value>[\t<variable2-value>...\t <variableN-value> ]\n
 ```
-<a id=getting-values-just-once></a>
+
 ## Getting Values Just Once
 
 Suppose we wanted to get the value of the initial angle of our cannon. We don't
@@ -305,7 +310,7 @@ The first line contains the message type (which is zero), followed by the value
 of  ```dyn.cannon.init_angle```. Subsequent lines contain the position data like
 before.
 
-<a id=a-more-realistic-example></a>
+
 ## A More Realistic Example
 
 In the previous example we only called variable server API functions, like
@@ -324,7 +329,7 @@ The listing below implements a GUI client using **Python** and
  3. Set the simulation mode (using a "fire" button).
  4. Animate the flight of the cannon ball in realtime.
 
-<a id=listing-CannonDisplay_Rev2-py></a>
+<a id="listing-CannonDisplay_Rev2-py"></a>
 **Listing - CannonDisplay_Rev2.py**
 
 ```python
@@ -477,7 +482,7 @@ tk.mainloop()
 
 ```
 
-<a id=controlling-the-simulation-mode-from-a-vs-client></a>
+
 ### Controlling the Simulation Mode from a VS Client
 
 The current simulation mode is stored in the ```trick_sys.sched.mode``` variable.
@@ -500,7 +505,7 @@ as in sections 8.5, and 8.6 of the listing.
 
 Don't set ```trick_sys.sched.mode```.
 
-<a id=initializing-the-simulation-from-a-vs-client></a>
+
 ### Initializing the Simulation from a VS Client
 
 To set simulation values, we simply create and send Python assignment statements.
@@ -518,7 +523,7 @@ jobs directly.
 client_socket.send( b"trick.cannon_init( dyn.cannon )\n")
 ```
 
-<a id=starting-a-client-from-the-input-file></a>
+
 ## Starting a Client From The Input File
 
 Rather than having to start a client each and every time from the command line,
@@ -545,7 +550,7 @@ Add this to the bottom of RUN_test/input.py to give it a try.
 
 ## Appendix
 
-<a id=variable-server-message-types></a>
+
 ### Variable Server Message Types
 | Name              | Value | Meaning |
 |-------------------|-------|---------|
@@ -557,18 +562,18 @@ Add this to the bottom of RUN_test/input.py to give it a try.
 | VS\_STDIO         |  4    | Values Redirected from stdio if var_set_send_stdio is enabled| 
 | VS\_SEND\_ONCE    |  5    | Response to var\_send\_once|
 
-<a id=the-variable-server-api></a>
+
 ### The Variable Server API
 
 The following functions are a subset of variable server API functions that are
 used in this tutorial:
 
-<a id=api-var-add></a>
+<a id="api-var-add"></a>
 **var\_add( variable_name )** -
 Add a name to the session variable list. The value of the added variable will
 transmitted in subsequent variable server messages.
 
-<a id=api-var-ascii></a>
+<a id="api-var-ascii"></a>
 **var\_ascii()** -
 Set data response messages to the following ASCII encoded format (default):
 
@@ -579,53 +584,53 @@ Where:
 * **N** is the number of variables in the session variable list.
 * **\t** is a tab character.  
 
-<a id=api-var-binary></a>
+<a id="api-var-binary"></a>
 **var\_binary()** -
 Set response encoding to binary.
 
-<a id=api-var-cycle></a>
+<a id="api-var-cycle"></a>
 **var\_cycle( period )** -
 Set data response message period in seconds. (default = 0.1 seconds, i.e., 10 hertz)
 
-<a id=api-var-pause></a>
+<a id="api-var-pause"></a>
 **var\_pause()** -
 Halt periodic responses.
 
-<a id=api-var-unpause></a>
+<a id="api-var-unpause"></a>
 **var\_unpause()** -
 Resume periodic responses.
 
-<a id=api-var-send></a>
+<a id="api-var-send"></a>
 **var\_send()** -
 Send response immediately.
 
-<a id=api-var-send-once></a>
+<a id="api-var-send-once"></a>
 **var\_send\_once( variable_name )** -
 Immediately send the value of variable_name
 
 **var\_send\_once( variable_list, num_variables )** -
 Immediately send the value of all variables in the comma separated variable_list, or an error if the number of variables in the list does not match num_variables
 
-<a id=api-var-clear></a>
+<a id="api-var-clear"></a>
 **var\_clear()** -
 Clear the session variable list.
 
-<a id=api-var-exit></a>
+<a id="api-var-exit"></a>
 **var\_exit()** -
 End the connection to the variable server.
 
-<a id=api-var-remove></a>
+<a id="api-var-remove"></a>
 **var\_remove( variable_name )** -
 Remove the given name from the session variable list.
 
-<a id=api-var-set-client-tag></a>
+<a id="api-var-set-client-tag"></a>
 **var\_set\_client\_tag( text )** - Name the current connection, for debugging. 
 
-<a id=api-var-debug></a>
+<a id="api-var-debug"></a>
 **var\_debug( level )** -
 Set the debug level. Set level to 3 for all debug messages, and 0 for no debug messages.
 
-<a id=api-var-sync></a>
+<a id="api-var-sync"></a>
 **var\_sync( mode )** 
 
 Set the synchronization mode of the variable server session, where the modes are:
@@ -648,4 +653,4 @@ Set the synchronization mode of the variable server session, where the modes are
   This means that periodic data messages are guaranteed to
   be time homogeneous, but are written from the main simulation thread.
 
-[Next Page](ATutMonteCarlo)
+[Next Page](ATutMonteCarlo.md)

@@ -1,3 +1,8 @@
+---
+title: "How to \"Containerize\" Trick With Docker"
+documentation_status: current
+---
+
 # How to "Containerize" Trick With Docker
 
 This HOWTO assumes that we building our Docker images on a Linux system. If you're using
@@ -28,7 +33,7 @@ variable for this directory.
 mkdir DockerPlayGround
 export DOCKER_PLAYGROUND="`pwd`/DockerPlayGround"
 ```
-<a id=containerize-a-basic-trick-environment></a>
+
 ## Containerize a Basic Trick Environment
 
 In this example we'll build a Docker image, based on Ubuntu 18.04, with Trick 19.5.1
@@ -142,7 +147,7 @@ root@8615d8bf75c5:/apps/trick#
 
 This docker container contains a full Trick development environment. You can't run GUI applications on it but you can build a simulation.
 
-<a id=containerize-a-trick-simulation></a>
+
 ## Containerize a Trick Simulation
 
 ### Prerequisites:
@@ -378,4 +383,3 @@ You can shut down the sim from the trick-simcontrol panel when you're done.
 or if you don't have Trick installed, just use: ```docker kill misterbill```.
 
 # THE END
-

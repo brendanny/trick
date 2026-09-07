@@ -1,4 +1,9 @@
-| [Home](/trick) → [Developer Docs](Developer-Docs-Home) → Configure |
+---
+title: "Updating the configure script"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → Configure |
 |------------------------------------------------------------------|
 
 

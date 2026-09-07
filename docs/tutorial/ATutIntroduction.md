@@ -1,8 +1,13 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Introduction |
+---
+title: "🏁 Introduction"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Introduction |
 |---------------------------------------------------------|
 
 <!-- Section -->
-<a id=introduction></a>
+
 # 🏁 Introduction
 
 **Contents**
@@ -14,7 +19,7 @@
 
 ***
 
-<a id=what-trick-is></a>
+
 ## What Trick Is
 
 Trick is a NASA Open Source simulation framework for running time-based physics
@@ -34,7 +39,7 @@ slang for "really cool"... or something of that nature.
 
 ---
 
-<a id=the-goal-of-trick></a>
+
 ## The Goal of Trick
 
 The goal of Trick is to help simulation developers to focus on the algorithms
@@ -46,7 +51,7 @@ the process of building the executable.
 
 ---
 
-<a id=the-objective-of-this-tutorial></a>
+
 ## The Objective of This Tutorial
 
 This tutorial covers the basic concepts for developing and operating Trick
@@ -62,11 +67,11 @@ its capabilities.
 
 ---
 
-<a id=installing-trick></a>
+
 ## Installing Trick
 
 If Trick is not already installed on your machine, then you will need to do that
-first, by following the directions at: [Install Guide](/trick/documentation/install_guide/Install-Guide).
+first, by following the directions at: [Install Guide](../documentation/install_guide/Install-Guide.md).
 
 The rest of the tutorial is written as if the Trick **bin** directory is
 available on your execution path. This isn't strictly necessary, but allows
@@ -97,4 +102,4 @@ setenv PATH ${PATH}:${HOME}/trick/bin
 Close and then re-open your terminal window.
 
 ---
-[Next Page](ATutASimpleSim)
+[Next Page](ATutASimpleSim.md)

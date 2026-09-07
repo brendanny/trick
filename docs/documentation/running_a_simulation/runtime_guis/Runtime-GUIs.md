@@ -1,21 +1,26 @@
-| [Home](/trick) → [Documentation Home](../../Documentation-Home) → [Running a Simulation](../Running-a-Simulation) → Runtime GUIs |
+---
+title: "Runtime GUIs"
+documentation_status: current
+---
+
+| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → Runtime GUIs |
 |------------------------------------------------------------------|
 
 Trick provides the following graphical user interfaces:
 
-## [Sim Control Panel](SimControlPanel)
+## [Sim Control Panel](SimControlPanel.md)
 
 Send control commands to and view the status of a simulation.
 
-## [Trick View](TrickView)
+## [Trick View](TrickView.md)
 
 Browse and modify a simulation's variables while it's running. Launch integrated strip charts.
 
-## [Events/Malfunctions Trick View](MalfunctionsTrickView)
+## [Events/Malfunctions Trick View](MalfunctionsTrickView.md)
 
 Manage the events and malfunctions of a simulation.
 
-## [Monte Monitor](MonteMonitor)
+## [Monte Monitor](MonteMonitor.md)
 
 Monitor the status of a Monte Carlo simulation; create, start, and stop slaves.
 
@@ -141,4 +146,4 @@ This behavior can be specified via one of:
 - From the input file or user model code, use Trick::ExternalApplication::set_disconnect_behavior.
 - From the application, use the File->Settings menu.
 
-[Continue to Runtime Output](../Runtime-Output)
+[Continue to Runtime Output](../Runtime-Output.md)

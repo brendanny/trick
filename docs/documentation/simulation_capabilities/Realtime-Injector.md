@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Realtime Injector |
+---
+title: "Realtime Injector"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Realtime Injector |
 |------------------------------------------------------------------|
 
 The Real Time Injector (RTI) allows the user to set simulation variables
@@ -55,4 +60,4 @@ trick.rti_set_debug( True | False )
 Debug statements are printed if the rti debug flag is true.  But we don't need them
 because there aren't any bugs. :D  Debug statements are normally set to Off.
 
-[Continue to Monte Carlo](UserGuide-Monte-Carlo)
+[Continue to Monte Carlo](UserGuide-Monte-Carlo.md)

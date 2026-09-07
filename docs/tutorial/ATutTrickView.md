@@ -1,8 +1,13 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Viewing Real-Time Data |
+---
+title: "Viewing Simulation Variables with Trick View"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Viewing Real-Time Data |
 |-------------------------------------------------------------------|
 
 <!-- Section -->
-<a id=viewing-real-time-data-with-trick-view></a>
+<a id="viewing-real-time-data-with-trick-view"></a>
 ## Viewing Real-Time Data with Trick View (TV)
 
 Trick View (TV) is an application for viewing/setting simulation variables in
@@ -124,4 +129,4 @@ trick.stop(5.2)
 
 You may now run the sim and verify that TV pops up automatically.
 
-[Next Page](ATutNumericSim)
+[Next Page](ATutNumericSim.md)

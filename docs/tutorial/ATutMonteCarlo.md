@@ -1,4 +1,9 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Monte Carlo |
+---
+title: "Monte Carlo"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Monte Carlo |
 |--------------------------------------------------------|
 
 # Monte Carlo
@@ -20,14 +25,14 @@
 
 ***
 
-<a id=what-is-monte-carlo></a>
+
 ## What is Monte Carlo?
 
 Monte Carlo is an advanced simulation capability provided by Trick that allows users to repeatedly run copies of a simulation with different input values. Users can vary the input space of a simulation via input file, random value generation, or by calculating values from previous Monte Carlo runs in a process called optimization. This tutorial will show you how to modify the cannon_numeric simulation to take advantage of this capability.
 
-**For a thorough explanation of Monte Carlo and its features, read the [Monte Carlo User Guide](/trick/documentation/simulation_capabilities/UserGuide-Monte-Carlo).**
+**For a thorough explanation of Monte Carlo and its features, read the [Monte Carlo User Guide](../documentation/simulation_capabilities/UserGuide-Monte-Carlo.md).**
 
-<a id=example-task></a>
+
 ## Example Task
 **What would be the optimal launch angle required to ensure our cannonball travels the furthest distance?** Let us assume that we have no conception of physics or trigonometry and that we don't already know the answer.
 
@@ -35,14 +40,14 @@ Monte Carlo is an advanced simulation capability provided by Trick that allows u
 	<img src="images/OptimalLaunchAngle.png" width=550px/>
 </p>
 
-<a id=input-files></a>
+
 ## Input Files
 Input files allow you to specify the exact values you want on a particular simulation run. Input files are the most precise implementation, but they require more effort to setup and modify later down the road. Input files can contain multiple (tab or space) delimited columns filled with numerical information.
 
 ### Value List
 Create the following text file in your simulation directory with the name **angle\_value\_list**:
 
-<a id=listing-value-list></a>
+<a id="listing-value-list"></a>
 **Listing - angle_value_list**
 
 ```
@@ -75,7 +80,7 @@ The simulation input file must be adjusted to run the simulation using Monte Car
 
 The simulation must be told to enable Monte Carlo, recognize a Monte Carlo variable, and use the angle_value_list file created above. To accomplish this, change the input file to include the following:
 
-<a id=listing-input_1></a>
+<a id="listing-input_1"></a>
 **Listing - input.py**
 
 ```python
@@ -126,11 +131,11 @@ Right click the MONTE_RUN_test directory and select **Add run(s)**. Then open qu
 
 The various curves show the trajectories of each cannon run. It may be necessary to hide the legend if all the run names cover up the plot.
 
-<a id=random-input-generation></a>
+
 ## Random Input Generation
 Random Input Generation provides users with the ability to statistically generate input values along a Gaussian or Poisson distribution. Random generation is less precise than an input file, but it is more extensible and much easier to modify. Modify the input file again to use a gaussian distribution to generate launch angles.
 
-<a id=listing-input-2></a>
+<a id="listing-input-2"></a>
 **Listing - input.py**
 
 ```python
@@ -178,11 +183,11 @@ Run the script and plot the curves the same way as before. You will end up with 
 	<img src="images/MONTE_gauss_plot.png" width=750px/>
 </p>
 
-<a id=optimization></a>
+
 ## Optimization
 Optimization is the process of evaluating the previous run's data for use in the next run. In essence, you are optimizing each subsequent run and closing in on a specific value; in this instance, we are closing in on the optimal launch angle.
 
-<a id=listing-optimization-h></a>
+<a id="listing-optimization-h"></a>
 **Listing - optimization.h**
 
 ### optimization.h
@@ -214,7 +219,7 @@ int cannon_master_post(CANNON *);
 ### optimization.c
 What we are doing in these two functions is sending the slave's cannon structure from after the run has completed back to the master. The master then analyzes the data and sends the new run information to the slave. This cycles over and over again until we hit the number of runs specified in our input script. Create this file in your src directory.
 
-<a id=listing-optimization-c></a>
+<a id="listing-optimization-c"></a>
 **Listing - optimization.c**
 
 ```C
@@ -257,7 +262,7 @@ int cannon_master_post(CANNON *C)
 
 ### Modifications to input.py
 
-<a id=listing-input-3></a>
+<a id="listing-input-3"></a>
 **Listing - input.py**
 
 ```python
@@ -284,7 +289,7 @@ trick.mc_set_timeout(1)
 ### Modifications to S_Define
 The last thing that we need to do is modify our simulation definition file and add the two new Trick jobs. As you can see, we have added a new library dependency, a new ## inclusion, and two new constructor jobs.
 
-<a id=listing-s-define></a>
+<a id="listing-s-define"></a>
 **Listing - S_Define**
 
 ```C++

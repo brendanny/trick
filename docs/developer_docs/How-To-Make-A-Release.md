@@ -1,4 +1,9 @@
-| [Home](/trick) → [Developer Docs](Developer-Docs-Home) → How to make a release |
+---
+title: "How To Make A Trick Release"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → How to make a release |
 | ------------------------------------------------------------------------------ |
 
 # How To Make A Trick Release

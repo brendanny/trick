@@ -1,4 +1,9 @@
-| [Home](/trick) → [Developer Docs](Developer-Docs-Home) → CI |
+---
+title: "CI System"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → CI |
 |------------------------------------------------------------------|
 
 
@@ -114,4 +119,3 @@ On Podman, the Centos7 image that is automatically pulled is different from the 
 The report upload step often doesn't work as intended. The report steps are supposed to run after a test workflow, upload the Junit xml test results into a readable format, and fail if any failing unit tests are found. Instead it often fails because it couldn't find the results at all. The reports often get attached to incorrect workflows or put in a location that can't be viewed. 
 
 The action used as the test reporter is the [Dorny Test Reporter](https://github.com/marketplace/actions/test-reporter), and it often has it's own problems. The matrix of different OS configurations appears to cause issues with this reporter as well. 
-

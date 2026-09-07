@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Realtime |
+---
+title: "Realtime"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Realtime |
 |------------------------------------------------------------------|
 
 Trick provides a real-time processing capability which is different from many real-time
@@ -66,13 +71,13 @@ Trick provides real-time synchronization using the system clock.
 It is also possible to use an external time source instead of the system clock. To do so
 you must provide your specific external clock functionality by deriving from Trick's
 Clock class. (Trick provides the GetTimeOfDayClock class as a derivative of Clock).
-See [Realtime Clock](Realtime-Clock).
+See [Realtime Clock](Realtime-Clock.md).
 
 A timer may also be used when syncing to real-time during an underrun. Trick provides
 this functionality by using a system interval timer or itimer.  It is possible to use
 an external timer instead of an itimer. To do so you must provide your specific external
 timer functionality by deriving from Trick's Timer class. (Trick provides the ITimer class
-as a derivative of Timer).  See [Realtime_Timer](Realtime-Timer).
+as a derivative of Timer).  See [Realtime_Timer](Realtime-Timer.md).
 
 ## User accessible routines
 
@@ -83,4 +88,4 @@ int real_time_restart(long long ref_time) ;
 int is_real_time() ;
 ```
 
-[Continue to Realtime Clock](Realtime-Clock)
+[Continue to Realtime Clock](Realtime-Clock.md)

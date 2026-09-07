@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Environment |
+---
+title: "Environment"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Environment |
 |------------------------------------------------------------------|
 
 This class saves the Trick environment variables at compile-time.  The variables
@@ -9,4 +14,4 @@ are compiled into the sim.
 const char * get_trick_env( char * variable_name )
 ```
 
-[Continue to STL Checkpointing](STL-Capabilities)
+[Continue to STL Checkpointing](STL-capabilities.md)

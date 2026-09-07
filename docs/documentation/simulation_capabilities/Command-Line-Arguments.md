@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Command Line Arguments |
+---
+title: "Command Line Arguments"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Command Line Arguments |
 |------------------------------------------------------------------|
 
 
@@ -47,4 +52,4 @@ This will create a dated subdirectory in the current output directory.  All of t
 core output files will be written to the output directory.  This option may be used in
 conjunction with the <tt>-O</tt> or the <tt>-OO</tt> command line arguments.
 
-[Continue to Environment](Environment)
+[Continue to Environment](Environment.md)

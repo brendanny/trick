@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Building a Simulation](Building-a-Simulation) → Model Source Code |
+---
+title: "Model Source Code"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Building a Simulation](Building-a-Simulation.md) → Model Source Code |
 |------------------------------------------------------------------|
 
 This section details the syntax for creating headers and source code that Trick can process.
@@ -110,7 +115,7 @@ providing the path of each source file for which the header file makes
 declarations. The path should be relative to the base path that was set in
 S_overrides.mk (See the link below).
 
-[Compiling and Building the Simulation](https://nasa.github.io/trick/tutorial/ATutAnalyticSim#compiling-and-building-the-simulation)
+[Compiling and Building the Simulation](../../tutorial/ATutAnalyticSim.md#compiling-and-building-the-simulation)
 
 By doing it this way, you don't have to recall every single source file in your
 simulation when you're listing the library dependencies. You only need to list
@@ -568,4 +573,4 @@ Trick is only interested in the header comment if one is present in source code 
 
 Trick is always changing. The interface to Trick functions may change with each major version. Sometimes even minor version upgrades change the interface. When Trick builds model source code, it includes -DTRICK_VER=<version> and -DTRICK_MINOR=<minor_version> to the TRICK_CFLAGS and TRICK_CXXFLAGS. This allows developers to key off the Trick version in model source code. If there are any compile issues dependent on Trick version, this #define may be useful.
 
-[Continue to Environment Variables](Environment-Variables)
+[Continue to Environment Variables](Environment-Variables.md)

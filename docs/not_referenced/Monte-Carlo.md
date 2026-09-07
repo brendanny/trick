@@ -1,3 +1,14 @@
+---
+title: "Monte Carlo Reference"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [Monte Carlo user guide](../documentation/simulation_capabilities/UserGuide-Monte-Carlo.md).
+
 
 Trick offers a convenient method for repeatedly running a simulation with varying inputs. We call this capability
 "Monte Carlo". Monte Carlo is a well-known technique where mathematical problems are solved using random numbers

@@ -1,4 +1,9 @@
-| [Home](/trick) → [Developer Docs](Developer-Docs-Home) → Python Environment Issues |
+---
+title: "Python Environment in Trick"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → Python Environment Issues |
 |------------------------------------------------------------------|
 
 # Python Environment in Trick

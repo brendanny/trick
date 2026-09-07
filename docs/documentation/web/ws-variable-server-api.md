@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Web Server](Webserver) → [APIs](WebServerAPIs) → WS Variable Server API |
+---
+title: "WS-API: VariableServer"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → [APIs](Webserver-apis.md) → WS Variable Server API |
 |------------------------------------------------------------------|
 
 # WS-API: VariableServer 
@@ -212,4 +217,4 @@ Response to the ```units``` command (*above*).
 </html>
 ```
 
-Continue to [Extending the HTTP API](Extend-http-api)
+Continue to [Extending the HTTP API](Extend-http-api.md)

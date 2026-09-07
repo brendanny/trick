@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Variable Server |
+---
+title: "Variable Server"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Variable Server |
 |------------------------------------------------------------------|
 
 If enabled, a server called the "variable server" is always up and listening in a separate
@@ -7,7 +12,7 @@ values since it resides in an asynchronous simulation thread. Threads share the 
 address space as their siblings and parent. Clients connect to the variable server in
 order to set/get values of Trick processed variables. You may already be familiar with
 the Trick applications that use the variable server: the simulation control panel,
-Trick View (TV) , [Event/Malfunction Trick View](/trick/documentation/running_a_simulation/runtime_guis/MalfunctionsTrickView) (MTV) , and the stripchart.
+Trick View (TV) , [Event/Malfunction Trick View](../running_a_simulation/runtime_guis/MalfunctionsTrickView.md) (MTV) , and the stripchart.
 
 As of version 25.1.0, the variable server is now disabled by default for security reasons.  Unless
 enabled prior to initialization, the variable server will not be available and there will be no way to enable it from outside of the simulation itself.  This update is to address the security concerns associated with the variable server and the way it interacts with the system on which it is running.  Anyone who can secure a connection with a sim's variable server can execute arbitrary python commands on the simulation host as the user that started the simulation.  To help mitigate this effect, the variable server is off by default and the user must manually enable it before initialization.
@@ -678,4 +683,4 @@ The information sent by each variable server is a tab delimited list of strings
 9. User defined tag
 10. Port (duplicate field for backwards compatibility)
 
-[Continue to Status Message System](Status-Message-System)
+[Continue to Status Message System](Status-Message-System.md)

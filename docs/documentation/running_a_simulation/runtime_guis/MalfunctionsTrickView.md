@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../../Documentation-Home) → [Running a Simulation](../Running-a-Simulation) → [Runtime GUIs](Runtime-GUIs) → Malfunctions |
+---
+title: "MalfunctionsTrickView"
+documentation_status: current
+---
+
+| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → [Runtime GUIs](Runtime-GUIs.md) → Malfunctions |
 |------------------------------------------------------------------|
 
 ## Events/Malfunctions Trick View

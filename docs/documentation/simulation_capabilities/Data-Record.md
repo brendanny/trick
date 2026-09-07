@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Data Record |
+---
+title: "Data Record"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Data Record |
 |------------------------------------------------------------------|
 
 Data Recording provides the capability to specify any number of data recording groups,
@@ -262,7 +267,7 @@ The DRBinary recording format is a Trick simulation specific format.  Files writ
 log_<group_name>.trk.  The contents of this file type are readable by the Trick Data Products packages from
 Trick 07 to the current version.  The format of the file follows.
 
-<a id=drbinary-file></a>
+
 ## DRBinary-File
 |Value|Description|Type|#Bytes|
 |---|---|---|---|
@@ -273,7 +278,7 @@ Trick 07 to the current version.  The format of the file follows.
 |EOF| End of File |||
 
 
-<a id=variable-descriptor-list></a>
+
 ### Variable-Descriptor-List
 A Variable-Descriptor-List is a sequence of [Variable-Descriptors](#variable-descriptor).
 The number of descriptors in the list is specified by *numparms*. The list describes each of the recorded variables, starting with the simulation time variable.
@@ -284,7 +289,7 @@ The number of descriptors in the list is specified by *numparms*. The list descr
 |...|...|...|...|
 || Descriptor for Variable # *numparms* |[Variable-Descriptor](#variable-descriptor)|variable|
 
-<a id=variable-descriptor></a>
+
 ### Variable-Descriptor
 A Variable-Descriptor describes a recorded variable. 
 
@@ -303,7 +308,7 @@ A Variable-Descriptor describes a recorded variable.
 2. If *vv* = "07", use [Trick 07 Data Types](#trick-07-data-types).
 3. If *vv* = "10", use [Trick 10 Data Types](#trick-10-data-types).
 
-<a id=time-variable-descriptor></a>
+
 ### *Time-Variable-Descriptor*
 |Value|Description|Type|Bytes|
 |---|---|---|---|
@@ -318,7 +323,7 @@ A Variable-Descriptor describes a recorded variable.
 
 1. Here, we are assuming "vv" = "10", and so, referring to [Trick 10 Data Types](#trick-10-data-types), Variable Type = 11, which corresponds to **double**.
 
-<a id=data-record-list></a>
+
 ### Data-Record-List
 A Data-Record-List contains a collection of [Data-Records](#data-record), at regular times.
 
@@ -328,7 +333,7 @@ A Data-Record-List contains a collection of [Data-Records](#data-record), at reg
 |...|...|...|...|
 ||Data-Record #Last|[Data-Record](#data-record)||
 
-<a id=data-record></a>
+
 ### Data-Record
 A Data-Record contains a collection of values for each of the variables we are recording, at a specific time.
 
@@ -338,7 +343,7 @@ A Data-Record contains a collection of values for each of the variables we are r
 |...|...|...|...|
 |*value*|Value of Variable #numparms |*typeof( Variable#numparms)*|*sizeof( type-of( Variable#numparms))* |
 
-<a id=trick-07-data-types></a>
+<a id="trick-07-data-types"></a>
 ## Trick 7 Data Types
 The following data-types were used in Trick-07 data recording files (that is for, *vv* = "07").
 
@@ -361,7 +366,7 @@ The following data-types were used in Trick-07 data recording files (that is for
 |14|unsigned long long|
 |17|Boolean (C++)|
 
-<a id=trick-10-data-types></a>
+
 ## Trick 10 Data Types
 The following data-types are used in Trick versions >= 10, that is for, *vv* = "10".
 
@@ -432,4 +437,4 @@ Loading a checkpoint with different data recording groups than the current run w
 
 Refer to test/SIM_checkpoint_data_recording to see expected behavior in action. Overall, the loading a checkpoint should completely overwrite any other data recording the sim is currently doing, and the new recording will start at the time in the checkpoint. If you come across different behavior, please open an issue.
 
-[Continue to Checkpointing](Checkpoints)
+[Continue to Checkpointing](Checkpoints.md)

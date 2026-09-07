@@ -1,3 +1,8 @@
+---
+title: "Deprecated Features"
+documentation_status: current
+---
+
 List of features that have been deprecated.
 
 ### Trick Specific Units to Standard Units

@@ -35,9 +35,9 @@ jobs:
         run: python -m unittest discover -s tools/docs/tests -v
       - name: Verify the source baseline
         run: python tools/docs/inventory.py --check
-      - name: Build the complete corpus (discovery mode)
-        run: python tools/docs/build.py build
-      - name: Check structural gates and report compatibility work
+      - name: Build the complete corpus (strict)
+        run: python tools/docs/build.py build --strict
+      - name: Check corpus compatibility, metadata, search, and code preservation
         run: python tools/docs/check_site.py
       - name: Attach the review artifact and diagnostic report
         if: always()

@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Realtime Timer |
+---
+title: "Realtime Timer"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Realtime Timer |
 |------------------------------------------------------------------|
 
 A realtime sleep timer is an optional class for Trick simulations.
@@ -17,4 +22,4 @@ trick.itimer_enable()
 trick.itimer_disable()
 ```
 
-[Continue to Real-time Injector](Realtime-Injector)
+[Continue to Real-time Injector](Realtime-Injector.md)

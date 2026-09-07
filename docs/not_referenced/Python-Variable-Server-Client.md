@@ -1,3 +1,14 @@
+---
+title: "Python Variable Server Client"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [Python variable server client guide](../documentation/miscellaneous_trick_tools/Python-Variable-Server-Client.md).
+
 `variable_server.py` is a Python module for communicating with a sim's variable server from a Python program. Its primary purpose is to easily get and set variable values and units, but it also includes some additional convenience methods for affecting the sim's state. The code itself is well-commented, so I won't be reproducing the API here. Run `pydoc variable_server` (in the containing directory) for that.
 
 # Release Your Resources!
@@ -298,4 +309,4 @@ class Variable(__builtin__.object)
  |  should not directly change any part of this class.
 ```
 
-[[Continue to Software Requirements|SRS]]
+[Continue to Software Requirements](../documentation/software_requirements_specification/SRS.md)

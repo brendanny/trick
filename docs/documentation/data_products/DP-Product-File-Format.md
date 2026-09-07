@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Data Products](Data-Products) → DP Product File Format |
+---
+title: "DP Product File Format"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Data Products](Data-Products.md) → DP Product File Format |
 |------------------------------------------------------------------|
 
 Since Trick 10, the DP Product Specification File Format is changed to XML. The DP Product XML file
@@ -427,4 +432,4 @@ Try "nm" on your external program, and look for "U"s. The objects that you have 
 </product>
 ```
 
-[Continue to Plot Printing](Plot-Printing)
+[Continue to Plot Printing](Plot-Printing.md)

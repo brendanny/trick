@@ -1,3 +1,14 @@
+---
+title: "convert_swig"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [developer documentation](../../developer_docs/Developer-Docs-Home.md).
+
 # convert_swig
 
 The purpose of convert_swig is to create SWIG interface files for the given
@@ -327,4 +338,3 @@ should still be in the header text.
 
 1. Append the bracketed struct contents and the one or more typedef'ed names
 and the semi-colon that we just extracted to the SWIG interface text.
-

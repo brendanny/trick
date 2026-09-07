@@ -1,11 +1,16 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Recording Simulation Data |
+---
+title: "Recording Simulation Data"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Recording Simulation Data |
 |----------------------------------------------------------------------|
 
 <!-- Section -->
-<a id=recording-simulation-data></a>
+
 ## Recording Simulation Data
 
-<a id=creating-a-data-recording-file-using-dre></a>
+
 #### Creating A Data Recording File Using DRE
 
 Recording data is possible when running real-time and non-real-time (as fast as
@@ -36,7 +41,7 @@ Storing the data recording file `cannon.dr` into a directory called `Modified_da
 is not mandatory. It is just common convention. You may view `cannon.dr` it is a
 text file.
 
-<a id=running-the-simulation-and-recording-data></a>
+
 #### Running The Simulation And Recording Data
 
 The simulation must know about the data recording file created in the last
@@ -62,4 +67,4 @@ to the top of the `input.py` file and then save it.
 After the simulation runs, data will be dumped into the `RUN_test` directory.
 The data, in this case, is recorded in binary form.
 
-[Next Page](ATutPlottingData)
+[Next Page](ATutPlottingData.md)

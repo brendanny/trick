@@ -1,8 +1,13 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Trick Simulation Architecture |
+---
+title: "Architecture of a Trick Simulation"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Trick Simulation Architecture |
 |--------------------------------------------------------|
 
 <!-- Section -->
-<a id=architecture-of-a-trick-simulation></a>
+
 ## Architecture of a Trick Simulation
 
 **Contents**
@@ -24,7 +29,7 @@ A Trick-based simulation is organized similarly and is defined in a simulation d
 
 ---
  
-<a id=the-simulation-definition-file></a>
+<a id="the-simulation-definition-file"></a>
 ### The Simulation Definition File (S_define)
 
 ### Example S_define File
@@ -41,7 +46,7 @@ simulation:
 
 ---
 
-<a id=the-parts-of-an-sdefine></a>
+<a id="the-parts-of-an-sdefine"></a>
 ### The Parts of an S_define
 
 At the top of the S_define file is a special comment block.  The comment block contains Trick keywords followed by information in parentheses. 
@@ -73,4 +78,4 @@ That is, it is one instance of our cannonball model. If we were to create a seco
 In the following sections we'll create the parts for a Trick-based cannonball simulation, and build it.
 
 ---
-[Next Page](ATutAnalyticSim)
+[Next Page](ATutAnalyticSim.md)

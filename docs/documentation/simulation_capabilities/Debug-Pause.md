@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Debug Pause |
+---
+title: "Debug Pause"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Debug Pause |
 |------------------------------------------------------------------|
 
 Debug Pause is a debugging feature provided by Trick. When turned on, Debug Pause will print the current simulation time and
@@ -16,6 +21,6 @@ All jobs (user jobs and Trick jobs) of the following job class will be paused at
 - shutdown
 
 Debug Pause uses Trick's messaging system to publish each sim time / job name message,
-which means it will be sent to any enabled message subscribers (see  [Status Message System](Status-Message-System)).
+which means it will be sent to any enabled message subscribers (see  [Status Message System](Status-Message-System.md)).
 
-[Continue to Echo Jobs](Echo-Jobs)
+[Continue to Echo Jobs](Echo-Jobs.md)

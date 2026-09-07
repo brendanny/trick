@@ -1,3 +1,8 @@
+---
+title: "Variable Server Refactor"
+documentation_status: current
+---
+
 # Variable Server Refactor
 
 The goals of this refactor were as follows:
@@ -443,4 +448,3 @@ In the UDP and Multicast case, the connection is created directly in the Variabl
 ## Class Diagram
 
 ![Variable Server UML](images/vs_uml.png)
-

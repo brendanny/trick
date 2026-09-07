@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Building a Simulation](Building-a-Simulation) → Trickified Project Libraries Classic |
+---
+title: "Classic Trickified Project Libraries"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Building a Simulation](Building-a-Simulation.md) → Trickified Project Libraries Classic |
 |------------------------------------------------------------------|
 
 
@@ -248,4 +253,4 @@ Here's a real project we used as the guinea pig for Trickification. It provides 
 
 https://github.com/nasa/IDF
 
-[Continue to Running A Simulation](../running_a_simulation/Running-a-Simulation)
+[Continue to Running A Simulation](../running_a_simulation/Running-a-Simulation.md)

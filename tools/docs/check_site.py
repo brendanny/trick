@@ -1,8 +1,7 @@
-"""Check structural pilot gates and report the unfinished corpus migration.
+"""Check the full corpus and report the unfinished legacy evidence.
 
-Default mode fails on missing pages/assets/explicit anchors and leaked helpers,
-but reports existing link/duplicate-ID findings. --strict fails on all findings
-and incomplete legacy coverage, and is a future cutover gate, not today's claim.
+Default mode fails on structural errors AND link/duplicate-ID findings.
+--strict additionally requires complete legacy coverage for a future cutover.
 """
 
 import argparse
@@ -15,6 +14,7 @@ from urllib.parse import unquote, urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 from common import ROOT, html_path, is_helper
+from content import inspect_content
 
 ORIGIN = "https://nasa.github.io"
 PREFIX = "/trick/"
@@ -64,6 +64,7 @@ def collect_site(directory: Path) -> tuple[set[str], dict]:
         links = [str(tag["href"]) for tag in body.find_all("a", href=True)]
         resources = [str(tag["src"]) for tag in body.find_all(src=True)]
         pages[name] = {
+            "title": soup.title.get_text() if soup.title else "",
             "anchors": set(ids + names),
             "duplicate_ids": sorted(
                 key for key, count in Counter(ids).items() if count > 1
@@ -72,13 +73,16 @@ def collect_site(directory: Path) -> tuple[set[str], dict]:
             "resources": resources,
             "text": body.get_text(" ", strip=True),
             "code_blocks": len(body.select("pre code")),
+            "code_samples": [code.get_text() for code in body.select("pre code")],
             "images": len(body.find_all("img")),
             "headings": len(body.find_all(["h1", "h2", "h3", "h4", "h5", "h6"])),
         }
     return files, pages
 
 
-def inspect_site(directory: Path, baseline: dict, pilot: list[dict]) -> dict:
+def inspect_site(
+    directory: Path, baseline: dict, pilot: list[dict], metadata: dict | None = None
+) -> dict:
     files, pages = collect_site(directory)
     errors, findings = [], []
     for helper in baseline["helpers"]:
@@ -150,24 +154,49 @@ def inspect_site(directory: Path, baseline: dict, pilot: list[dict]) -> dict:
         for phrase in example.get("contains", []):
             if phrase not in page["text"]:
                 errors.append(f"Pilot {name}: missing expected text {phrase!r}")
+    for source, authored in (metadata or {}).items():
+        name = html_path(source)
+        page = pages.get(name)
+        if page is None:
+            errors.append(f"Missing authored page: {name}")
+            continue
+        if authored["title"] not in page["title"]:
+            errors.append(f"Missing authored title: {name}")
+        if authored["code_samples"] != page["code_samples"]:
+            errors.append(f"Changed rendered code samples: {name}")
+        if (
+            authored["documentation_status"] == "historical"
+            and "Historical documentation:" not in page["text"]
+        ):
+            errors.append(f"Missing historical notice: {name}")
     if "search.json" not in files:
         errors.append("Missing built-in search index")
     else:
-        search = json.loads((directory / "search.json").read_text())
+        try:
+            search = json.loads((directory / "search.json").read_text())
+        except (ValueError, UnicodeError):
+            search = None
         items = search.get("items") if isinstance(search, dict) else None
         if not isinstance(items, list) or not items:
             errors.append("Empty or invalid built-in search index")
         else:
             locations = {
-                urlsplit(item.get("location", "")).path
+                unquote(urlsplit(item.get("location", "")).path)
                 for item in items
-                if isinstance(item, dict)
+                if isinstance(item, dict) and isinstance(item.get("location"), str)
             }
             for example in pilot:
                 if html_path(example["source"]) not in locations:
                     errors.append(
                         f"Pilot page missing from search: {example['source']}"
                     )
+            for source, authored in (metadata or {}).items():
+                name = html_path(source)
+                if authored["documentation_status"] == "historical":
+                    if name in locations:
+                        errors.append(f"Historical page in search: {name}")
+                elif name not in locations:
+                    errors.append(f"Current page missing from search: {name}")
     return {
         "schema_version": 1,
         "source_commit": baseline["source_commit"],
@@ -181,6 +210,23 @@ def inspect_site(directory: Path, baseline: dict, pilot: list[dict]) -> dict:
     }
 
 
+def failed(report: dict, require_legacy: bool = False) -> bool:
+    incomplete = not all(
+        report["legacy_coverage"].get(key)
+        for key in (
+            "rendered_heading_ids",
+            "client_generated_ids_verified",
+            "host_redirects_verified",
+            "pages_settings_verified",
+        )
+    )
+    return bool(
+        report["gate_errors"]
+        or report["migration_findings"]
+        or (require_legacy and incomplete)
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--site", type=Path, default=ROOT / "site")
@@ -192,7 +238,9 @@ def main() -> int:
     args = parser.parse_args()
     baseline = json.loads(args.baseline.read_text())
     pilot = json.loads((ROOT / "tools/docs/pilot.json").read_text())
-    report = inspect_site(args.site, baseline, pilot)
+    metadata, source_errors = inspect_content(ROOT, baseline)
+    report = inspect_site(args.site, baseline, pilot, metadata)
+    report["gate_errors"] = sorted(set(report["gate_errors"] + source_errors))
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
@@ -210,6 +258,7 @@ def main() -> int:
         baseline["coverage"].get(key)
         for key in (
             "rendered_heading_ids",
+            "client_generated_ids_verified",
             "host_redirects_verified",
             "pages_settings_verified",
         )
@@ -218,12 +267,7 @@ def main() -> int:
         print(
             "Legacy coverage is incomplete: rendered IDs and live publishing/alias checks remain cutover requirements."
         )
-    return int(
-        bool(
-            report["gate_errors"]
-            or (args.strict and (report["migration_findings"] or incomplete))
-        )
-    )
+    return int(failed(report, require_legacy=args.strict))
 
 
 if __name__ == "__main__":

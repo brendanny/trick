@@ -1,8 +1,13 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Running Real-Time |
+---
+title: "Running in Real Time"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Running Real-Time |
 |--------------------------------------------------------------|
 
 <!-- Section -->
-<a id=running-real-time></a>
+
 ## Running Real-Time
 
 Recall that the cannonball run was 5.2 seconds, yet when the simulation ran, it
@@ -104,4 +109,4 @@ Some items to note about the simulation control panel for your future use:
 
 ---
 
-[Next Page](ATutTrickView)
+[Next Page](ATutTrickView.md)

@@ -1,3 +1,14 @@
+---
+title: "Command Line Arguments Design"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [developer documentation](../../developer_docs/Developer-Docs-Home.md).
+
 # Command Line Arguments Design
 
 ## Processing the Command Line Arguments
@@ -24,5 +35,3 @@ Trick::CommandLineArguments::output_dir_timestamed_on()
 
 @copydetails Trick::CommandLineArguments::output_dir_timestamed_off()
 Trick::CommandLineArguments::output_dir_timestamed_off()
-
-

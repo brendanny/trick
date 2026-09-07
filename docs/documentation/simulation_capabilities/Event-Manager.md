@@ -1,8 +1,13 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Event Manager |
+---
+title: "Event Manager"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Event Manager |
 |------------------------------------------------------------------|
 
 This page describes the methods available in the Trick::EventManager and Trick::EventProcessor class.
-See [Input_File](/trick/documentation/running_a_simulation/Input-File) for detailed information on the syntax of the input processor file.
+See [Input_File](../running_a_simulation/Input-File.md) for detailed information on the syntax of the input processor file.
 
 ## User accessible routines
 
@@ -26,4 +31,4 @@ The next set of flowcharts details how the %Trick Event Processor processes even
 
 Each thread in the simulation has an event processing job.
 
-[Continue to Realtime](Realtime)
+[Continue to Realtime](Realtime.md)

@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Web Server](Webserver) → Configuring Trick with Civetweb |
+---
+title: "Configure Civetweb"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → Configuring Trick with Civetweb |
 |------------------------------------------------------------------|
 
 ## Configuring Trick with Civetweb
@@ -23,4 +28,4 @@ make clean
 make
 ```
 
-Continue to [Adding SSL Encryption](SSL)
+Continue to [Adding SSL Encryption](SSL.md)

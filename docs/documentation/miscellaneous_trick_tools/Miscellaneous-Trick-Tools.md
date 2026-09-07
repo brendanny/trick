@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → Miscellaneous Trick Tools |
+---
+title: "Miscellaneous Trick Tools"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Miscellaneous Trick Tools |
 |------------------------------------------------------------------|
 
 ## Interface Code Generator - ICG
@@ -142,4 +147,4 @@ UNIX prompt> trick_verify_checksums
 at any time to see what, if any, files have changed from the original package. The checksum is
 done on source files, not object code.
 
-[Continue to Python Variable Server Client](Python-Variable-Server-Client)
+[Continue to Python Variable Server Client](Python-Variable-Server-Client.md)

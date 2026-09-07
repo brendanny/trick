@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Miscellaneous Trick Tools](Miscellaneous-Trick-Tools) → Python Variable Server Client |
+---
+title: "Python Variable Server Client"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Miscellaneous Trick Tools](Miscellaneous-Trick-Tools.md) → Python Variable Server Client |
 |------------------------------------------------------------------|
 
 
@@ -388,4 +393,4 @@ class Variable(__builtin__.object)
  |  should not directly change any part of this class.
 ```
 
-[Continue to Trick Ops](TrickOps)
+[Continue to Trick Ops](TrickOps.md)

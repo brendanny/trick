@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Web Server](Webserver) → [APIs](WebServerAPIs) → Extend the WS API |
+---
+title: "Extending the WebSocket API"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → [APIs](Webserver-apis.md) → Extend the WS API |
 |------------------------------------------------------------------|
 
 ## Extending the WebSocket-API
@@ -270,4 +275,4 @@ To test your new web socket interface, put the following ```time.html``` file in
 </html>
 ```
 
-Continue to [Simulation Utilities](../simulation_utilities/Simulation-Utilities)
+Continue to [Simulation Utilities](../simulation_utilities/Simulation-Utilities.md)

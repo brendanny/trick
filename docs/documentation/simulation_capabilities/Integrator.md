@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Integrator |
+---
+title: "Integrator"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Integrator |
 |------------------------------------------------------------------|
 
 Trick provides a state integration capability described by the inputs below.
@@ -231,4 +236,4 @@ dependent on the acceleration to velocity state integration.  The # <b> Deriv </
 of derivative evaluations performed to integrate across a full time step (also known as the number of
 integration passes).  The <b> Comments </b> column gives some special notes for the usage of each integrator.
 
-[Continue to Frame Logging](Frame-Logging)
+[Continue to Frame Logging](Frame-Logging.md)

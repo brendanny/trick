@@ -1,4 +1,9 @@
-| [Home](/trick) → Developer Docs |
+---
+title: "Developer Documentation"
+documentation_status: current
+---
+
+| [Home](../index.md) → Developer Docs |
 |------------------------------------------------------------------|
 
 # Developer Documentation
@@ -6,22 +11,21 @@
 
 Link documentation for Trick internals, processes, and plans here.
 
-- [Testing](Testing)
-- [How to make a new Trick release on GitHub](How-To-Make-A-Release)
-- [Tooling and Sanitizers](Tooling-and-Sanitizers)
-- [Python Environment](Python-Environment-Issues)
-- [CI](CI)
-- [Configure Script](Configure)
+- [Testing](Testing.md)
+- [How to make a new Trick release on GitHub](How-To-Make-A-Release.md)
+- [Tooling and Sanitizers](Tooling-and-Sanitizers.md)
+- [Python Environment](Python-Environment-Issues.md)
+- [CI](CI.md)
+- [Configure Script](Configure.md)
 
 Old design documentation - may or may not be up to date
 
-- [Convert Swig](DesConvertSwig)
-- [ICG](DesInterfaceCodeGenerator)
-- [Realtime Clock](DesRealTimeClock)
-- [Realtime Synchronization](DesRealTimeSynchronization)
-- [Scheduled Job Queue](DesScheduledJobQueue)
-- [Sleep Timer](DesSleepTimer)
-- [Data Recording](DesDataRecording)
-- [Monte Carlo](DesMonteCarlo)
-- [Master Slave](DesMasterSlave)
-
+- [Convert Swig](DesConvertSwig.md)
+- [ICG](DesInterfaceCodeGenerator.md)
+- [Realtime Clock](DesRealTimeClock.md)
+- [Realtime Synchronization](DesRealTimeSynchronization.md)
+- [Scheduled Job Queue](DesScheduledJobQueue.md)
+- [Sleep Timer](DesSleepTimer.md)
+- [Data Recording](DesDataRecording.md)
+- [Monte Carlo](DesMonteCarlo.md)
+- [Master Slave](DesMasterSlave.md)

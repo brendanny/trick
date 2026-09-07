@@ -1,4 +1,9 @@
-| [Home](/trick) → [How‐To Guides](How‐To-Guides) → Use Inherited Templates |
+---
+title: "How do I use inherited templates in the input file?"
+documentation_status: current
+---
+
+| [Home](../index.md) → [How‐To Guides](How-To-Guides.md) → Use Inherited Templates |
 |---------------------------------------------------------------------|
 
 # How do I use inherited templates in the input file?

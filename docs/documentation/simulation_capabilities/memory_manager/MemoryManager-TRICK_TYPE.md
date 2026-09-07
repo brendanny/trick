@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../../Documentation-Home) → [Simulation Capabilities](../Simulation-Capabilities) → [Memory Manager](MemoryManager) → Trick Type|
+---
+title: "MemoryManager TRICK TYPE"
+documentation_status: current
+---
+
+| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Simulation Capabilities](../Simulation-Capabilities.md) → [Memory Manager](MemoryManager.md) → Trick Type|
 |------------------------------------------------------------------|
 
 - **TRICK_TYPE** is an enmeration type that specifies data types.
@@ -26,4 +31,3 @@ Available types are provided in the following table.
 | **TRICK_WSTRING**            | (wchar_t                         |
 | **TRICK_ENUMERATED**         | User defined type (enumeration)  |
 | **TRICK_STRUCTURED**         | User defined type (struct/class) |
-

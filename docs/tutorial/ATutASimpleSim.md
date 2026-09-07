@@ -1,8 +1,13 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → A Simple Simulation |
+---
+title: "A Simple (non-Trick) Simulation"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → A Simple Simulation |
 |----------------------------------------------------------------|
 
 <!-- Section -->
-<a id=simulating-a-cannonball></a>
+<a id="simulating-a-cannonball"></a>
 ## A Simple (non-Trick) Simulation
 
 **Contents**
@@ -24,7 +29,7 @@ The commands following `%` should typed in and executed.
 
 ---
  
-<a id=cannonball-problem-stated></a>
+<a id="cannonball-problem-stated"></a>
 ### Cannonball Problem Statement
 
 ![Cannon](images/CannonInit.png)
@@ -36,7 +41,7 @@ with an initial speed and initial angle. Assume a constant acceleration of
 gravity (g), and assume no aerodynamic forces.
 
 ---
-<a id=modeling-the-cannonball></a>
+
 ### Modeling the Cannonball
 
 For this particular problem it's possible to write down equations that
@@ -79,10 +84,10 @@ Solving for t (using the quadratic formula), we get the time of impact:
 ![equation_analytic_t_impact](images/equation_analytic_t_impact.png)
 
 ---
-<a id=a-cannonball-simulation-without-trick></a>
+<a id="a-cannonball-simulation-without-trick"></a>
 ### Code For a non-Trick Cannonball Simulation
 
-<a id=listing_1_cannon.c></a>
+<a id="listing_1_cannon.c"></a>
 **Listing 1 - cannon.c**
 
 ```c
@@ -160,7 +165,7 @@ Voila! A cannonball simulation. So why do we need Trick!?
 
 ---
  
-<a id=limitations-of-the-simulation></a>
+
 ### Limitations of the Simulation
 
 For simple physics models like our cannonball, maybe we don't need Trick, but many real-world problems aren't nearly as simple.
@@ -184,4 +189,4 @@ we want to be able to synchronize simulation-time with "wall clock" time.
 In the next section, we'll see how a Trick simulation goes together, and how it helps us to easily integrate user-supplied simulation models with commonly needed simulation capabilites.
 
 ---
-[Next Page](ATutArchitecture)
+[Next Page](ATutArchitecture.md)

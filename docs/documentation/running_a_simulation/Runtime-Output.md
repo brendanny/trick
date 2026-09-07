@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Running a Simulation](Running-a-Simulation) → Runtime Output|
+---
+title: "Runtime Output"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Running a Simulation](Running-a-Simulation.md) → Runtime Output|
 |------------------------------------------------------------------|
 
 Executing the simulation main executable S_main_${TRICK_HOST_CPU}.exe generates a handful of log files that document a simulation run.
@@ -13,4 +18,4 @@ log_<group_name>.* log files and log header files. These files are created by th
 
 send_hs all messages written by send_hs or message_publish will be saved to the send_hs file.
 
-[Continue to Data Products](../data_products/Data-Products)
+[Continue to Data Products](../data_products/Data-Products.md)

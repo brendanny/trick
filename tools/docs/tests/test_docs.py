@@ -6,13 +6,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import tomllib
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from build import require_generated_path, source_files, stage, zensical_command
-from check_site import inspect_site, resolve_local
+from check_site import failed, inspect_site, resolve_local
 from common import ROOT, html_path, is_helper
+from content import code_samples, frontmatter, inspect_content
 from inventory import capture_rendered, explicit_anchors, source_inventory
 
 
@@ -31,6 +33,39 @@ class PathsAndAnchors(unittest.TestCase):
         self.assertEqual(set(workflow["jobs"]), {"docs"})
         self.assertNotIn("permissions", workflow["jobs"]["docs"])
         self.assertNotIn("deploy-pages", str(workflow))
+        self.assertIn("python tools/docs/build.py build --strict", str(workflow))
+
+    def test_corpus_errors_fail_without_claiming_legacy_readiness(self):
+        report = {"gate_errors": [], "migration_findings": [], "legacy_coverage": {}}
+        self.assertFalse(failed(report))
+        self.assertTrue(failed(report, require_legacy=True))
+        for kind in ("missing-target", "missing-fragment", "duplicate-id"):
+            report["migration_findings"] = [{"kind": kind}]
+            self.assertTrue(failed(report))
+
+    def test_historical_metadata_is_explicit_and_boolean(self):
+        text = "---\ntitle: Old\ndocumentation_status: historical\nsearch:\n  exclude: true\n---\n# Old\n"
+        metadata, body = frontmatter(text)
+        self.assertEqual(metadata["title"], "Old")
+        self.assertEqual(body, "# Old\n")
+        for invalid in (
+            text.replace("exclude: true", 'exclude: "true"'),
+            text.replace("title: Old", "title: 42"),
+            text.replace("historical", "unknown"),
+            text.replace("historical", "current"),
+            "# No metadata\n",
+        ):
+            with self.assertRaises(ValueError):
+                frontmatter(invalid)
+
+    def test_code_comparison_preserves_prompts_and_literal_link_examples(self):
+        text = '```sh\n% echo "[link](unchanged)"\n```\n\n[Prose](old.md)\n'
+        self.assertEqual(
+            code_samples(text), code_samples(text.replace("old.md", "new.md"))
+        )
+        self.assertNotEqual(
+            code_samples(text), code_samples(text.replace("% echo", "echo"))
+        )
 
     def test_helpers_are_explicit(self):
         self.assertTrue(is_helper("_layouts/default.html"))
@@ -111,6 +146,59 @@ class TemporaryRepo(unittest.TestCase):
         self.assertEqual(result["pages"][0]["explicit_anchors"], ["kept"])
         self.assertFalse(result["coverage"]["rendered_heading_ids"])
         self.assertEqual(result, source_inventory(self.root, "HEAD"))
+
+    def test_code_sample_edits_are_detected_against_immutable_source_baseline(self):
+        path = self.root / "docs/index.md"
+        original = '# Start\n\n```python\nprint("original")\n```\n'
+        path.write_text(original)
+        self.commit()
+        baseline = source_inventory(self.root, "HEAD")
+        header = "---\ntitle: Start\ndocumentation_status: current\n---\n"
+        path.write_text(header + original)
+        metadata, errors = inspect_content(self.root, baseline)
+        self.assertEqual(errors, [])
+        self.assertEqual(metadata["index.md"]["title"], "Start")
+        path.write_text(
+            header + original.replace('print("original")', 'print("changed")')
+        )
+        _, errors = inspect_content(self.root, baseline)
+        self.assertIn("Changed migration code samples: index.md", errors)
+
+    def test_historical_search_and_rendered_content_gates(self):
+        self.commit()
+        baseline = source_inventory(self.root, "HEAD")
+        output = self.root / "output"
+        output.mkdir()
+        (output / "index.html").write_text(
+            '<title>Old</title><body><a id="kept"></a></body>'
+        )
+        (output / "search.json").write_text(
+            '{"items": [{"location": "index.html#kept"}]}'
+        )
+        metadata = {
+            "index.md": {
+                "title": "Old",
+                "documentation_status": "historical",
+                "code_samples": ["lost code\n"],
+            }
+        }
+        errors = inspect_site(output, baseline, [], metadata)["gate_errors"]
+        self.assertIn("Historical page in search: index.html", errors)
+        self.assertIn("Missing historical notice: index.html", errors)
+        self.assertIn("Changed rendered code samples: index.html", errors)
+        metadata["index.md"]["documentation_status"] = "current"
+        (output / "search.json").write_text('{"items": [{"location": "other.html"}]}')
+        errors = inspect_site(output, baseline, [], metadata)["gate_errors"]
+        self.assertIn("Current page missing from search: index.html", errors)
+
+    def test_malformed_search_index_is_reported_as_a_gate_error(self):
+        self.commit()
+        baseline = source_inventory(self.root, "HEAD")
+        output = self.root / "output"
+        output.mkdir()
+        (output / "search.json").write_text('{"items": [')
+        errors = inspect_site(output, baseline, [])["gate_errors"]
+        self.assertIn("Empty or invalid built-in search index", errors)
 
     def test_staging_preserves_sources_and_syncs_add_remove_edit(self):
         original = (self.root / "docs/index.md").read_bytes()
@@ -200,7 +288,7 @@ class TemporaryRepo(unittest.TestCase):
 
 
 class RealZensical(unittest.TestCase):
-    def build_fixture(self, text):
+    def build_fixture(self, text, extra_config=""):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "docs").mkdir()
@@ -209,6 +297,7 @@ class RealZensical(unittest.TestCase):
                 '[project]\nsite_name="Validation fixture"\ndocs_dir="docs"\nsite_dir="site"\nuse_directory_urls=false\n'
                 "[project.theme]\nfont=false\n"
                 "[project.validation]\ninvalid_links=true\ninvalid_link_anchors=true\n"
+                + extra_config
             )
             result = subprocess.run(
                 zensical_command("build", "--clean", "--strict"),
@@ -217,10 +306,34 @@ class RealZensical(unittest.TestCase):
                 text=True,
                 timeout=60,
             )
+            result.html = (
+                (root / "site/index.html").read_text() if result.returncode == 0 else ""
+            )
             return result
+
+    def test_gfm_strikethrough_without_subscript_or_code_changes(self):
+        config = tomllib.loads((ROOT / "zensical.toml").read_text())
+        self.assertEqual(
+            config["project"]["markdown_extensions"]["pymdownx.tilde"],
+            {"subscript": False},
+        )
+        result = self.build_fixture(
+            "# Start\n\n~~Removed~~ and H~2~O and `~~literal~~`.\n",
+            '[project.markdown_extensions]\n"pymdownx.tilde" = { subscript = false }\n',
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("<del>Removed</del>", result.html)
+        self.assertIn("H~2~O", result.html)
+        self.assertIn("<code>~~literal~~</code>", result.html)
 
     def test_valid_fixture(self):
         result = self.build_fixture("# Start\n\n[Heading](#start)\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_quoted_legacy_aliases_pass_real_strict_validation(self):
+        result = self.build_fixture(
+            '# Start\n\n[Listing](#listing_8_s_overrides.mk)\n\n<a id="listing_8_s_overrides.mk"></a>\n\n**Listing**\n'
+        )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_invalid_page_fails_strict_build(self):

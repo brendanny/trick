@@ -1,3 +1,8 @@
+---
+title: "Units Reference"
+documentation_status: current
+---
+
 ## Common Units & Unit Prefixes
 
 The following tables list all of the available unit prefixes, and many of the most
@@ -19,7 +24,7 @@ If you're really curious, or if you just can't find the units you need, you coul
 of the help text, and examine the (fairly easy to read) UDUNITS2 xml database files.
 You could also use `udunits2` with the `-H` option to determine whether the units you need exist, by guessing.
 
-<a id=unit-prefixes></a>
+
 ### Unit Prefixes
 | Prefix            | Value|
 |-------------------|------|
@@ -44,10 +49,10 @@ You could also use `udunits2` with the `-H` option to determine whether the unit
 | z, zepto          | 1e-21|
 | y, yocto          | 1e-24|
 
-<a id=common-predefined-units></a>
-###Common Predefined Units
 
-<a id=time></a>
+### Common Predefined Units
+
+
 #### Time
 | Unit Identifier                 |
 |---------------------------------|
@@ -58,7 +63,7 @@ You could also use `udunits2` with the `-H` option to determine whether the unit
 | h, hour[s]                      |
 | d, day[s]                       |
 
-<a id=length></a>
+
 #### Length
 | Unit Identifier                 |
 |---------------------------------|
@@ -74,7 +79,7 @@ You could also use `udunits2` with the `-H` option to determine whether the unit
 | mm, millimeter[s]               |
 | um, &#x3BC;m, micrometer[s]     |
          
-<a id=angle></a>
+
 ### Angle
 | Unit Identifier                 |
 |---------------------------------|
@@ -83,7 +88,7 @@ You could also use `udunits2` with the `-H` option to determine whether the unit
 | &#x2032;, arcminute[s]          |
 | &#x2033;, arcsecond[s]          |
          
-<a id=mass></a>
+
 ### Mass
 | Unit Identifier                 |
 |---------------------------------|
@@ -94,14 +99,15 @@ You could also use `udunits2` with the `-H` option to determine whether the unit
 
 NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
          
-<a id=force></a>
+
 ### Force
 | Unit Identifier                 |
 |---------------------------------|
 | N, newton[s], kg.m/s^2, kg.m/s&#xB2;|
 | lbf, pound[s]\_force             |
          
-<a id=voltage></a>
+
+<a id="volt"></a>
 ### Voltage
 | Unit Identifier                 |
 |---------------------------------|
@@ -109,7 +115,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | mV, millivolt[s]                |
 | uV, &#x3BC;V, microvolt[s]      |
 
-<a id=current></a>
+
 ### Current
 | Unit Identifier                 |
 |---------------------------------|
@@ -117,7 +123,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | mA, milliamp                    |
 | uA, &#x3BC;A, microamp          |
          
-<a id=resistance></a>
+
 ### Resistance
 | Unit Identifier                 |
 |---------------------------------|
@@ -125,7 +131,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | k&#x2126;, kohm[s], kiloohm[s]  |
 | M&#x2126;, Mohm[s], megaohm[s]  |
          
-<a id=temperature></a>
+
 ### Temperature
 | Unit Identifier                 |
 |---------------------------------|
@@ -134,7 +140,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | &#xB0;F, degF                   |
 | &#xB0;R, degR                   |
          
-<a id=energy></a>
+
 ### Energy
 | Unit Identifier                 |
 |---------------------------------|
@@ -144,7 +150,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | kW.h, kilowatt.hour[s]          |
 | BTU[s]                          |
          
-<a id=power></a>
+
 ### Power
 | Unit Identifier                 |
 |---------------------------------|
@@ -153,7 +159,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | MW, megawatt                    |
 | hp, horsepower                  |
          
-<a id=pressure></a>
+
 ### Pressure
 | Unit Identifier                 |
 |---------------------------------|
@@ -163,7 +169,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | mmHg, millimeter[s]\_Hg         |
 | inHg, inch[es]\_Hg              |
          
-<a id=volume></a>
+
 ### Volume
 | Unit Identifier                 |
 |---------------------------------|
@@ -172,7 +178,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | gallon                          |
 | oz                              |
          
-<a id=frequency></a>
+
 ### Frequency
 | Unit Identifier                 |
 |---------------------------------|
@@ -180,7 +186,7 @@ NOTE: For Trick 13 and earlier, use 'sl' instead of 'slug'.
 | kHz, kilohertz, kiloHz
 | MHz, megahertz, megaHz
          
-<a id=counting></a>
+
 ### Counting
 | Unit Identifier                 |
 |---------------------------------|

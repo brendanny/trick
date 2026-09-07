@@ -1,4 +1,9 @@
-| [Home](/trick/index) → Install Guide |
+---
+title: "Install Guide"
+documentation_status: current
+---
+
+| [Home](../../index.md) → Install Guide |
 | ------------------------------------ |
 
 # Introduction
@@ -525,7 +530,7 @@ Finally, although setting `TRICK_CFLAGS` and `TRICK_CXXFLAGS` is not necessary, 
 
 \*The exception to this is if you're building in 32-bit mode, in which case the `TRICK_FORCE_32BIT` environment variable must be set to `1` before you build Trick or any simulation.
 
-[Continue to Building A Simulation](../building_a_simulation/Building-a-Simulation)
+[Continue to Building A Simulation](../building_a_simulation/Building-a-Simulation.md)
 
 ## Notes
 

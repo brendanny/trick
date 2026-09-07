@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Using STLs in Trick Sims |
+---
+title: "Standard Template Libraries (STL) in Trick"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Using STLs in Trick Sims |
 |------------------------------------------------------------------|
 
 # Standard Template Libraries (STL) in Trick
@@ -54,7 +59,7 @@ class AnyClass {
 }
 ```
 
-<a id=limitations></a>
+
 
 ## Limitations
 
@@ -110,4 +115,4 @@ memorymanager->declare_var_extern(&my_vector, "std::vector<int> my_vector_alloca
 
 
 
-[Continue to Threads](Threads)
+[Continue to Threads](Threads.md)

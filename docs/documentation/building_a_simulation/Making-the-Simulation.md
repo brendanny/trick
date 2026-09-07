@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Building a Simulation](Building-a-Simulation) → Making the Simulation |
+---
+title: "Making the Simulation"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Building a Simulation](Building-a-Simulation.md) → Making the Simulation |
 |------------------------------------------------------------------|
 
 
@@ -133,4 +138,4 @@ UNIX Prompt> make apocalypse
 
 Apocalypse is a special case rule when simulation libraries are used to build a simulation. See section Simulation_Libraries for more information about. In addition to all of files that spotless removes, apocalypse will run the spotless rule on any simulation directory the current simulation includes.
 
-[Continue to Trickified Project Libraries](Trickified-Project-Libraries)
+[Continue to Trickified Project Libraries](Trickified-Project-Libraries.md)

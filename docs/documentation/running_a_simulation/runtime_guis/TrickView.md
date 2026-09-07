@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../../Documentation-Home) → [Running a Simulation](../Running-a-Simulation) → [Runtime GUIs](Runtime-GUIs) → Trick View |
+---
+title: "TrickView"
+documentation_status: current
+---
+
+| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → [Runtime GUIs](Runtime-GUIs.md) → Trick View |
 |------------------------------------------------------------------|
 
 Trick View (hereafter referred to as TV) is a graphical user interface that allows users to view and modify Trick-managed variables in a simulation while it is running. It also provides for the launching of integrated strip charts and can save and restore lists of variables and their associated strip charts.
@@ -14,7 +19,7 @@ TV can be launched via one of:
    `trick-tv [options]`  
    The TV launch script is located in `$TRICK_HOME/bin`. Pass `--help` for a description of available options.
 
-For additional launching options, see [Automatically Launching Applications](Runtime-GUIs#automatically-launching-applications).
+For additional launching options, see [Automatically Launching Applications](Runtime-GUIs.md#automatically-launching-applications).
 
 ### Automatically Opening Files
 
@@ -160,7 +165,7 @@ TV records the value of every variable in the variable table each time the Varia
 #### Settings
 
 The Settings dialog can be accessed via the **File** menu and allows the user to alter the behavior of TV.
-See [[Runtime GUIs]] for a detailed description of Application Behavior and Cycle Period options.
+See [Runtime GUIs](Runtime-GUIs.md) for a detailed description of Application Behavior and Cycle Period options.
 
 ![](images/Settings.png)
 

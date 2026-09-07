@@ -1,8 +1,13 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Numerical Integration |
+---
+title: "State Propagation with Numerical Integration"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Numerical Integration |
 |------------------------------------------------------------------|
 
 <!-- Section -->
-<a id=state-Propagation-with-numerical-integration></a>
+<a id="state-Propagation-with-numerical-integration"></a>
 # State Propagation with Numerical Integration
 
 **Contents**
@@ -13,7 +18,7 @@
    * [Configuring The Integration Scheduler](#configuring-the-integration-scheduler)
    * [Updating the Cannonball Sim to use Numerical Integration](#updating-the-cannonball-sim-to-use-numerical-integration)
       - [Listing - **cannon_numeric.h**](#listing_cannon_numeric_h)
-   * [Creating a Derivative Class Job](creating-a-derivative-class-job)
+   * [Creating a Derivative Class Job](#creating-a-derivative-class-job)
       - [Listing - **cannon_deriv()**](#listing_cannon_deriv_func)
    * [Creating an Integration Class Job](#creating-an-integration-class-job)
       - [Listing - **cannon_integ()**](#listing_cannon_integ_func)
@@ -24,7 +29,7 @@
 
 ***
 
-<a id=how-trick-does-numerical-integration></a>
+
 ## How Trick Does Numerical Integration
 The type of model that we created in the last section relied on the fact that
 the cannon ball problem has a closed-form solution from which we can
@@ -54,7 +59,7 @@ times per integration time step. For the Euler integration algorithm, they are
 each only called once. For Runge Kutta 4 integration algorithm they are each
 called 4 times per integration time step.
 
-<a id=derivative-class-jobs></a>
+
 ## Derivative Class Jobs
 
 The purpose of a derivative class job is to generate model time derivatives
@@ -106,7 +111,7 @@ Again, if the derivatives are dependent on the results of the corresponding
 integration, then those derivatives and the time dependent quantities on which
 they depend should be calculated in the derivative job.
 
-<a id=integration-class-jobs></a>
+
 ## Integration Class Jobs
 The purpose of a integration class job is to integrate the derivatives that were
 calculated in the corresponding derivative jobs, producing the next simulation
@@ -134,7 +139,7 @@ integration algorithm, then `integrate()` will return 1 the first time it is
 called, 2 the second time, 3 the third, and 0 the fourth time, indicating that
 it is done.
 
-<a id=configuring-the-integration-scheduler></a>
+
 ## Configuring The Integration Scheduler
 Producing simulation states by numerical integration requires that the derivative
 and integration jobs be called at the appropriate rate and times. This requires
@@ -165,7 +170,7 @@ algorithm to be used, such as: `trick.Euler`, `trick.Runge_Kutta_2`,
 
 * N is the number of state variables to be integrated.
 
-<a id=updating-the-cannonball-sim-to-use-numerical-integration></a>
+
 ## Updating the Cannonball Sim to use Numerical Integration
 
 Rather than type everything again, we will first "tidy up" and then copy the
@@ -195,7 +200,7 @@ In this new simulation, we're going to create two new functions, 1)
 We'll put prototypes for each these functions into `cannon_numeric.h`. This new
 header file which will replace `cannon_analytic.h`.
 
-<a id=listing_cannon_numeric_h></a>
+<a id="listing_cannon_numeric_h"></a>
 **Listing - `cannon_numeric.h `**
 
 ```c
@@ -238,7 +243,7 @@ int cannon_deriv(CANNON*) ;
 ```
 
 
-<a id=creating-a-derivative-class-job></a>
+
 #### Creating a Derivative Class Job
 
 In the case of the cannon ball sim, we are making numerous simplifications, like
@@ -247,7 +252,7 @@ and ignoring aerodynamic drag. This means that our cannon ball simulation is not
 as accurate as it might be, but for our purposes here, which is to teach how to
 use Trick, it should be fine.
 
-<a id=listing_cannon_deriv_func></a>
+<a id="listing_cannon_deriv_func"></a>
 **Listing - `cannon_deriv()`**
 
 ```c
@@ -265,7 +270,7 @@ int cannon_deriv(CANNON* C) {
 ```
 👉 **Add cannon\_deriv() to cannon\_numeric.c.**
 
-<a id=creating-an-integration-class-job></a>
+
 #### Creating an Integration Class Job
 
 For our cannon ball sim, our integration job needs to:
@@ -284,7 +289,7 @@ variable number of parameters. When calling these functions, the last parameter
 Forgetting the final NULL will likely cause the simulation to crash and ... It
 won't be pretty.
 
-<a id=listing_cannon_integ_func></a>
+<a id="listing_cannon_integ_func"></a>
 **Listing - `cannon_integ()`**
 
 ```c
@@ -321,7 +326,7 @@ int cannon_integ(CANNON* C) {
 
 👉 **Add cannon\_integ() to cannon\_numeric.c.**
 
-<a id=updating-the-s_define-file></a>
+
 ## Updating the S_define File
 
 Next, our S_define file needs to be updated.
@@ -379,7 +384,7 @@ The first line here defines an integration scheduler called `dyn_integloop` that
 
 The updated S_define is:
 
-<a id=listing_s_define></a>
+<a id="listing_s_define"></a>
 **Listing - `S_define`**
 
 ```c++
@@ -411,7 +416,7 @@ void create_connections() {
 }
 ```
 
-<a id=running-the-cannonball-with-trick-integration></a>
+
 ## Running The Cannonball With Trick Integration
 
 There is nothing different about running with Trick integration. We just need to
@@ -430,7 +435,7 @@ If the sim builds successfully, then run it.
 
 Run the simulation to completion
 
-<a id=numeric_vs_analytical></a>
+<a id="numeric_vs_analytical"></a>
 ## Numeric Versus Analytical
 
 Let's compare the analytical "perfect" simulation with latest version using
@@ -459,4 +464,4 @@ perfectionist!
 
 Congratulations, you are now running a simulation with numerical integration.
 
-[Next Page](ATutDynamicEvents)
+[Next Page](ATutDynamicEvents.md)

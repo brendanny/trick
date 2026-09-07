@@ -1,3 +1,8 @@
+---
+title: "trick-jperf"
+documentation_status: current
+---
+
 # trick-jperf
 
 **Contents**
@@ -11,11 +16,11 @@
 
 ---
 
-<a id=purpose></a>
+
 ## Purpose
 The purpose of this document is explain how to use **trick-jperf**.
 
-<a id=introduction></a>
+
 ## Introduction
 
 **trick-jperf** is a post-analysis tool that helps one to visualize and analyze the job execution time-line data of a real-time Trick simulation. 
@@ -26,16 +31,16 @@ trick-jperf can also be run non-interactively from the command line to generate 
 
 ---
 
-<a id=prerequisite-knowledge></a>
+
 ## Prerequisite Knowledge
 One should:
 
-* Complete the [Trick Tutorial](https://nasa.github.io/trick/tutorial/Tutorial), and
-* Read [Trick Realtime Best Practices](https://nasa.github.io/trick/howto_guides/Realtime-Best-Practices).
+* Complete the [Trick Tutorial](../tutorial/Tutorial.md), and
+* Read [Trick Realtime Best Practices](Realtime-Best-Practices.md).
 
 ---
 
-<a id=recording-simulation-timeline-data></a>
+
 ## Recording Simulation Timeline Data
 **trick-jperf** requires timeline data from the simulation in question.
 
@@ -49,7 +54,7 @@ To collect this data, your simulation needs to run in real-time, with frame logg
 
 --
 
-<a id=the-timeline-data-file></a>
+
 ### The Timeline Data File
 
 When you run your sim in real-time with frame logging enabled, a CSV file named ```log_newtimeline.csv``` will be generated in your sims ```RUN_``` directory. This file contains the timeline data for your sim's main thread.
@@ -70,14 +75,14 @@ If your simulation has child threads, time-line files will be generated for each
 
 --
 
-<a id=s_job_execution></a>
+<a id="s_job_execution"></a>
 ### ```The S_job_execution``` File
 
 An ```The S_job_execution```, which is generated when your sim is run is also required by trick-jperf. It details the specifications of jobs running in your sim such as class, phase, ID, and name. This file is also required by trick-jperf.
 
 ---
 
-<a id=running-jperf></a>
+<a id="running-jperf"></a>
 ## Running trick-jperf
 
 **trick-jperf** can run interactively with a GUI (the default) or non-interactively (batch). One might run in batch to automate generation of statistics reports, perhaps for continuuous integration.
@@ -122,7 +127,7 @@ The default mode of JPerf is GUI / interactive mode.
 
 ---
 
-<a id=jperf-gui></a>
+<a id="jperf-gui"></a>
 ## The trick-jperf GUI
 
 ```% trick-jperf RUN_test/log_newtimeline.csv```
@@ -131,7 +136,7 @@ The default mode of JPerf is GUI / interactive mode.
 
 In its main window **trick-jperf** graphically displays realtime software frames. The frame boundaries, that is **Top of Frame** and **End of Frame**, are where simulation time is synchronized to realtime. The jobs that run within frames are each represented as uniquely colored rectangles. The color assigned to each job is [customizable](#job-colors).
 
-<a id=XXX></a>
+<a id="XXX"></a>
 ### Frames Boundaries
 Within the job-execution timeline, **trick-jperf** deduces the frame boundaries to be:
 
@@ -146,7 +151,7 @@ The total number of frames in the timeline is displayed in the middle of the upp
 
 The &#9660; and &#9650; buttons move the selected range forward and backward by 50.
 
-<a id=XXX></a>
+
 ### Selecting Frames & Jobs
 
 Left clicking on a job displays information about that job in the lower toolbar. In the following picture, we left clicked on a green box in frame 20. Looking at the lower toolbar we see that this "green job" represents the Job whose ID is 16.01, name is ```crewModule.dyn.calc_derivatives```, and job class is ```derivatiave```. 
@@ -155,7 +160,7 @@ Left clicking on a job displays information about that job in the lower toolbar.
 
 On the left side of the display, the frame number is also selected. This is indicated by the red arrow pointing to red the frame number.
 
-<a id=XXX></a>
+
 ### Frame Details
 
 To get the details of the selected frame, we left-click the **Frame Details** button in the upper toolbar. This opens a window (shown below) with the details of frame 20. That is, it displays which and when each of the jobs within that frame were executed.
@@ -166,7 +171,7 @@ Frame Details can also be displayed using the **View** menu.
 
 ![Realtime Under Run](images/jperf/ViewMenu.png)
 
-<a id=job-statistics></a>
+
 ### Job Statistics
 
 From the **View** menu, we can also display run-time statistics for simulation jobs. 
@@ -177,7 +182,7 @@ In the toolbar, at the top of the window, are buttons to sort the table by diffe
 
 ---
 
-<a id=job-colors></a>
+<a id="job-colors"></a>
 ### Job Colors & How They Can Be Customized
 
 Every Job is represented by a unique Color. Internally these associations are are stored as a Map of ```<JobID, Color>``` pairs, called the KeyedColorMap. Externally they are stored in a text file named ```IdToColors.txt```. Each row contains a job ID followed by RGB values.
@@ -201,4 +206,3 @@ When timeline processing is complete, the contents of the KeyedColorMap are writ
 Since the ```IdToColors.txt``` file is just a text file, it can be customized to use the colors you prefer.
 
 --------------------------------------
-

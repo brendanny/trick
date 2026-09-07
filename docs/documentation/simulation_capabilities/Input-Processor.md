@@ -1,8 +1,13 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Input Processor |
+---
+title: "Input Processor"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Input Processor |
 |------------------------------------------------------------------|
 
 This page describes the methods available in the Trick::InputProcessor class.
-<b>See [Input File](../running_a_simulation/Input-File) for detailed information on the syntax of the input processor file.
+<b>See [Input File](../running_a_simulation/Input-File.md) for detailed information on the syntax of the input processor file.
 
 ## User accessible routines
 
@@ -51,4 +56,4 @@ simply fires.
 
 The Fire Event Loop is called from the Check Conditions Loop or directly by the manual_fire() command, causing all of the event's enabled actions to run.
 
-[Continue to JIT Input Processor](JIT-Input-Processor)
+[Continue to JIT Input Processor](JIT-Input-Processor.md)

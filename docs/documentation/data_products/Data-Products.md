@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → Data Products |
+---
+title: "Data Products"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Data Products |
 |------------------------------------------------------------------|
 
 The Data Products (DP) is a simulation data post processor designed to allow visualization of data recorded in the Trick simulation.
@@ -16,9 +21,9 @@ UNIX Prompt> gxplot <session_file>
 
 This session is arranged as following:
 
-- [DP Session File Format](DP-Session-File-Format)
-- [DP Product File Format](DP-Product-File-Format)
-- [Plot Printing](Plot-Printing)
-- [Data Products GUIs](Data-Products-GUIs)
+- [DP Session File Format](DP-Session-File-Format.md)
+- [DP Product File Format](DP-Product-File-Format.md)
+- [Plot Printing](Plot-Printing.md)
+- [Data Products GUIs](Data-Products-GUIs.md)
 
-[Continue to DP Session File Format](DP-Session-File-Format)
+[Continue to DP Session File Format](DP-Session-File-Format.md)

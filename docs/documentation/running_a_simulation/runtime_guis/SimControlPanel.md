@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../../Documentation-Home) → [Running a Simulation](../Running-a-Simulation) → [Runtime GUIs](Runtime-GUIs) → Sim Control Panel |
+---
+title: "SimControlPanel"
+documentation_status: current
+---
+
+| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → [Runtime GUIs](Runtime-GUIs.md) → Sim Control Panel |
 |------------------------------------------------------------------|
 
 ## Sim Control Panel
@@ -12,7 +17,7 @@ The Panel can be launched in two ways:
 - Via the command line `${TRICK_HOME}/bin/trick-simcontrol [hostname] [port number]` 
   - The hostname and port number are optional
 
-- Using the input file to launch it automatically, see [Automatically Launching Applications](Runtime-GUIs#automatically-launching-applications)
+- Using the input file to launch it automatically, see [Automatically Launching Applications](Runtime-GUIs.md#automatically-launching-applications)
 
 ### The GUI
 
@@ -40,9 +45,9 @@ The File menu pictured below contains operations to manage the Sim Control Panel
 
 ![SimControlPanel_Actions](images/SCP_Actions.jpg)
 
-- **Start Trick View:** Opens an instance of the Trick View application connected to the current simulation. See [Trick View](TrickView) for more details.
+- **Start Trick View:** Opens an instance of the Trick View application connected to the current simulation. See [Trick View](TrickView.md) for more details.
 
-- **Start Event/Malfunction Trick View:** Opens an instance of the Events/Malfunctions Trick View application connected to the current simulation. See [Events/Malfunctions Trick View](MalfunctionsTrickView) for more details.
+- **Start Event/Malfunction Trick View:** Opens an instance of the Events/Malfunctions Trick View application connected to the current simulation. See [Events/Malfunctions Trick View](MalfunctionsTrickView.md) for more details.
 
 - **Freeze At:** Sets the simulation to enter freeze mode at a specific simulation time
 

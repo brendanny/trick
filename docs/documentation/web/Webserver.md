@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → Web Server |
+---
+title: "Adding a Web Server to Your Sim"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Web Server |
 |------------------------------------------------------------------|
 
 # Adding a Web Server to Your Sim
@@ -80,4 +85,4 @@ The **images** directory contains trick_icon.png.
 
 **You are encouraged to add to, modify, and/or delete these files and directories to best suite the needs of your project.**
 
-Continue to [Configuring Trick with Civetweb](Configure-Civetweb)
+Continue to [Configuring Trick with Civetweb](Configure-Civetweb.md)

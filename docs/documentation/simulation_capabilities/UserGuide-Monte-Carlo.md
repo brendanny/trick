@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Monte Carlo |
+---
+title: "Monte Carlo User Guide"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Monte Carlo |
 |------------------------------------------------------------------|
 
 # Introduction
@@ -254,4 +259,4 @@ trick.mc_function_name(function_parameter, "function_parameter2", . . .)
 | mc\_write								| Gets the connection device and writes the user specified buffer into it.																															|
 | mc\_is\_slave							| Returns a boolean integer indicating if the current executive is running as a slave.																												|
 
-[Continue to Master Slave](Master-Slave)
+[Continue to Master Slave](Master-Slave.md)

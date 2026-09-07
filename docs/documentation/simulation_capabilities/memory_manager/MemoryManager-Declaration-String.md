@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../../Documentation-Home) → [Simulation Capabilities](../Simulation-Capabilities) → [Memory Manager](MemoryManager) → Declaration String|
+---
+title: "MemoryManager Declaration String"
+documentation_status: current
+---
+
+| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Simulation Capabilities](../Simulation-Capabilities.md) → [Memory Manager](MemoryManager.md) → Declaration String|
 |------------------------------------------------------------------|
 
 

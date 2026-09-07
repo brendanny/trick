@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Echo Jobs |
+---
+title: "Echo Jobs"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Echo Jobs |
 |------------------------------------------------------------------|
 
 Echo Jobs is a handy debugging toggle provided by Trick. When turned on, Echo Jobs will print the current simulation time and
@@ -23,4 +28,4 @@ int echo_jobs_on() ;
 int echo_jobs_off() ;
 ```
 
-[Continue to Variable Server](Variable-Server)
+[Continue to Variable Server](Variable-Server.md)

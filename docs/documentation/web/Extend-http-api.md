@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Web Server](Webserver) → [APIs](WebServerAPIs) → Extending the HTTP API |
+---
+title: "Extending the HTTP API"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → [APIs](Webserver-apis.md) → Extending the HTTP API |
 |------------------------------------------------------------------|
 
 ## Extending the HTTP-API
@@ -117,4 +122,4 @@ void create_connections() {
 
 ```
 
-Continue to [Extending the WS API](Extend-ws-api)
+Continue to [Extending the WS API](Extend-ws-api.md)

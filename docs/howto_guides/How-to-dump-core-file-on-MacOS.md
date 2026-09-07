@@ -1,3 +1,8 @@
+---
+title: "How to Dump a Core File on MacOS (Monterey 12.5)"
+documentation_status: current
+---
+
 # How to Dump a Core File on MacOS (Monterey 12.5)
 
 A core dump (file) records the memory and state of a program at some moment in time, usually when it terminates abnormally. Core dumps can be useful in debugging in certain situations.

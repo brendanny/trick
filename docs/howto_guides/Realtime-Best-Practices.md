@@ -1,3 +1,8 @@
+---
+title: "Trick Realtime Best Practices"
+documentation_status: current
+---
+
 # Trick Realtime Best Practices
 
 **Contents**
@@ -9,16 +14,17 @@
 <a id= introduction></a>
 
 ---
+<a id="Purpose"></a>
 ## Purpose
 The intention of this document is to compile and share practical knowledge, based on the experience of people in the Trick simulation community regarding the development of realtime computer simulations.
 
-<a id=prerequisite-knowledge></a>
+
 ## Prerequisite Knowledge
-(Assuming you've completed the [Trick Tutorial](https://nasa.github.io/trick/tutorial/Tutorial))
+(Assuming you've completed the [Trick Tutorial](../tutorial/Tutorial.md))
 
 ---
 
-<a id=simulation-time-vs-realtime></a>
+
 ### Simulation Time vs Realtime
 
 Real world dynamic systems change in realtime (the time that you and I experience). A simulated dynamic system changes in simulation time. Simulation time begins at t=0, and runs until we stop it. Simulation time can elapse faster or slower than realtime.
@@ -27,28 +33,28 @@ If we want to interact with a simulation as if it were real, we need to synchron
 
 ---
 
-<a id=realtime-clock></a>
+
 ### Realtime Clock
 * By default, the Trick realtime scheduler will synchronize to the system clock:
 	* ```clock_gettime(CLOCK_REALTIME,…)``` [Linux]
 	* ```gettimeofday()``` [Mac OS]
 
-* The Trick realtime scheduler can also be configured to synchronize to a [custom realtime clock](https://nasa.github.io/trick/documentation/simulation_capabilities/Realtime-Clock).
+* The Trick realtime scheduler can also be configured to synchronize to a [custom realtime clock](../documentation/simulation_capabilities/Realtime-Clock.md).
 
 ---
 
-<a id=enabling-realtime></a>
+
 ### Enabling Realtime
 
 Trick tries to consistently and repetitively execute its scheduled math models to completion within some predetermined realtime interval for an indefinite period. This realtime interval is called the **realtime software frame**.
 
 To enable realtime synchronization, call ```trick.real_time_enable()``` in the input file.
 
-[Ref: Realtime](https://nasa.github.io/trick/documentation/simulation_capabilities/Realtime)
+[Ref: Realtime](../documentation/simulation_capabilities/Realtime.md)
 
 ---
 
-<a id=realtime-software-frame></a>
+
 ### Realtime Software Frame
 The realtime software frame determines how often Trick will synchronize simulation time to the realtime clock.  Simulation time will run as fast as it can in the intervals between realtime synchronizations.
 
@@ -57,26 +63,26 @@ To set the realtime software frame, call the following in the input file:
 ```python
 trick.exec_set_software_frame(double time)
 ```
-[Ref: Software Frame](https://nasa.github.io/trick/documentation/simulation_capabilities/Executive-Scheduler#software-frame)
+[Ref: Software Frame](../documentation/simulation_capabilities/Executive-Scheduler.md#software-frame)
 
 ---
 
-<a id=under-runs-and-over-runs></a>
+
 ### Under-runs and Over-runs
 
 An **under-run** occurs when the Trick executive finishes running all of its scheduled jobs, between synchronizations to the realtime clock. This is a **good thing**. In this case the executive will enter a spin loop, waiting for the next realtime frame to start.
 
-<a id=figure-realtime-under-run></a>
+<a id="figure-realtime-under-run"></a>
 ![Realtime Under Run](images/RealtimeUnderRun.png)
 
 An **over-run** occurs if the executive does not finish running all of its scheduled jobs. This is a **bad-thing**. In this case, the executive will immediately start the next frame in an attempt to catch up.
 
-<a id=figure-realtime-over-run></a>
+<a id="figure-realtime-over-run"></a>
 ![Realtime Over Run](images/RealtimeOverRun.png)
 
 ---
 
-<a id=itimers></a>
+<a id="itimers"></a>
 ### Itimers ( Being Nice to Other Processes On Your System )
 
 During real time under runs you may want to release the processor for other tasks to use instead of spinning waiting for the clock. Trick provides a realtime sleep timer based on itimers. You might think of it as a “snooze button”.
@@ -85,14 +91,14 @@ To enable itimers call ```trick.itimer_enable()``` from the input file.
 
 With itimer_enabled, the simulation will sleep() after completing the jobs scheduled for the current frame. The itimer will then wake the sim 2ms before the realtime frame is to expire.  The executive will spin for the final 2ms. The 2ms spin is there because an itimer interval is not guaranteed to be perfectly precise.
 
-<a id=figure-Realtime-with_itimer></a>
+<a id="figure-Realtime-with_itimer"></a>
 ![Realtime with itimer](images/RealtimeWithItimer.png)
 
-[Ref: Itimer](https://nasa.github.io/trick/documentation/simulation_capabilities/Realtime-Timer)
+[Ref: Itimer](../documentation/simulation_capabilities/Realtime-Timer.md)
 
 ---
 
-<a id=frame-logging></a>
+<a id="frame-logging"></a>
 ### Frame-Logging ( Critical For Improving Sim Performance )
 
 The failure of a simulation to meet its scheduling requirements can have many causes. To aid in solving these problems, Trick can gather simulation performance data, called **frame-logging** by calling:
@@ -103,9 +109,9 @@ in your sim's input file.
 
 Note that frame logging will add some overhead to a simulation as each job is timed and recorded.
 
-[Ref: Frame-Logging](https://nasa.github.io/trick/documentation/simulation_capabilities/Frame-Logging)
+[Ref: Frame-Logging](../documentation/simulation_capabilities/Frame-Logging.md)
 
-<a id=frame-log-files></a>
+
 #### Frame Log Files
 Frame logging records the following data files in your sim’s RUN_ directory:
 
@@ -120,7 +126,7 @@ If child threads (for example: C1, C2, ...) have been specified in the sim then 
 
 ---
 
-<a id=log-frame-trk></a>
+<a id="log-frame-trk"></a>
 #### ```log_frame.trk```
 * Number of fields per record : 5
 
@@ -134,7 +140,7 @@ If child threads (for example: C1, C2, ...) have been specified in the sim then 
 
 ---
 
-<a id=log-frame-userjobs-main-trk></a>
+<a id="log-frame-userjobs-main-trk"></a>
 #### ```log_frame_userjobs_main.trk```
 * Number of fields per record : 1 + *#user-jobs*
 
@@ -145,7 +151,7 @@ If child threads (for example: C1, C2, ...) have been specified in the sim then 
 
 ---
 
-<a id=log-frame-trickjobs-trk></a>
+<a id="log-frame-trickjobs-trk"></a>
 #### ```log_frame_trickjobs.trk```
 * Number of fields per record : 1 + *#trick-jobs*
 
@@ -154,7 +160,7 @@ If child threads (for example: C1, C2, ...) have been specified in the sim then 
 | 1| ```sys.exec.out.time```                  | double | seconds |Simulation Time |
 | n| *trick-job-name* | double | seconds |How long the trick-job took to execute. |
 
-<a id=log-timeline-csv></a>
+<a id="log-timeline-csv"></a>
 #### ```log_timeline.csv``` & ```log_timeline_init.csv```
 These files contain start and stop times for each of the jobs executed in a trick sim.
 ```log_timeline.csv``` contains times for jobs run during run-time. ```log_timeline_init.csv``` contains times for jobs run at initialization time.
@@ -199,10 +205,10 @@ To match the job ID's with the job names, see the ```S_job_execution``` file.
 ### Analyzing the Frame Log Files
 There are several ways we can examine/ analyze the data logged in these files.
 
-#### [trick-jperf](https://nasa.github.io/trick/howto_guides/How-to-Use-trick-jperf)
+#### [trick-jperf](How-to-Use-trick-jperf.md)
 **trick-jperf** is a post-analysis tool for visualizing and analyzing the job execution time-line data of a real-time Trick simulation. The timeline is displayed as numbered job-frames, each containing (color-coded) jobs within those frames. One can display job statistics for the entire timeline or query the details of individually selected jobs or frames.
 
-#### [trick-DP](https://nasa.github.io/trick/tutorial/ATutPlottingData)
+#### [trick-DP](../tutorial/ATutPlottingData.md)
 When you build your Trick sim, the following data-product files are created for you to plot your sim's frame log data.
 
 * ```DP_rt_frame.xml```
@@ -231,11 +237,11 @@ When you build your Trick sim, the following data-product files are created for 
 ### Trick Executive Scheduler
 
 The
- [Executive Scheduler](https://nasa.github.io/trick/documentation/simulation_capabilities/Executive-Scheduler) determines how, when, and where (which CPU) the jobs in your Trick sim are executed.
+ [Executive Scheduler](../documentation/simulation_capabilities/Executive-Scheduler.md) determines how, when, and where (which CPU) the jobs in your Trick sim are executed.
 
 
-* [Job Control](https://nasa.github.io/trick/documentation/simulation_capabilities/Executive-Scheduler#job-control) - describes the Trick job control interface.
-* [Thread Control](https://nasa.github.io/trick/documentation/simulation_capabilities/Executive-Scheduler#thread-control)  - describes the attributes and behaviors of different Trick thread types.  
+* [Job Control](../documentation/simulation_capabilities/Executive-Scheduler.md#job-control) - describes the Trick job control interface.
+* [Thread Control](../documentation/simulation_capabilities/Executive-Scheduler.md#thread-control)  - describes the attributes and behaviors of different Trick thread types.  
 
 Thread control will in some cases require that you isolate CPUs at boot-time. This is usualy done with the **isolcpus** boot parameter:
 
@@ -244,7 +250,7 @@ Thread control will in some cases require that you isolate CPUs at boot-time. Th
 Ref: [RedHat: Isolating CPUs Using tuned-profiles-realtime](https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux_for_real_time/7/html/tuning_guide/isolating_cpus_using_tuned-profiles-realtime)
 
 
-<a id=guidelines></a>
+<a id="guidelines"></a>
 ## Do's, Don'ts, and Wisdom
 
 ---
@@ -255,7 +261,7 @@ Ref: [RedHat: Isolating CPUs Using tuned-profiles-realtime](https://access.redha
 
 Trick events can provide a quick and easy way to customize the behavior of a sim, based on some condition. But, because they require Python interpretation, they are slow. They are not intended for implementation of permanent sim functionality. If they are over used, they can seriously degrade simulation performance. So, take it easy with the events.
 
-See [Event Manager](https://nasa.github.io/trick/documentation/simulation_capabilities/Event-Manager).
+See [Event Manager](../documentation/simulation_capabilities/Event-Manager.md).
 
 #### 1.2 Disable Trick run-time components that your sim doesn't need.
 

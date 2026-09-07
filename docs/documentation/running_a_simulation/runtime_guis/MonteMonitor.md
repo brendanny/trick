@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../../Documentation-Home) → [Running a Simulation](../Running-a-Simulation) → [Runtime GUIs](Runtime-GUIs) → Monte Monitor |
+---
+title: "MonteMonitor"
+documentation_status: current
+---
+
+| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → [Runtime GUIs](Runtime-GUIs.md) → Monte Monitor |
 |------------------------------------------------------------------|
 
 ## Monte Monitor
@@ -102,4 +107,3 @@ Slaves can be started and stopped while the Monte Carlo is running via the <code
 <code>Slaves</code> menus. Selecting a command from the <code>Monte Carlo</code> menu is equivalent to applying the same
 command from the <code>Slaves</code> menu to all slaves in the slave table. Stopping a slave will prevent any further
 runs from being dispatched to it after its current dispatch completes. Starting a slave will resume dispatches to it.
-

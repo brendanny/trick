@@ -1,8 +1,13 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Dynamic Events |
+---
+title: "Dynamic Events - Making Contact"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Dynamic Events |
 |-----------------------------------------------------------|
 
 <!-- Section -->
-<a id=dynamic-events-making-contact></a>
+
 # Dynamic Events - Making Contact
 
 **Contents**
@@ -10,14 +15,14 @@
 * [What are Dynamic Events?](#what-are-dynamic-events)
 * [Dynamic Event Jobs](#dynamic-event-jobs)
   - [Finding Events with *regula_falsi()*](#finding-events-with-regula-falsi)
-  - [Listing - **cannon_impact()**](listing_cannon_impact)
+  - [Listing - **cannon_impact()**](#listing_cannon_impact)
 * [Specifying an Event Boundary](#specifying-an-event-boundary)
 * [Calling **regula_falsi()**](#calling-regula-falsi)
 * [Updating Our Cannonball Simulation](#updating-our-cannonball-simulation)
 
 ***
 
-<a id=what-are-dynamic-events></a>
+
 ## What are Dynamic Events?
 
 Our numerical cannon ball simulation still needs to determine the precise time
@@ -42,7 +47,7 @@ we've defined, a **dynamic-event**. To find dynamic-events, we use
 **Figure - Cannon Ball Trajectory Near y(t) = 0**
 ![IntegStepCrossesZero](images/IntegStepCrossesZero.png)
 
-<a id=dynamic-event-jobs></a>
+
 ## Dynamic Event Jobs
 
 A dynamic-event job is called periodically, after each integration step.
@@ -53,7 +58,7 @@ this using the Trick's ```regula_falsi()``` function and ```REGULA_FALSI```
 data-type to implement the 
 [False position method](https://en.wikipedia.org/wiki/False_position_method).
 
-<a id=finding-events-with-regula-falsi></a>
+<a id="finding-events-with-regula-falsi"></a>
 ### Finding Events with *regula_falsi()*
 
 The ```regula_falsi()``` function is the heart of a dynamic event function.
@@ -69,7 +74,7 @@ variable.
 The function ```cannon_impact()```, listed below is the dynamic event job
 function that we'll use for our cannonball simulation.
 
-<a id=listing_cannon_impact></a>
+<a id="listing_cannon_impact"></a>
 **Listing - cannon_impact()**
 
 ```c
@@ -96,7 +101,7 @@ double cannon_impact( CANNON* C ) {
 In the following two sections, we'll discuss the details of how this and other
 dynamic event jobs work.
 
-<a id=specifying-an-event-boundary></a>
+
 ### Specifying an Event Boundary
 
 * ```REGULA_FALSI.error```
@@ -149,7 +154,7 @@ to ```Any```, because the cannonball doesn't start below the ground.
 To specify the how small the error should be before declaring success, set 
 ```REGULA_FALSI.error_tol```. The default error tolerance is 1.0e-15.
 
-<a id=calling-regula-falsi></a>
+<a id="calling-regula-falsi"></a>
 ### Calling regula_falsi()
 
 Given the current integration time, from ```get_integ_time()```, and a pointer
@@ -178,7 +183,7 @@ When the dynamic event job returns 0.0, the integration scheduler will return to
 its normal behavior of integrating from the current state to the next integer
 multiple of the integloop time step.
 
-<a id=updating-our-cannonball-simulation></a>
+
 ## Updating Our Cannonball Simulation 
 
 ### Step 1 - Modifications to ```cannon.h```
@@ -247,4 +252,4 @@ vel = [0.000000000, 0.000000000]
 
 **It's the same answer we got from our analytic simulation!**
 
-[Next Page](TutVariableServer)
+[Next Page](TutVariableServer.md)

@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Realtime Clock |
+---
+title: "Realtime-Clock"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Realtime Clock |
 |------------------------------------------------------------------|
 
 # Realtime-Clock
@@ -17,7 +22,7 @@
 
 Every real-time simulation requires a clock to which its tasks can be synchronized. By default, a Trick simulation uses the local system clock, by calling *gettimeofday()*. When simulations running on different computers need to cooperate they need to be synchronized to the same clock. So, sometimes we want our simulation to synchronize a to an **external** clock rather than the local one. The ```Trick::Clock``` base class provides a way to create an interface between an external time source, and a real-time Trick simulation.
 
-<a id=creating-a-clock></a>
+<a id="creating-a-clock"></a>
 ## Creating a Real-Time Clock Interface with Trick::Clock
 
 The Trick::Clock class is declared in ```trick/Clock.hh```. Deriving a new clock interface class from it requires the following three member functions to be implemented.
@@ -51,7 +56,7 @@ int Trick::Clock::clock_stop()
 
 ***
 
-<a id=installing-a-clock></a>
+<a id="installing-a-clock"></a>
 
 ## Installing a Trick::Clock In Your Simulation
 
@@ -77,12 +82,12 @@ We could also change the ```Trick::Clock``` in our input file as follows:
 trick.real_time_change_clock(chalet.my_clock)
 ```
 
-<a id=example-implemntation></a>
+<a id="example-implemntation"></a>
 ## An Example Implementation of a Trick::Clock
 
 The following code is an example implementation of a Trick::Clock, called TPROCTEClock. It provides an interface between Trick's real-time job scheduler and Spectracom's TPRO IRIG-B clock board. This is one of many available time sources that one might use. Note that driver support for timing cards, like the "tpro.h" and "tsync.h" files below, must be acquired from the card's vendor.
 
-<a id=listing_1_Clock-header-file></a>
+<a id="listing_1_Clock-header-file"></a>
 ### TPROCTEClock Header File
 ```c
 /*
@@ -115,7 +120,7 @@ class TPROCTEClock : public Trick::Clock {
 #endif
 ```
 
-<a id=listing_2_clock-init></a>
+<a id="listing_2_clock-init"></a>
 ### TPROCTEClock::clock_init
 
 Here, we initialize the timing card by opening the device file, getting a device handle. Then we wait for for it to be available. If an error occurs, return a non-zero error code, otherwise we call ```set_global_clock()``` and return 0.
@@ -184,7 +189,7 @@ int TPROCTEClock::clock_stop() {
     return 0 ;
 }
 ```
-<a id=looking-for-sim-time></a>
+<a id="looking-for-sim-time"></a>
 ## Looking For The Current Simulation Time ?
 
 Trick::Clock is a class for creating interfaces between timing hardware, or other time sources and Trick's realtime synchronization subsystem. It does not maintain the simulation time. That's maintained by the Trick Executive.
@@ -197,6 +202,6 @@ double exec_get_sim_time(void) ;
 
 defined in ```exec_proto.h```.
 
-Continue to [Realtime Timer](Realtime-Timer)
+Continue to [Realtime Timer](Realtime-Timer.md)
 
  

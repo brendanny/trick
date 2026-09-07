@@ -1,9 +1,9 @@
 # Documentation migration pilot
 
-This is step 1 of the Jekyll-to-Zensical migration: a reproducible build harness,
-source baseline, representative-content checks, and **non-deploying** CI.
-It does not switch GitHub Pages, rewrite the documentation, introduce release
-versioning, or change Doxygen or Trick's runtime dependencies.
+This implements steps 1 and 2 of the Jekyll-to-Zensical migration: a reproducible
+build harness, immutable source baseline, full-corpus content conversion, and
+**non-deploying** CI. It does not switch GitHub Pages, introduce release versioning,
+or change Doxygen or Trick's runtime dependencies.
 
 The branch is based on `brendanny/trick:master` at
 `cc3c4566ad71041efca2f1756bd13047f3829778`, not the newer upstream revision used
@@ -21,7 +21,7 @@ python3.11 -m venv .venv-docs
 python -m pip install --only-binary=:all: --require-hashes -r tools/docs/requirements.txt
 python -m unittest discover -s tools/docs/tests -v
 python tools/docs/inventory.py --check
-python tools/docs/build.py build
+python tools/docs/build.py build --strict
 python tools/docs/check_site.py
 ```
 
@@ -69,18 +69,21 @@ be removed after cutover, or a supported upstream exclusion mechanism is adopted
 and tested, it can be simplified away. Calling `zensical build` directly without
 preparing the source uses a stale projection and is not the supported workflow.
 
-## What passes now and what remains discovery work
+## What passes now and what remains cutover work
 
-| Check | Step-1 behavior |
+| Check | Step-2 behavior |
 | --- | --- |
 | Dependency installation | Exact versions and hashes; Zensical 0.0.59. |
-| Full corpus build | Must succeed; Zensical link/anchor warnings are recorded, not suppressed. |
+| Full corpus build | Strict build must succeed with no warnings. |
 | Baseline pages and assets | Missing output or changed asset bytes fails the check. |
 | Explicit source anchors | Missing output anchors fail the check. |
 | Jekyll helpers | Publishing a helper fails the check. |
 | Seven representative pages | Missing text, headings, code blocks, or images below the recorded minimum fails. |
-| Search index | Missing/invalid/empty index or missing pilot entries fails; relevance and browser behavior are later checks. |
-| Raw-HTML links and duplicate IDs | Findings are reported for the content-conversion step. |
+| Metadata | Every page needs an explicit title and current/historical status; rendered titles are checked. |
+| Search index | All current pages must be indexed; all historical pages must be absent. Missing/invalid/empty search fails. Relevance and browser behavior are later checks. |
+| Historical pages | Published at their original paths, with a visible notice and links to current guidance. |
+| Code samples | Source samples must match the immutable baseline; rendered samples must match source text and order. |
+| Raw-HTML links and duplicate IDs | Every finding fails, including missing fragments; there is no allowance list. |
 | Strict validation | Negative fixtures must fail against the real Zensical executable. |
 | Publication | No deployment job, Pages write permission, OIDC permission, or `gh-pages` push. |
 
@@ -89,11 +92,11 @@ analytic cannonball tutorial, `S_define` reference, Variable Server reference,
 and screenshot-heavy Data Products GUI guide. `pilot.json` defines the checks.
 These are static content-preservation checks, not visual/browser approval.
 
-The initial measured build reports 71 Zensical issues. The separate HTML check
-reports 117 findings: 100 duplicate IDs, 10 missing targets, and 7 missing
-fragments. These counts are explanatory observations, not a hard-coded allowance
-or proof that every issue predates the generator change. Review the actual report
-when the sources or dependencies change.
+Step 1 reported 71 Zensical issues and 117 HTML findings: 100 duplicate IDs,
+10 missing targets, and 7 missing fragments. Step 2 reports zero in both checks,
+preserves all 133 page paths, 166 asset blobs, 208 explicit anchor targets, and
+740 code samples, and excludes 32 historical pages from search. These are measured
+observations, not hard-coded allowances or proof of complete Jekyll compatibility.
 
 Outputs:
 
@@ -102,17 +105,65 @@ Outputs:
 - `.docs-build/report.json`: structural errors, migration findings, and baseline
   coverage flags. No timestamps or absolute build paths are embedded in this report.
 
-The future strict gates are available explicitly and **are expected to fail at
-this stage**:
+The build's `--strict` mode is now mandatory in CI. The separate **cutover-evidence
+gate remains expected to fail**:
 
 ```sh
-python tools/docs/build.py build --strict
 python tools/docs/check_site.py --strict
 ```
 
-The latter also refuses to report cutover readiness while rendered legacy IDs,
-live host aliases, or Pages settings remain unverified. A source-file or HTML
+This additionally refuses to report cutover readiness while rendered legacy IDs,
+client-generated IDs, live host aliases, or Pages settings remain unverified. A source-file or HTML
 existence check cannot prove that an extensionless request works on GitHub Pages.
+
+## Content-conversion decisions
+
+Markdown page destinations are now explicit relative `.md` paths; raw HTML
+`href` attributes use relative `.html` output paths because the generator does
+not rewrite raw HTML. Asset and repository/source links are distinct from page
+links. Filenames and capitalization have not changed.
+
+The one-time conversion used tree-sitter Markdown block/inline source ranges,
+not a global textual substitution. Fenced/indented code was excluded and checked
+byte-for-byte during conversion. No conversion code runs as part of a build;
+the reviewed Markdown is the authored source.
+
+Redundant raw anchors were removed only where the same target is supplied by a
+heading, or where a duplicate `XXX` anchor shadowed the first one in trick-jperf.
+Distinct aliases were retained and quoted so strict validation recognizes them.
+The first `XXX` target still resolves to Frame Boundaries. Source-linked aliases
+were added for five TrickOps headings, `Purpose`, and `volt`; these are not a
+substitute for comparing a rendered Jekyll baseline.
+
+Other scoped repairs correct the STL filename's case, the Web Server APIs and
+How-To breadcrumb paths, two missing `#` fragment prefixes, an archived image
+path, and a malformed anchor attribute. Old wiki markup is converted to working
+Markdown links and images. The existing GFM strikethrough in both Python
+variable-server guides is enabled via `pymdownx.tilde`, without subscript syntax.
+Equation images remain unchanged; this baseline needs no added MathJax bundle.
+
+Each page records its disposition in `documentation_status` front matter:
+
+| Pages | Disposition and rationale |
+| --- | --- |
+| 101 current pages | Retained and searchable. “Current” is a navigation policy, not a new technical audit of every statement. |
+| 9 `developer_docs/Des*.md` pages | Historical; the existing developer index already identifies these designs as potentially outdated. |
+| 17 `not_referenced/design/*.md` pages | Historical; retained design drafts, duplicate designs, and incomplete design notes, not removed or silently merged. |
+| 6 remaining `not_referenced` pages | Historical; retain the GSL examples, input quick reference, Monte Carlo reference, Python client guide, S_sie parsing notes, and functions overview. Link to current guidance where available, without claiming every old example is invalid. |
+
+Historical notices explain the uncertainty rather than declaring the described
+capabilities deprecated. Search exclusion, publication, and primary navigation
+are separate: these pages are still published and their existing index links
+remain usable, but they are absent from search and the primary `nav` list.
+[Page-level search exclusion](https://zensical.org/docs/setup/search/) and
+[front matter](https://zensical.org/docs/authoring/frontmatter/) are supported by
+the pinned generator and verified in its output.
+
+`content.py` compares code samples with the old Git blobs and with rendered HTML
+throughout this migration. A substantive example correction needs its own review
+and an explicit adjustment of that migration guard; do not regenerate the legacy
+manifest to make a content change pass. Retire the old-source code comparison
+after cutover, retaining source-to-output checks.
 
 ## Baseline provenance and outstanding legacy evidence
 
@@ -184,13 +235,15 @@ has read-only repository permissions, pins actions to commit SHAs, and never use
 diagnostics, and the report—not the environment or other workspace files. It is
 not a hosted preview and is not a durable rollback archive.
 
-## Handoff to step 2
+## Handoff to step 3
 
-Keep this branch additive until cutover: Jekyll source/layout and Doxygen remain
-unchanged. Next, review and fix the reported link/fragment/duplicate-ID differences,
-add stable page metadata, and decide historical-page dispositions. Navigation and
-presentation improvements and production publishing remain later steps. Do not
-enable deployment merely because the step-1 structural check is green.
+Next, develop task-oriented navigation, the homepage, search relevance, and
+presentation. Keep production publishing separate. The Jekyll configuration and
+layout, dependency lock, Doxygen, and Pages settings remain unchanged, but the
+authored Markdown now contains the conversion. Do not deploy this branch through
+the old publisher or assume it has been verified against Jekyll. Complete the
+outstanding legacy evidence and explicit browser checks before cutover; green
+corpus validation alone does not authorize deployment.
 
 The eventual switch must preserve the exact tested artifact and a rollback path.
 Reverting only a Pages setting is insufficient if converted Markdown no longer

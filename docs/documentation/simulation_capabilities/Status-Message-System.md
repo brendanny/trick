@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Status Message System |
+---
+title: "Status Message System"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Status Message System |
 |------------------------------------------------------------------|
 
 The Message Publisher publishes executive and/or model messages. A Message Subscriber gets the messages published by the Publisher.
@@ -119,5 +124,4 @@ trick_message.mdevice.set_color(bool yes_no);
 trick_message.mfile.set_color(bool yes_no);
 ```
 
-[Continue to Command Line Arguments](Command-Line-Arguments)
-
+[Continue to Command Line Arguments](Command-Line-Arguments.md)

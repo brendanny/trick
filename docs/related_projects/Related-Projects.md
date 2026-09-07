@@ -1,4 +1,9 @@
-| [Home](/trick) → Related Projects |
+---
+title: "Related Projects"
+documentation_status: current
+---
+
+| [Home](../index.md) → Related Projects |
 |---------------------------------|
 
 # Open Source Projects
@@ -50,4 +55,3 @@ The Robotics On-Board Trainer (ROBoT) is an on-orbit version of the ground-based
 The Multi-Mission Space Exploration Vehicle (MMSEV) is a modular space vehicle concept that utilizes Trick for training simulations. MMSEV is designed to be an adaptable and versatile vehicle used for both space and surface exploration.
 
 ![MMSEV2](images/MMSEV2.jpg)
-

@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Running a Simulation](Running-a-Simulation) → Input File |
+---
+title: "Input File"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Running a Simulation](Running-a-Simulation.md) → Input File |
 |------------------------------------------------------------------|
 
 The primary interface between the simulation executable and the user is the runstream
@@ -486,7 +491,7 @@ trick.stop(trick.exec_get_sim_time() + 5.0)
 
 Trick 10 events are a hybrid of Trick 07 events and malfunctions. A Trick 07 event has one or more conditions, one action, and is evaluated by the input processor. A Trick 07 malfunction also has one or more conditions (called triggers) that you can disable/enable, multiple actions, manual mode, and is evaluated before/after a specified job. Multiple conditions in malfunctions are ORed in 07, while multiple conditions in events can be specified by the user as being ORed or ANDed.  Here is the Python syntax showing how Trick 10 events implement all of this functionality.
 
-For information on how Trick processes events during runtime, see [Event Processing](/trick/documentation/simulation_capabilities/Event-Manager).
+For information on how Trick processes events during runtime, see [Event Processing](../simulation_capabilities/Event-Manager.md).
 
 ### Basic Event Usage
 
@@ -669,4 +674,4 @@ to perform various operations or to customize/configure Trick.
 
 ## I Just Want to Know How Do I Set this Value...
 
-[Continue to Runtime GUIs](runtime_guis/Runtime-GUIs)
+[Continue to Runtime GUIs](runtime_guis/Runtime-GUIs.md)

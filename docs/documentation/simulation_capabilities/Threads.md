@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../Documentation-Home) → [Simulation Capabilities](Simulation-Capabilities) → Threads |
+---
+title: "Threads"
+documentation_status: current
+---
+
+| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Threads |
 |------------------------------------------------------------------|
 
 # The ThreadBase Class
@@ -7,7 +12,7 @@ A trick sim is a multi-threaded process, and all of the threads that are created
 
 | Class                       | Access                                          |
 | --------------------------- | ----------------------------------------------- |
-| Threads (user defined)      | See [[Executive-Scheduler#thread-control]]      |
+| Threads (user defined)      | See [Executive Scheduler: Thread Control](Executive-Scheduler.md#thread-control) |
 | VariableServerListenThread  | `trick_vs.vs.get_listen_thread()`               |
 | MessageTCDeviceListenThread | `trick_message.mdevice.get_listen_thread()`     |
 | MessageThreadedCout         | `trick_message.mtcout`                          |
@@ -74,4 +79,4 @@ Set the priority for the thread. See the man page for sched(7) for more details.
 int set_priority(unsigned int req_priority)
 ```
 
-[Continue to Web Server](../web/Webserver)
+[Continue to Web Server](../web/Webserver.md)

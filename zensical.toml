@@ -31,9 +31,11 @@ tables = {}
 toc = { permalink = true }
 "pymdownx.highlight" = {}
 "pymdownx.superfences" = {}
+# Preserve GFM strikethrough in the Python variable-server guides.
+"pymdownx.tilde" = { subscript = false }
 
 [project.validation]
-# Report corpus compatibility work during step 1; do not suppress it.
-# A strict full-corpus build becomes mandatory before the publishing cutover.
+# Step 2: the complete corpus must pass strict validation in CI.
+# Published legacy URL/heading-ID evidence remains a separate cutover gate.
 invalid_links = true
 invalid_link_anchors = true

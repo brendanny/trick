@@ -1,3 +1,8 @@
+---
+title: "HOWTO Setup a Python Virtual Environment"
+documentation_status: current
+---
+
 # HOWTO Setup a Python Virtual Environment
 
 
@@ -182,4 +187,3 @@ The removed environment should not be shown.
 * [RealPython Tutorial - Python Virtual Environment: A Primer](https://realpython.com/python-virtual-environments-a-primer/)
 * [Conda Document - Managing environments](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
 * [Creating an environment in Anaconda through a yml file](https://sachinjose31.medium.com/creating-an-environment-in-anaconda-through-a-yml-file-7e5deeb7676d)
-

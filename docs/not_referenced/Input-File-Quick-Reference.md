@@ -1,3 +1,14 @@
+---
+title: "Input File Quick Reference"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [input-file guide](../documentation/running_a_simulation/Input-File.md).
+
 # Under Construction!
 
 I just want to know how to do things in the input file:
@@ -174,4 +185,3 @@ trick.exec_set_thread_enabled(<thread_id>, True|False)
 # Deprecated
 trick.exec_set_thread_rt_semaphores(<thread_id>, True|False) 
 ```
-

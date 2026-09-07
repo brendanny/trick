@@ -1,4 +1,15 @@
-| [Home](/trick) → [Developer Docs](Developer-Docs-Home) → Data Recording |
+---
+title: "Data Recording Design"
+documentation_status: historical
+search:
+  exclude: true
+---
+
+> **Historical documentation:** Retained for reference. This page may describe
+> older Trick behavior and has not been verified against the current release.
+> For current guidance, start with the [developer documentation](Developer-Docs-Home.md).
+
+| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → Data Recording |
 |------------------------------------------------------------------|
 
 # Data Recording Design
@@ -287,4 +298,3 @@ Trick::DataRecordDispatcher::write_data()
 
 @copydetails Trick::DataRecordDispatcher::shutdown()
 Trick::DataRecordDispatcher::shutdown()
-

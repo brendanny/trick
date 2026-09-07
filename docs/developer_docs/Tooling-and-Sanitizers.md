@@ -1,4 +1,9 @@
-| [Home](/trick) → [Developer Docs](Developer-Docs-Home) → Tooling and Sanitizers |
+---
+title: "Tooling and Sanitizers"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → Tooling and Sanitizers |
 |------------------------------------------------------------------|
 
 Lots of development and debugging tools require a binary to be instrumented with compiler flags. Trick does compiling and linking steps separately and uses several variables to propogate flags to different parts of the build. The following is a convenience function that can be added to your bashrc to easily modify the flags in your environment:
@@ -32,4 +37,3 @@ asan: `-g -fsanitize=address -fsanitize-recover=address`
 Suggest running asan instrumented sims with:
 
 `ASAN_OPTIONS=halt_on_error=0 ./S_main* <your args>`
-

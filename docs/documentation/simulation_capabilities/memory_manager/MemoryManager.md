@@ -1,4 +1,9 @@
-| [Home](/trick) → [Documentation Home](../../Documentation-Home) → [Simulation Capabilities](../Simulation-Capabilities) → Memory Manager |
+---
+title: "MemoryManager"
+documentation_status: current
+---
+
+| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Simulation Capabilities](../Simulation-Capabilities.md) → Memory Manager |
 |------------------------------------------------------------------|
 
 ## Trick Memory Manager
@@ -53,7 +58,7 @@ to the supplied object.
 Below following are the three variants of  *declare_var()*.
 
 The first is the most commonly used. The declaration information is
-specified entirely in a [declaration string](MemoryManager-Declaration-String).
+specified entirely in a [declaration string](MemoryManager-Declaration-String.md).
 
 ```
 void * Trick::MemoryManager:: declare_var (const char *declaration);
@@ -78,7 +83,7 @@ void * Trick::MemoryManager:: declare_var (TRICK_TYPE type,
                                            int *cdims);
 ```
 Where:
-- **type** specifies the data-type. See [TRICK_TYPE](MemoryManager-TRICK_TYPE).
+- **type** specifies the data-type. See [TRICK_TYPE](MemoryManager-TRICK_TYPE.md).
 - **class_name** is name of a user-defined type. This parameter is only applicable
   if *type* is TRICK_STRUCTURED, otherwise it is ignored.
 - **n_stars** is simply the number of pointers (asterisks) in the declaration.
@@ -164,13 +169,13 @@ file or stream.
 
 Checkpoints contain three types of statements:
 
-- Declaration Statements - are named [declarations](MemoryManager-Declaration-String)
+- Declaration Statements - are named [declarations](MemoryManager-Declaration-String.md)
 followed by a semi-colon. They contain all of the information necessary to recreate
 an instance of the object they represent. Anonymous 
 
 
 They describe memory objects. These statements contain all of the information necessary to recreate an instance of the object they represent. 
-They are a [declaration](MemoryManager-Declaration-String) followed by a semi-colon;
+They are a [declaration](MemoryManager-Declaration-String.md) followed by a semi-colon;
 
 
 - Assignment Statements  - specify the values of objects. Composite objects
@@ -604,4 +609,4 @@ unregister it but not deleted it. The MemoryManager will never attempt to delete
 memory objects that it did not allocate.
 
 
-[Continue to Integration](../Integrator)
+[Continue to Integration](../Integrator.md)

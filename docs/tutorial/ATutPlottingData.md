@@ -1,7 +1,12 @@
-| [Home](/trick) → [Tutorial Home](Tutorial) → Plotting Recorded Data |
+---
+title: "Viewing Recorded Data"
+documentation_status: current
+---
+
+| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Plotting Recorded Data |
 |-------------------------------------------------------------------|
 
-<a id=viewing-recorded-data></a>
+
 ## Viewing Recorded Data
 
 To view recorded data, Trick provides an application called **quick plot**.
@@ -108,4 +113,4 @@ window and Trick DP.
 **Figure 6 Zoomed X -vs- Y Position - `DP_cannon_xy`**
 
 ---
-[Next Page](ATutRunningRealtime)
+[Next Page](ATutRunningRealtime.md)
