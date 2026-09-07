@@ -454,3 +454,51 @@ Facts advance to v9 and versions 1 through 8 are rejected. The synthetic fixture
 is migrated. Identity and graph-digest recipe versions remain 1; the graph digest
 already includes the facts schema version and all new graph facts. Diagnostics
 remain v2. Production ICG integration and remaining Phase 0 gates are unchanged.
+
+## Linkage, encoding, and callable defaults: schema 10
+
+Extractor 0.10.0 treats `LinkageSpecDecl` as a transparent selection and context
+wrapper. Global and namespace-scoped declarations inside `extern "C"` blocks are
+selected exactly as siblings outside the block; no linkage-block declaration node
+or artificial ownership edge is emitted. This matches the legacy visitor and
+allows direct extraction of Trick's `#ifdef __cplusplus` C-interface headers.
+
+Every callable has `language_linkage: "c" | "c++" | "none"`, copied from
+Clang's semantic language linkage. `none` is retained for internal and other names
+for which Clang reports no language linkage. Member callables can therefore be
+`c++` or `none`, but never `c`. This field is independent of `linkage` (symbol visibility across
+translation units) and `calling_convention` (the ABI function calling convention).
+The current extractor still accepts only Clang `CC_C`; that value does not imply
+that a C++ function has C language linkage. The legacy backend's generated
+`init_attr*_c_intf` wrappers remain unconditionally C-linked output and are not
+evidence about the input declaration's language linkage.
+
+Callable parameters retain the effective `has_default`, `default_spelling`, and
+`default_source` at each declaration occurrence. New `default_origin` is `written`
+when that occurrence contains the default, `inherited` when Clang propagates an
+earlier occurrence's default, and null when there is no effective default. The
+validator requires paired evidence, at most one written default per parameter,
+identical inherited evidence, and no disappearance later in the redeclaration
+chain. The canonical callable continues to use its last redeclaration's effective
+parameter view. These remain frontend facts rather than round-trip source.
+
+`deleted` and `defaulted` are intentionally independent: a defaulted special
+member can be implicitly defined as deleted. Schema validation preserves this
+legal and policy-relevant state. Likewise, an empty override list is not rejected:
+a newly introduced virtual method legitimately overrides nothing, and proving a
+missing edge would require C++ override resolution outside this graph validator.
+Real extraction tests instead assert known override relationships.
+
+Raw comment and `clang::annotate` payloads are checked with LLVM's strict UTF-8
+validator before construction of a JSON value. Invalid bytes produce
+`ICG_INVALID_ENCODING`, retain physical source evidence, and suppress facts
+publication. No U+FFFD replacement enters the graph. File SHA-256 facts continue
+to cover the original bytes. This slice does not claim that every filesystem path
+or frontend-generated display string has an independently selected source encoding.
+
+The new `linkage.hh` fixture covers global and namespaced C blocks alongside C++
+controls. Integration also extracts the checked-in `include/trick/simtime_proto.h`
+and closes its `GMTTIME` dependency. A Latin-1 comment payload probe verifies
+failure with empty stdout; attribute payloads pass through the same guard after
+Clang's string-literal validation. Facts advance to v10 and versions 1 through 9
+are rejected. Identity, graph-digest, and diagnostics versions remain unchanged.

@@ -68,7 +68,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 9)
+        self.assertEqual(document["schema_version"], 10)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -940,7 +940,6 @@ class ExtractTests(unittest.TestCase):
             "namespace N { struct Good {}; int variable; }",
             "namespace N { struct Good {}; } using namespace N;",
             "namespace N { struct Good {}; } using N::Good;",
-            'extern "C++" { struct Good {}; }',
         ):
             with self.subTest(source=source):
                 self.header.write_text(source)
@@ -1338,8 +1337,13 @@ class ExtractTests(unittest.TestCase):
         )
         default = function["parameters"][0]
         self.assertTrue(default["has_default"])
+        self.assertEqual(default["default_origin"], "inherited")
         self.assertEqual(default["default_spelling"], "(2 + 3)")
         self.assertTrue(default["default_source"]["macro_expansion"])
+        self.assertEqual(
+            [r["parameters"][0]["default_origin"] for r in function["redeclarations"]],
+            ["written", "inherited"],
+        )
         nodes = self.declarations(document)
         types = {t["id"]: t for t in document["types"]}
         array = nodes["callable_model::arrays"]["parameters"][0]
@@ -1486,6 +1490,7 @@ class ExtractTests(unittest.TestCase):
         function = self.callables(first, "f")[0]
         self.assertTrue(function["static"])
         self.assertEqual(function["linkage"], "internal")
+        self.assertEqual(function["language_linkage"], "none")
         self.assertEqual(function["identity_kind"], "source")
         with tempfile.TemporaryDirectory(prefix="icg-static-relocated-") as relocated:
             shutil.copy2(self.header, Path(relocated) / self.header.name)
@@ -1497,6 +1502,72 @@ class ExtractTests(unittest.TestCase):
         shutil.copy2(self.header, other)
         second = self.success(self.invoke(input="other.hh"))
         self.assertNotEqual(function["id"], self.callables(second, "f")[0]["id"])
+
+    def test_language_linkage_blocks_are_transparent_and_explicit(self):
+        self.header.write_text((HERE / "fixtures/linkage.hh").read_text())
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertEqual(nodes["c_function"]["language_linkage"], "c")
+        self.assertEqual(
+            nodes["linkage_fixture::namespaced_c_function"]["language_linkage"], "c"
+        )
+        self.assertEqual(nodes["cxx_function"]["language_linkage"], "c++")
+        self.assertEqual(nodes["explicit_cxx_function"]["language_linkage"], "c++")
+        self.assertEqual(
+            nodes["linkage_fixture::namespaced_cxx_function"]["language_linkage"], "c++"
+        )
+        self.assertIn("CTime::day", nodes)
+        self.assertIn("CTime::seconds", nodes)
+        self.assertNotIn("LinkageSpec", {node["kind"] for node in nodes.values()})
+
+    def test_defaulted_special_member_can_also_be_implicitly_deleted(self):
+        self.header.write_text(
+            "struct Model { const int value = 1; Model& operator=(const Model&) = default; };\n"
+        )
+        node = self.declarations(self.success(self.invoke()))["Model::operator="]
+        self.assertTrue(node["defaulted"])
+        self.assertTrue(node["deleted"])
+        self.assertFalse(node["user_provided"])
+
+    def test_actual_trick_simtime_header_extracts_through_linkage_blocks(self):
+        source_root = ROOT / "include"
+        result = subprocess.run(
+            [
+                str(EXTRACTOR),
+                "--diagnostics-format=json",
+                "--source-root",
+                str(source_root),
+                *(arg for root in PATH_ROOTS for arg in ("--path-root", root)),
+                str(source_root / "trick/simtime_proto.h"),
+                "--",
+                "-I",
+                str(source_root),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        document = self.success(result)
+        functions = [
+            node for node in document["declarations"] if node["kind"] == "callable"
+        ]
+        self.assertEqual(len(functions), 6)
+        self.assertTrue(all(node["language_linkage"] == "c" for node in functions))
+        self.assertIn("GMTTIME", self.declarations(document))
+
+    def test_invalid_utf8_comment_fails_without_replacement_or_facts(self):
+        self.header.write_bytes(
+            b"/** caf\xe9 latin1 */\nstruct Model { int value; };\n"
+        )
+        result = self.invoke()
+        report = self.failure(result, "ICG_INVALID_ENCODING")
+        diagnostic = next(
+            d for d in report["diagnostics"] if d["code"] == "ICG_INVALID_ENCODING"
+        )
+        self.assertIn("Comment", diagnostic["message"])
+        self.assertIn("byte offset", diagnostic["message"])
+        self.assertNotIn("\ufffd", result.stderr)
 
     def test_callable_type_dependencies_do_not_select_unrelated_header_functions(self):
         (self.root / "types.hh").write_text(

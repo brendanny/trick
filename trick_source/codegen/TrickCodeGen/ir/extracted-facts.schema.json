@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v9.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v10.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 9},
+    "schema_version": {"const": 10},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -319,7 +319,7 @@
     "parameter": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "type_id", "original_type_id", "source", "annotations", "has_default", "default_spelling", "default_source"],
+      "required": ["name", "type_id", "original_type_id", "source", "annotations", "has_default", "default_origin", "default_spelling", "default_source"],
       "properties": {
         "name": {"type": "string"},
         "type_id": {"$ref": "#/$defs/id"},
@@ -327,6 +327,7 @@
         "source": {"$ref": "#/$defs/source"},
         "annotations": {"type": "array", "items": {"$ref": "#/$defs/annotation"}},
         "has_default": {"type": "boolean"},
+        "default_origin": {"enum": ["written", "inherited", null]},
         "default_spelling": {"type": ["string", "null"]},
         "default_source": {"anyOf": [{"$ref": "#/$defs/source"}, {"type": "null"}]}
       }
@@ -469,6 +470,7 @@
         "variadic": {"type": "boolean"},
         "user_provided": {"type": "boolean"},
         "calling_convention": {"const": "c"},
+        "language_linkage": {"enum": ["c", "c++", "none"]},
         "linkage": {"enum": ["none", "internal", "unique_external", "visible_no_linkage", "module", "external"]},
         "special_member_kind": {"anyOf": [{"$ref": "#/$defs/special_member_kind"}, {"const": "none"}]},
         "overridden_declaration_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},

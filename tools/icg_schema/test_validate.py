@@ -470,7 +470,8 @@ class ValidateTests(unittest.TestCase):
             lambda value: value.update(schema_version=6),
             lambda value: value.update(schema_version=7),
             lambda value: value.update(schema_version=8),
-            lambda value: value.update(schema_version=10),
+            lambda value: value.update(schema_version=9),
+            lambda value: value.update(schema_version=11),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)
@@ -1235,6 +1236,7 @@ class ValidateTests(unittest.TestCase):
             "source": copy.deepcopy(owner["source"]),
             "annotations": [],
             "has_default": False,
+            "default_origin": None,
             "default_spelling": None,
             "default_source": None,
         }
@@ -1272,6 +1274,7 @@ class ValidateTests(unittest.TestCase):
             variadic=False,
             user_provided=True,
             calling_convention="c",
+            language_linkage="c++",
             linkage="external",
             overridden_declaration_ids=[],
             overridden_implicit_destructor_record_ids=[],
@@ -1325,6 +1328,7 @@ class ValidateTests(unittest.TestCase):
     def test_callable_default_evidence_is_all_or_nothing(self):
         for mutation in (
             {"has_default": True},
+            {"default_origin": "written"},
             {"default_spelling": "2"},
             {"default_source": self.fixture["declarations"][0]["source"]},
         ):
@@ -1337,6 +1341,94 @@ class ValidateTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "default argument evidence"),
             ):
                 self.validate(self.schema, document)
+
+    def test_callable_default_origin_tracks_written_and_inherited_evidence(self):
+        document = self.callable_document()
+        node = document["declarations"][-1]
+        written = node["redeclarations"][0]["parameters"][0]
+        written.update(
+            has_default=True,
+            default_origin="written",
+            default_spelling="2",
+            default_source=copy.deepcopy(written["source"]),
+        )
+        inherited = copy.deepcopy(written)
+        inherited["name"] = "renamed"
+        inherited["default_origin"] = "inherited"
+        node["redeclarations"].append({
+            "source": copy.deepcopy(node["source"]),
+            "parameters": [inherited],
+            "annotations": [],
+            "definition": False,
+        })
+        node["parameters"] = [copy.deepcopy(inherited)]
+        self.validate(self.schema, document)
+        node["redeclarations"][1]["parameters"][0]["default_spelling"] = "3"
+        node["parameters"][0]["default_spelling"] = "3"
+        with self.assertRaisesRegex(ValueError, "inconsistent inherited default"):
+            self.validate(self.schema, document)
+
+    def test_callable_default_cannot_be_rewritten_or_disappear(self):
+        document = self.callable_document()
+        node = document["declarations"][-1]
+        parameter = node["redeclarations"][0]["parameters"][0]
+        parameter.update(
+            has_default=True,
+            default_origin="written",
+            default_spelling="2",
+            default_source=copy.deepcopy(parameter["source"]),
+        )
+        second = copy.deepcopy(node["redeclarations"][0])
+        second["parameters"][0]["default_origin"] = "written"
+        node["redeclarations"].append(second)
+        node["parameters"] = copy.deepcopy(second["parameters"])
+        with self.assertRaisesRegex(ValueError, "written more than once"):
+            self.validate(self.schema, document)
+        second["parameters"][0].update(
+            has_default=False,
+            default_origin=None,
+            default_spelling=None,
+            default_source=None,
+        )
+        node["parameters"] = copy.deepcopy(second["parameters"])
+        with self.assertRaisesRegex(ValueError, "loses an effective default"):
+            self.validate(self.schema, document)
+
+    def test_callable_language_linkage_is_kind_specific(self):
+        document = self.callable_document()
+        document["declarations"][-1]["language_linkage"] = "c"
+        self.validate(self.schema, document)
+        document = self.callable_document(True)
+        document["declarations"][-1]["language_linkage"] = "c"
+        with self.assertRaisesRegex(ValueError, "cannot have C language linkage"):
+            self.validate(self.schema, document)
+
+    def test_defaulted_special_member_may_also_be_deleted(self):
+        document = self.callable_document(True)
+        node = document["declarations"][-1]
+        node.update(
+            callable_kind="method",
+            special_member_kind="copy_assignment",
+            defaulted=True,
+            deleted=True,
+            user_provided=False,
+            definition=True,
+        )
+        node["redeclarations"][0]["definition"] = True
+        slot = next(
+            slot
+            for slot in document["declarations"][0]["special_members"]
+            if slot["kind"] == "copy_assignment"
+        )
+        slot.update(
+            state="user_declared",
+            declaration_ids=[node["id"]],
+            deleted=None,
+            trivial=None,
+            virtual=None,
+            noexcept=None,
+        )
+        self.validate(self.schema, document)
 
     def test_callable_redeclaration_signature_and_evidence_match(self):
         document = self.callable_document()

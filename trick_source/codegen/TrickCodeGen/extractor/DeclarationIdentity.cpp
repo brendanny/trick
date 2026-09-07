@@ -121,6 +121,14 @@ namespace trick::icg
         value.fromSource |= translationUnitLocal;
         std::string parentID;
         const auto* parent = decl->getDeclContext();
+        while (!parent->isTranslationUnit())
+        {
+            const auto* parentDecl = clang::Decl::castFromDeclContext(parent);
+            const auto* linkage    = llvm::dyn_cast<clang::LinkageSpecDecl>(parentDecl);
+            if (!linkage)
+                break;
+            parent = linkage->getDeclContext();
+        }
         if (!parent->isTranslationUnit())
         {
             const auto* parentDecl = clang::Decl::castFromDeclContext(parent);

@@ -71,6 +71,14 @@ namespace
             name = field->isAnonymousStructOrUnion() ? "(anonymous member)" : "(unnamed bitfield)";
 
         const auto* context = decl->getDeclContext();
+        while (!context->isTranslationUnit())
+        {
+            const auto* contextDecl = clang::Decl::castFromDeclContext(context);
+            const auto* linkage     = llvm::dyn_cast<clang::LinkageSpecDecl>(contextDecl);
+            if (!linkage)
+                break;
+            context = linkage->getDeclContext();
+        }
         if (!context->isTranslationUnit())
             if (const auto* parent = llvm::dyn_cast<clang::NamedDecl>(clang::Decl::castFromDeclContext(context)))
             {
@@ -337,6 +345,10 @@ namespace
                 if (parent->isTranslationUnit())
                     return { };
                 const auto* decl = clang::Decl::castFromDeclContext(parent);
+                // Language-linkage blocks are transparent declaration contexts.
+                // Preserve the surrounding namespace/record as the IR parent.
+                if (const auto* linkage = llvm::dyn_cast<clang::LinkageSpecDecl>(decl))
+                    return parentID(linkage->getDeclContext());
                 if (const auto* record = llvm::dyn_cast<clang::CXXRecordDecl>(decl);
                     record && record->isDependentType())
                 {
@@ -422,21 +434,36 @@ namespace
                 Array annotations;
                 if (const auto* comment = ctx.getRawCommentForDeclNoCache(decl))
                 {
-                    annotations.emplace_back(Object {
-                        { "syntax", "comment" },
-                        { "payload", comment->getRawText(ctx.getSourceManager()).str() },
-                        { "source",
-                         sources.source(ctx.getSourceManager(), comment->getSourceRange(), &ctx.getLangOpts()) }
-                    });
+                    const auto payload = comment->getRawText(ctx.getSourceManager());
+                    auto location
+                        = sources.source(ctx.getSourceManager(), comment->getSourceRange(), &ctx.getLangOpts());
+                    size_t offset = 0;
+                    if (!llvm::json::isUTF8(payload, &offset))
+                        facts.diagnose("error", "ICG_INVALID_ENCODING",
+                                       "Comment is not valid UTF-8 at byte offset " + std::to_string(offset),
+                                       std::move(location));
+                    else
+                        annotations.emplace_back(Object {
+                            { "syntax",  "comment"           },
+                            { "payload", payload.str()       },
+                            { "source",  std::move(location) }
+                        });
                 }
                 for (const auto* attribute : decl->specific_attrs<clang::AnnotateAttr>())
                 {
-                    annotations.emplace_back(Object {
-                        { "syntax", "clang-annotate" },
-                        { "payload", attribute->getAnnotation().str() },
-                        { "source",
-                         sources.source(ctx.getSourceManager(), attribute->getRange(), &ctx.getLangOpts()) }
-                    });
+                    const auto payload = attribute->getAnnotation();
+                    auto location = sources.source(ctx.getSourceManager(), attribute->getRange(), &ctx.getLangOpts());
+                    size_t offset = 0;
+                    if (!llvm::json::isUTF8(payload, &offset))
+                        facts.diagnose("error", "ICG_INVALID_ENCODING",
+                                       "Annotation is not valid UTF-8 at byte offset " + std::to_string(offset),
+                                       std::move(location));
+                    else
+                        annotations.emplace_back(Object {
+                            { "syntax",  "clang-annotate"    },
+                            { "payload", payload.str()       },
+                            { "source",  std::move(location) }
+                        });
                 }
                 for (const auto& annotation : annotations)
                     if (annotation.getAsObject()->get("source")->kind() == Value::Null)
@@ -520,6 +547,11 @@ namespace
                         continue;
                     if (const auto* ns = llvm::dyn_cast<clang::NamespaceDecl>(decl))
                         selectMainFile(ctx, ns);
+                    if (const auto* linkage = llvm::dyn_cast<clang::LinkageSpecDecl>(decl))
+                    {
+                        selectMainFile(ctx, linkage);
+                        continue;
+                    }
                     // Explicit instantiation directives may live only in the
                     // primary template's specialization set, not scope->decls().
                     // The primary itself may come from an included header.
@@ -749,11 +781,13 @@ namespace
                         { "source", std::move(location) },
                         { "annotations", annotations(ctx, parameter) },
                         { "has_default", parameter->hasDefaultArg() },
+                        { "default_origin", nullptr },
                         { "default_spelling", nullptr },
                         { "default_source", nullptr }
                     };
                     if (parameter->hasDefaultArg())
                     {
+                        item["default_origin"] = parameter->hasInheritedDefaultArg() ? "inherited" : "written";
                         if (parameter->hasUnparsedDefaultArg() || parameter->hasUninstantiatedDefaultArg())
                             unsupported(ctx, parameter, "Unparsed/dependent default arguments are unsupported");
                         else
@@ -810,17 +844,29 @@ namespace
                 node["volatile"]       = method && method->isVolatile();
                 node["static"]         = method && method->isStatic();
                 node["linkage"]        = linkage(decl->getLinkageInternal());
-                node["ref_qualifier"]  = proto->getRefQualifier() == clang::RQ_LValue ? "lvalue"
-                    : proto->getRefQualifier() == clang::RQ_RValue                    ? "rvalue"
-                                                                                      : "none";
-                node["noexcept"]       = exceptionFact(decl);
-                node["virtual"]        = method && method->isVirtual();
-                node["pure"]           = decl->isPure();
-                node["final"]          = decl->hasAttr<clang::FinalAttr>();
-                node["deleted"]        = decl->isDeleted();
-                node["explicit"]       = ctor ? ctor->isExplicit() : conversion && conversion->isExplicit();
-                node["constexpr"]      = decl->isConstexpr();
-                node["variadic"]       = decl->isVariadic();
+                switch (decl->getLanguageLinkage())
+                {
+                case clang::CLanguageLinkage:
+                    node["language_linkage"] = "c";
+                    break;
+                case clang::CXXLanguageLinkage:
+                    node["language_linkage"] = "c++";
+                    break;
+                case clang::NoLanguageLinkage:
+                    node["language_linkage"] = "none";
+                    break;
+                }
+                node["ref_qualifier"]      = proto->getRefQualifier() == clang::RQ_LValue ? "lvalue"
+                    : proto->getRefQualifier() == clang::RQ_RValue                        ? "rvalue"
+                                                                                          : "none";
+                node["noexcept"]           = exceptionFact(decl);
+                node["virtual"]            = method && method->isVirtual();
+                node["pure"]               = decl->isPure();
+                node["final"]              = decl->hasAttr<clang::FinalAttr>();
+                node["deleted"]            = decl->isDeleted();
+                node["explicit"]           = ctor ? ctor->isExplicit() : conversion && conversion->isExplicit();
+                node["constexpr"]          = decl->isConstexpr();
+                node["variadic"]           = decl->isVariadic();
                 node["calling_convention"] = "c";
                 node["user_provided"]      = decl->isUserProvided();
                 Array overrides;

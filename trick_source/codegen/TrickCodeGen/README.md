@@ -214,8 +214,10 @@ Extractor 0.8.0 advances facts to schema 8 for review hardening: versioned,
 extractor-owned source-identity kind tags, consistent anonymous display names,
 capability prerequisites, and a verified normalized graph fingerprint.
 Extractor 0.9.0 advances facts to schema 9 for class-template signatures and
-concrete specializations. The synthetic minimal fixture is migrated; the reader
-rejects versions 1 through 8.
+concrete specializations. Extractor 0.10.0 advances facts to schema 10 for
+language-linkage contexts, fail-closed annotation encoding, and written versus
+inherited callable defaults. The synthetic minimal fixture is migrated; the reader
+rejects versions 1 through 9.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
 in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
 
@@ -261,8 +263,12 @@ static/virtual/pure/final, explicit, constexpr, deletion/defaulting, and
 `user_provided` facts. `linkage` retains Clang's linkage category; `static` covers
 both static member functions and free functions with a static declaration, even
 when a later redeclaration omits that keyword. Constructors/destructors have null return types. This slice
-accepts Clang's `CC_C` calling convention, not other calling conventions or special
-parameter/register ABI extensions; this is unrelated to C versus C++ language linkage.
+accepts Clang's `CC_C` ABI calling convention, not other calling conventions or
+special parameter/register ABI extensions. The separate `language_linkage` fact
+is `c`, `c++`, or `none`: the last applies when Clang gives an internal or otherwise
+non-language-linked name. Member functions can be `c++` or `none`, but never `c`.
+`extern "C"` blocks are transparent selection/context wrappers rather than graph
+declarations, including blocks nested in namespaces.
 
 One canonical callable node retains all observed `redeclarations` in translation-unit
 order, including each parameter's name, source, defaults, and raw annotations.
@@ -271,9 +277,12 @@ the semantic parent remains its owning namespace/record. Function annotations ar
 also aggregated across occurrences. `definition` means any occurrence is a definition
 (including `= delete`/`= default`), not that a linkable implementation was generated.
 An out-of-line defaulted constructor can be `defaulted` and `user_provided` together.
+`has_default` describes the effective default at that occurrence, while
+`default_origin` distinguishes `written`, `inherited`, and null. An inherited
+default retains the original `default_spelling` and `default_source`; defaults
+cannot be rewritten or disappear later in the redeclaration chain.
 `default_spelling` is Clang's pretty-printed expression evidence, **not round-trip
-source or generated-code input**; `default_source` preserves spelling/expansion
-locations, including inherited defaults and macros. Bodies, local declarations,
+source or generated-code input**. Bodies, local declarations,
 and expression dependencies are not serialized or included in declaration selection.
 
 Virtual methods retain direct `overridden_declaration_ids`. When a destructor
@@ -392,9 +401,14 @@ cache inputs; inspect target/frontend provenance separately, and do not require
 Linux/macOS graphs to match. See [ICG-002](../../../docs/developer_docs/architecture/ICG-002-ir-contract.md#review-hardening-schema-8)
 for the exact canonical serialization and projection contract.
 
-Templates, function/member-pointer signatures, deduced-return structural types,
-friends, variables, explicit
-using declarations/directives, linkage contexts, and unsupported structural types
+Raw comment and `clang::annotate` payloads must be valid UTF-8 before they enter
+an LLVM JSON value. Invalid bytes produce `ICG_INVALID_ENCODING` at the annotation
+source and suppress the facts document; they are never silently replaced by U+FFFD.
+File digests continue to cover the exact input bytes.
+
+Function/alias templates, function/member-pointer signatures, deduced-return
+structural types, friends, variables, explicit
+using declarations/directives, unsupported language linkage, and unsupported structural types
 in the selected declaration closure
 fail explicitly rather than producing apparently complete facts. Unsupported
 members are collected across a record before it is rejected, so one run reports
@@ -417,7 +431,9 @@ and nested macro expansions. `enums-bitfields.hh` adds enum values/opaque types 
 bitfield storage/separators. `inheritance.hh` adds repeated/mixed/virtual diamonds,
 typedef bases, access defaults, packing, empty bases, and tail-padding reuse.
 `callables.hh` adds overloads, redeclarations, parameter decay, defaults, virtual
-methods, access, deletion/defaulting, and implicit special members. `templates.hh`
+methods, access, deletion/defaulting, and implicit special members. `linkage.hh`
+adds global/namespaced C-language blocks and C++ controls; the integration suite
+also extracts the real `include/trick/simtime_proto.h`. `templates.hh`
 adds primary/partial/explicit specializations, defaults, packs, template-template
 arguments, null pointers, explicit instantiations, and incomplete references. CI captures
 these and the original `record.hh` output for inspection on Linux and macOS.

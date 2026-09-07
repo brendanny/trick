@@ -87,6 +87,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Enum and bitfield facts | Scoped/unnamed/opaque enums, exact values and annotations, bitfield offsets/widths/padding and explicit non-addressability implemented; GCC conformance/accessors pending |
 | Inheritance and base-layout facts | Source-ordered direct bases, access/source evidence, alias-preserving types, complete-object virtual-base tables, and data/nonvirtual layout implemented; inherited fields remain graph-owned rather than flattened |
 | Callables and special-member declaration state | Non-template signatures, overload identity, defaults/redeclarations, virtual overrides, and explicit/implicit/deleted/defaulted/suppressed state implemented; full implicit signatures and generated-operation policy pending |
+| Language linkage and annotation encoding | Transparent global/namespaced `extern "C"` traversal, explicit callable language linkage, actual Trick header regression, and fail-closed UTF-8 annotation validation implemented |
 | Class-template signatures and concrete specializations | Primary/partial parameter metadata, canonical arguments/packs/defaults, selected pattern and deduced arguments, instance/member identity, layout and native probes implemented; dependent bodies and function/alias templates pending |
 | Review hardening | Named file roots, exact integers/scalar extents, complete member diagnostics and safe reference collection, argument/normalization regressions, content-addressed sidecars, pinned Ruff CI, versioned owned identity tags, consistent display names, capability prerequisites, and verified normalized graph fingerprints implemented |
 | GCC 8.5/12 extractor host builds | Dedicated LLVM 17 / Rocky Linux 8 CI jobs; does not establish generated-code conformance |
@@ -99,7 +100,7 @@ The core structural model and namespace/anonymous declaration increment are also
 implemented, together with enum, bitfield, and inheritance/base-layout facts.
 Callable facts and implicit special-member summaries are now implemented as well.
 Class-template signature metadata and concrete specialization graphs are implemented;
-dependent bodies and function/alias templates remain. Next extend those and other
-remaining declaration kinds, while obtaining actual legacy
-baseline evidence and closing the
+language-linkage blocks and written/inherited callable defaults are now explicit.
+Dependent bodies and function/alias templates remain. The next priority is obtaining
+actual legacy baseline evidence and closing the
 remaining Phase 0 gates. This does not authorize switching the production ICG.

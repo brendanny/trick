@@ -465,6 +465,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             "variadic",
             "user_provided",
             "calling_convention",
+            "language_linkage",
             "linkage",
             "overridden_declaration_ids",
             "overridden_implicit_destructor_record_ids",
@@ -492,6 +493,10 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                 raise ValueError(f"{node['id']} has inconsistent callable context")
             if member and node["id"] not in parent.get("callable_ids", []):
                 raise ValueError(f"{node['id']} has inconsistent callable ownership")
+            if member and node["language_linkage"] == "c":
+                raise ValueError(
+                    f"{node['id']} member callable cannot have C language linkage"
+                )
             if (node["access"] == "none") == member:
                 raise ValueError(f"{node['id']} has inconsistent callable access")
             no_return = node["callable_kind"] in {"constructor", "destructor"}
@@ -620,18 +625,43 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                             f"{node['id']} has inconsistent original parameter type"
                         )
                     if parameter["has_default"] != (
-                        parameter["default_source"] is not None
+                        parameter["default_origin"] is not None
+                        and parameter["default_source"] is not None
                         and parameter["default_spelling"] is not None
                     ):
                         raise ValueError(
                             f"{node['id']} has inconsistent default argument evidence"
                         )
                     if not parameter["has_default"] and (
-                        parameter["default_source"] is not None
+                        parameter["default_origin"] is not None
+                        or parameter["default_source"] is not None
                         or parameter["default_spelling"] is not None
                     ):
                         raise ValueError(
                             f"{node['id']} has spurious default argument evidence"
+                        )
+            for index in range(len(signature)):
+                written = None
+                for occurrence in node["redeclarations"]:
+                    parameter = occurrence["parameters"][index]
+                    evidence = (
+                        parameter["default_spelling"],
+                        parameter["default_source"],
+                    )
+                    if parameter["default_origin"] == "written":
+                        if written is not None:
+                            raise ValueError(
+                                f"{node['id']} parameter default is written more than once"
+                            )
+                        written = evidence
+                    elif parameter["default_origin"] == "inherited":
+                        if written is None or evidence != written:
+                            raise ValueError(
+                                f"{node['id']} has inconsistent inherited default evidence"
+                            )
+                    elif written is not None:
+                        raise ValueError(
+                            f"{node['id']} loses an effective default on a later redeclaration"
                         )
             overrides = node["overridden_declaration_ids"]
             if overrides != sorted(set(overrides)):
