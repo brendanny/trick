@@ -1,0 +1,53 @@
+name: Documentation pilot
+
+on:
+  pull_request:
+  push:
+    branches: [master, zensical-migration]
+  workflow_dispatch:
+
+# This workflow intentionally has NO deployment job or Pages/OIDC permission.
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-pilot-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Documentation pilot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Source inventory must be reproducible from its recorded baseline commit.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11'
+      - name: Install the hash-locked documentation environment
+        run: |
+          python -m pip install --only-binary=:all: --require-hashes -r tools/docs/requirements.txt
+      - name: Test the harness and strict-validation negative fixtures
+        run: python -m unittest discover -s tools/docs/tests -v
+      - name: Verify the source baseline
+        run: python tools/docs/inventory.py --check
+      - name: Build the complete corpus (discovery mode)
+        run: python tools/docs/build.py build
+      - name: Check structural gates and report compatibility work
+        run: python tools/docs/check_site.py
+      - name: Attach the review artifact and diagnostic report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: documentation-pilot
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            site/
+            .docs-build/report.json
+            .docs-build/zensical-build.log

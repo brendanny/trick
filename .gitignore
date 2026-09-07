@@ -65,6 +65,11 @@ share/trick/makefiles/config_user.mk
 *.pyc
 .venv
 
+# Documentation build and local environment (not Trick runtime dependencies)
+/.venv-docs/
+/site/
+/.docs-build/
+
 # Logs / debug
 *.log
 *.dSYM

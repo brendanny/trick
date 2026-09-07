@@ -1,0 +1,9 @@
+[
+  {"source": "index.md", "contains": ["Trick Simulation Environment", "Install Guide"]},
+  {"source": "documentation/install_guide/Install-Guide.md", "min_headings": 8, "min_code_blocks": 5, "contains": ["Package Dependencies"]},
+  {"source": "tutorial/ATutASimpleSim.md", "min_headings": 5, "min_images": 8, "min_code_blocks": 1, "contains": ["Cannonball"]},
+  {"source": "tutorial/ATutAnalyticSim.md", "min_headings": 10, "min_code_blocks": 10, "contains": ["S_define"]},
+  {"source": "documentation/building_a_simulation/Simulation-Definition-File.md", "min_headings": 10, "min_code_blocks": 10, "contains": ["S_define"]},
+  {"source": "documentation/simulation_capabilities/Variable-Server.md", "min_headings": 10, "min_code_blocks": 5, "contains": ["variable server"]},
+  {"source": "documentation/data_products/Data-Products-GUIs.md", "min_headings": 10, "min_images": 20, "contains": ["Trick"]}
+]
