@@ -24,7 +24,8 @@ class ValidateTests(unittest.TestCase):
         for mutation in (
             lambda value: value.update(schema_version=1),
             lambda value: value.update(schema_version=2),
-            lambda value: value.update(schema_version=4),
+            lambda value: value.update(schema_version=3),
+            lambda value: value.update(schema_version=5),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)
@@ -197,6 +198,185 @@ class ValidateTests(unittest.TestCase):
             }
         ]
         with self.assertRaisesRegex(ValueError, "dangling reference"):
+            ir.validate(self.schema, document)
+
+    def namespace_document(self):
+        document = copy.deepcopy(self.fixture)
+        record = document["declarations"][0]
+        namespace = {
+            key: copy.deepcopy(record[key])
+            for key in (
+                "source",
+                "access",
+                "origin",
+                "definition",
+                "annotations",
+                "capabilities",
+            )
+        }
+        namespace.update(
+            id="decl:namespace",
+            canonical_declaration_id="decl:namespace",
+            kind="namespace",
+            name="N",
+            qualified_name="N",
+            usr="c:@N@N",
+            identity_kind="usr",
+            anonymous=False,
+            inline=False,
+            declaration_ids=[record["id"]],
+            reopening_sources=[copy.deepcopy(record["source"])],
+        )
+        record["semantic_parent_id"] = namespace["id"]
+        record["lexical_parent_id"] = namespace["id"]
+        document["declarations"].append(namespace)
+        return document
+
+    def test_namespace_ownership_is_bidirectional(self):
+        ir.validate(self.schema, self.namespace_document())
+        document = self.namespace_document()
+        document["declarations"][-1]["declaration_ids"] = []
+        with self.assertRaisesRegex(ValueError, "namespace ownership"):
+            ir.validate(self.schema, document)
+        document = self.namespace_document()
+        del document["declarations"][0]["semantic_parent_id"]
+        with self.assertRaisesRegex(ValueError, "invalid namespace member"):
+            ir.validate(self.schema, document)
+
+    def test_namespace_blocks_and_member_order_are_validated(self):
+        document = self.namespace_document()
+        document["declarations"][-1]["reopening_sources"][0]["spelling"]["file_id"] = (
+            "file:absent"
+        )
+        with self.assertRaisesRegex(ValueError, "dangling reference"):
+            ir.validate(self.schema, document)
+        document = self.namespace_document()
+        document["declarations"][-1]["reopening_sources"][0]["spelling"]["line"] += 1
+        with self.assertRaisesRegex(ValueError, "not its first block"):
+            ir.validate(self.schema, document)
+        document = self.namespace_document()
+        namespace = document["declarations"][-1]
+        namespace["declaration_ids"].insert(0, namespace["id"])
+        namespace["declaration_ids"].sort(reverse=True)
+        with self.assertRaisesRegex(ValueError, "members are not sorted"):
+            ir.validate(self.schema, document)
+
+    def test_namespace_alias_targets_and_cycles_are_validated(self):
+        document = self.namespace_document()
+        alias = copy.deepcopy(document["declarations"][-1])
+        for key in ("anonymous", "inline", "declaration_ids", "reopening_sources"):
+            del alias[key]
+        alias.update(
+            id="decl:alias",
+            canonical_declaration_id="decl:alias",
+            kind="namespace_alias",
+            name="Alias",
+            qualified_name="Alias",
+            target_namespace_id="decl:namespace",
+        )
+        document["declarations"].append(alias)
+        ir.validate(self.schema, document)
+        alias["target_namespace_id"] = "decl:sample"
+        with self.assertRaisesRegex(ValueError, "invalid namespace alias target"):
+            ir.validate(self.schema, document)
+        alias["target_namespace_id"] = alias["id"]
+        with self.assertRaisesRegex(ValueError, "context/alias cycle"):
+            ir.validate(self.schema, document)
+
+    def test_context_cycles_and_wrong_parent_kinds_are_rejected(self):
+        for edge in ("semantic_parent_id", "lexical_parent_id"):
+            document = self.namespace_document()
+            namespace = document["declarations"][-1]
+            namespace[edge] = namespace["id"]
+            if edge == "semantic_parent_id":
+                namespace["declaration_ids"].append(namespace["id"])
+                namespace["declaration_ids"].sort()
+            with self.assertRaisesRegex(ValueError, "context/alias cycle"):
+                ir.validate(self.schema, document)
+        document = self.namespace_document()
+        document["declarations"][0]["lexical_parent_id"] = "decl:sample.value"
+        with self.assertRaisesRegex(ValueError, "invalid declaration context"):
+            ir.validate(self.schema, document)
+
+    def test_identity_origin_and_anonymous_naming_are_consistent(self):
+        document = self.namespace_document()
+        document["declarations"][-1]["identity_kind"] = "source"
+        with self.assertRaisesRegex(ValueError, "must inherit source identity"):
+            ir.validate(self.schema, document)
+        for node in document["declarations"]:
+            node["identity_kind"] = "source"
+        ir.validate(self.schema, document)
+        document["declarations"][-1]["anonymous"] = True
+        with self.assertRaisesRegex(ValueError, "inconsistent anonymous naming"):
+            ir.validate(self.schema, document)
+        document = self.namespace_document()
+        namespace = document["declarations"][-1]
+        namespace.update(name="", anonymous=True)
+        with self.assertRaisesRegex(ValueError, "requires source identity"):
+            ir.validate(self.schema, document)
+        document = self.namespace_document()
+        document["declarations"][0]["usr"] = None
+        with self.assertRaisesRegex(ValueError, "no USR"):
+            ir.validate(self.schema, document)
+
+    def anonymous_storage_document(self):
+        document = copy.deepcopy(self.fixture)
+        outer, field = document["declarations"]
+        nested = copy.deepcopy(outer)
+        nested.update(
+            id="decl:anonymous",
+            canonical_declaration_id="decl:anonymous",
+            name="",
+            qualified_name="Sample::(anonymous)",
+            anonymous=True,
+            identity_kind="source",
+            semantic_parent_id=outer["id"],
+            type_id="type:anonymous",
+            field_ids=[],
+        )
+        outer["nested_declaration_ids"] = [nested["id"]]
+        field.update(
+            name="",
+            anonymous_member=True,
+            identity_kind="source",
+            type_id=nested["type_id"],
+        )
+        record_type = copy.deepcopy(document["types"][1])
+        record_type.update(
+            id=nested["type_id"],
+            canonical_id=nested["type_id"],
+            declaration_id=nested["id"],
+        )
+        document["types"].append(record_type)
+        document["declarations"].append(nested)
+        return document
+
+    def test_anonymous_storage_requires_unnamed_record_in_same_context(self):
+        document = self.anonymous_storage_document()
+        ir.validate(self.schema, document)
+        document["declarations"][1]["type_id"] = "type:int"
+        with self.assertRaisesRegex(ValueError, "must have an unnamed record type"):
+            ir.validate(self.schema, document)
+        document = self.anonymous_storage_document()
+        document["declarations"][-1]["anonymous"] = False
+        with self.assertRaisesRegex(ValueError, "must have an unnamed record type"):
+            ir.validate(self.schema, document)
+        document = self.anonymous_storage_document()
+        document["declarations"][0]["nested_declaration_ids"] = []
+        with self.assertRaisesRegex(ValueError, "belongs to another context"):
+            ir.validate(self.schema, document)
+        document = self.anonymous_storage_document()
+        document["declarations"][1]["identity_kind"] = "usr"
+        with self.assertRaisesRegex(
+            ValueError, "anonymous storage requires source identity"
+        ):
+            ir.validate(self.schema, document)
+
+    def test_nested_declaration_ownership_is_bidirectional(self):
+        document = self.anonymous_storage_document()
+        document["declarations"][1].update(name="named", anonymous_member=False)
+        document["declarations"][0]["nested_declaration_ids"] = []
+        with self.assertRaisesRegex(ValueError, "nested declaration ownership"):
             ir.validate(self.schema, document)
 
 

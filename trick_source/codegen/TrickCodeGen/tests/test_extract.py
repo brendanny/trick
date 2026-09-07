@@ -58,7 +58,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 3)
+        self.assertEqual(document["schema_version"], 4)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -257,7 +257,7 @@ class ExtractTests(unittest.TestCase):
             "struct Sample { void method(); };",
             "struct Base {}; struct Sample: Base {};",
             "template<class T> struct Sample { T value; };",
-            "namespace ns { struct Sample {}; }",
+            "namespace ns { void function(); }",
             "enum E { A };",
             "struct { int value; } anonymous;",
         ):
@@ -520,7 +520,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_all_unsupported_members_are_reported_in_one_run(self):
         self.header.write_text(
-            "struct Sample {\nunsigned bits : 1;\nstatic int value;\nvoid run();\nstruct { int item; };\n};\n"
+            "struct Sample {\nunsigned bits : 1;\nstatic int value;\nvoid run();\nenum E { A };\n};\n"
         )
         report = self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
         lines = {
@@ -529,6 +529,253 @@ class ExtractTests(unittest.TestCase):
             if d["code"] == "ICG_UNSUPPORTED_DECLARATION"
         }
         self.assertTrue({2, 3, 4, 5} <= lines, report)
+
+    def test_named_inline_and_nested_namespaces_preserve_context(self):
+        self.header.write_text(
+            "namespace Empty {}\n"
+            "namespace A { inline namespace V { struct Node {}; } }\n"
+            "namespace B::C { struct Node {}; using Value = A::Node; }\n"
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertEqual(nodes["Empty"]["declaration_ids"], [])
+        self.assertTrue(nodes["A::V"]["inline"])
+        self.assertFalse(nodes["B::C"]["inline"])
+        for child, parent in (
+            ("A::V", "A"),
+            ("A::V::Node", "A::V"),
+            ("B::C", "B"),
+            ("B::C::Node", "B::C"),
+        ):
+            with self.subTest(child=child):
+                self.assertEqual(
+                    nodes[child]["semantic_parent_id"], nodes[parent]["id"]
+                )
+                self.assertEqual(nodes[child]["lexical_parent_id"], nodes[parent]["id"])
+                self.assertIn(nodes[child]["id"], nodes[parent]["declaration_ids"])
+                self.assertEqual(nodes[child]["identity_kind"], "usr")
+        self.assertNotEqual(nodes["A::V::Node"]["id"], nodes["B::C::Node"]["id"])
+
+    def test_namespace_reopenings_merge_members_and_keep_block_sources(self):
+        self.header.write_text(
+            "/// first block\nnamespace N { struct First {}; }\n"
+            "/// second block\nnamespace N { struct Second {}; }\n"
+            'namespace N [[clang::annotate("third")]] { using Third = int; }\n'
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        namespace = nodes["N"]
+        self.assertEqual(
+            sum(n["kind"] == "namespace" for n in document["declarations"]), 1
+        )
+        self.assertEqual(
+            [s["spelling"]["line"] for s in namespace["reopening_sources"]], [2, 4, 5]
+        )
+        self.assertEqual(namespace["source"], namespace["reopening_sources"][0])
+        self.assertEqual(
+            [a["payload"] for a in namespace["annotations"]],
+            ["/// first block", "/// second block", "third"],
+        )
+        self.assertEqual(
+            namespace["declaration_ids"],
+            sorted(nodes[name]["id"] for name in ("N::First", "N::Second", "N::Third")),
+        )
+
+    def test_namespace_dependency_closure_does_not_select_header_siblings(self):
+        (self.root / "types.hh").write_text(
+            "namespace N { struct Node { int value; }; struct Unused { void method(); }; }\n"
+        )
+        self.header.write_text(
+            '#include "types.hh"\nnamespace N { using Handle = Node*; }\n'
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertEqual(set(nodes), {"N", "N::Node", "N::Node::value", "N::Handle"})
+        self.assertEqual(len(nodes["N"]["reopening_sources"]), 2)
+
+    def test_namespace_alias_chain_preserves_immediate_targets(self):
+        (self.root / "types.hh").write_text(
+            "namespace N { struct Unused { void method(); }; }\n"
+        )
+        self.header.write_text(
+            '#include "types.hh"\nnamespace First = N;\nnamespace Second = First;\n'
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertEqual(set(nodes), {"N", "First", "Second"})
+        self.assertEqual(nodes["First"]["kind"], "namespace_alias")
+        self.assertEqual(nodes["First"]["target_namespace_id"], nodes["N"]["id"])
+        self.assertEqual(nodes["Second"]["target_namespace_id"], nodes["First"]["id"])
+        self.assertEqual(nodes["N"]["declaration_ids"], [])
+
+    def test_out_of_line_definition_keeps_semantic_and_lexical_contexts(self):
+        self.header.write_text(
+            "namespace N { struct Node; struct Outer { struct Inner; }; }\n"
+            "struct N::Node { int value; };\n"
+            "namespace N { struct Outer::Inner { int value; }; }\n"
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertEqual(nodes["N::Node"]["semantic_parent_id"], nodes["N"]["id"])
+        self.assertNotIn("lexical_parent_id", nodes["N::Node"])
+        self.assertEqual(
+            nodes["N::Outer::Inner"]["semantic_parent_id"], nodes["N::Outer"]["id"]
+        )
+        self.assertEqual(
+            nodes["N::Outer::Inner"]["lexical_parent_id"], nodes["N"]["id"]
+        )
+
+    def test_unnamed_typedef_record_has_source_identity(self):
+        self.header.write_text("typedef struct { int value; } Point;\n")
+        document = self.success(self.invoke())
+        nodes = {n["id"]: n for n in document["declarations"]}
+        types = {t["id"]: t for t in document["types"]}
+        alias = self.declarations(document)["Point"]
+        record = nodes[types[alias["underlying_type_id"]]["declaration_id"]]
+        self.assertTrue(record["anonymous"])
+        self.assertEqual(record["name"], "")
+        self.assertEqual(record["identity_kind"], "source")
+        field = nodes[record["field_ids"][0]]
+        self.assertEqual(field["name"], "value")
+        self.assertEqual(field["identity_kind"], "source")
+        self.assertFalse(field["anonymous_member"])
+
+    def test_distinct_unnamed_member_types_are_not_merged(self):
+        self.header.write_text(
+            "struct Outer { struct { int value; } a; struct { int value; } b; };\n"
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertNotEqual(nodes["Outer::a"]["type_id"], nodes["Outer::b"]["type_id"])
+        records = [n for n in document["declarations"] if n.get("anonymous")]
+        self.assertEqual(len(records), 2)
+        self.assertNotEqual(records[0]["field_ids"], records[1]["field_ids"])
+        self.assertEqual(
+            set(nodes["Outer"]["nested_declaration_ids"]), {n["id"] for n in records}
+        )
+        self.assertNotIn(str(self.root), json.dumps(document["types"]))
+
+    def test_anonymous_aggregates_preserve_physical_storage_and_offsets(self):
+        self.header.write_text(
+            "struct Outer { int prefix; union { struct { int x; }; double d; }; };\n"
+        )
+        document = self.success(self.invoke())
+        nodes = {n["id"]: n for n in document["declarations"]}
+        types = {t["id"]: t for t in document["types"]}
+        outer = self.declarations(document)["Outer"]
+        self.assertEqual(len(outer["field_ids"]), 2)
+        storage = nodes[outer["field_ids"][1]]
+        self.assertEqual(storage["name"], "")
+        self.assertTrue(storage["anonymous_member"])
+        self.assertEqual(storage["identity_kind"], "source")
+        self.assertEqual(storage["offset_bits"], 64)
+        union = nodes[types[storage["type_id"]]["declaration_id"]]
+        self.assertEqual(union["record_tag"], "union")
+        self.assertEqual([nodes[i]["offset_bits"] for i in union["field_ids"]], [0, 0])
+        inner_storage = nodes[union["field_ids"][0]]
+        self.assertTrue(inner_storage["anonymous_member"])
+        inner = nodes[types[inner_storage["type_id"]]["declaration_id"]]
+        self.assertEqual(nodes[inner["field_ids"][0]]["name"], "x")
+        # IndirectFieldDecl lookup aliases do not duplicate the five storage fields.
+        self.assertEqual(sum(n["kind"] == "field" for n in nodes.values()), 5)
+
+    def test_nested_macro_expansions_disambiguate_anonymous_records(self):
+        self.header.write_text(
+            "#define ANON struct { int value; }\n"
+            "#define TWO ANON a; ANON b;\n"
+            "struct Outer { TWO };\n"
+        )
+        first = self.invoke()
+        document = self.success(first)
+        records = [n for n in document["declarations"] if n.get("anonymous")]
+        self.assertEqual(len(records), 2)
+        # Ultimate spelling and expansion points coincide; the intermediate
+        # macro caller locations must still distinguish these declarations.
+        for key in ("spelling", "expansion"):
+            self.assertEqual(records[0]["source"][key], records[1]["source"][key])
+        self.assertNotEqual(records[0]["id"], records[1]["id"])
+        self.assertNotEqual(records[0]["field_ids"], records[1]["field_ids"])
+        self.assertEqual(first.stdout, self.invoke().stdout)
+
+    def test_anonymous_ids_disambiguate_same_basename_headers(self):
+        for name in ("left", "right"):
+            directory = self.root / name
+            directory.mkdir()
+            (directory / "member.hh").write_text(f"struct {{ int value; }} {name};\n")
+        self.header.write_text(
+            'struct Outer {\n#include "left/member.hh"\n#include "right/member.hh"\n};\n'
+        )
+        document = self.success(self.invoke())
+        records = [n for n in document["declarations"] if n.get("anonymous")]
+        self.assertEqual(len(records), 2)
+        self.assertNotEqual(records[0]["id"], records[1]["id"])
+        self.assertNotEqual(
+            records[0]["source"]["spelling"]["file_id"],
+            records[1]["source"]["spelling"]["file_id"],
+        )
+
+    def test_anonymous_namespace_is_unique_per_translation_unit(self):
+        (self.root / "types.hh").write_text(
+            "namespace { struct Local { int value; }; }\n"
+            "namespace { using Handle = Local*; }\n"
+            "namespace Public { struct Shared {}; }\n"
+        )
+        source = '#include "types.hh"\nstruct Model { Handle p; Public::Shared s; };\n'
+        self.header.write_text(source)
+        (self.root / "other.hh").write_text(source)
+        first = self.success(self.invoke())
+        second = self.success(self.invoke(input="other.hh"))
+        for document in (first, second):
+            anonymous = [
+                n
+                for n in document["declarations"]
+                if n["kind"] == "namespace" and n["anonymous"]
+            ]
+            self.assertEqual(len(anonymous), 1)
+            self.assertEqual(len(anonymous[0]["reopening_sources"]), 2)
+        first_local = {
+            n["id"] for n in first["declarations"] if n["identity_kind"] == "source"
+        }
+        second_local = {
+            n["id"] for n in second["declarations"] if n["identity_kind"] == "source"
+        }
+        self.assertEqual(len(first_local), 4)
+        self.assertTrue(first_local.isdisjoint(second_local))
+        self.assertEqual(
+            self.declarations(first)["Public::Shared"]["id"],
+            self.declarations(second)["Public::Shared"]["id"],
+        )
+
+    def test_anonymous_ids_survive_root_relocation_and_symlink_aliases(self):
+        self.header.write_text((HERE / "fixtures/contexts.hh").read_text())
+        first = self.success(self.invoke())
+        with tempfile.TemporaryDirectory(prefix="icg-context-relocated-") as relocated:
+            target = Path(relocated)
+            shutil.copy2(self.header, target / self.header.name)
+            alias = target / "alias"
+            alias.symlink_to(target, target_is_directory=True)
+            for root in (target, alias):
+                with self.subTest(root=root):
+                    second = self.success(
+                        self.invoke(cwd=root, options=["--source-root", str(root)])
+                    )
+                    for key in ("declarations", "types"):
+                        self.assertEqual(first[key], second[key])
+
+    def test_unimplemented_namespace_members_fail_closed(self):
+        for source in (
+            "namespace N { struct Good {}; enum E { A }; }",
+            "namespace N { struct Good {}; } using namespace N;",
+            "namespace N { struct Good {}; } using N::Good;",
+            'extern "C++" { struct Good {}; }',
+        ):
+            with self.subTest(source=source):
+                self.header.write_text(source)
+                self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
+
+    def test_anonymous_command_line_macro_has_no_fabricated_source_identity(self):
+        self.header.write_text("typedef ANON Point;\n")
+        self.failure(
+            self.invoke(["-DANON=struct { int value; }"]), "ICG_IDENTITY_SOURCE"
+        )
 
     def test_external_headers_require_explicit_roots(self):
         with tempfile.TemporaryDirectory(prefix="icg-external-") as external:

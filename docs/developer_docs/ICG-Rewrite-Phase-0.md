@@ -83,7 +83,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |
 | First C++17 LibTooling extraction target | Implemented as a standalone, main-file record slice; [scope and tests](../../trick_source/codegen/TrickCodeGen/README.md) |
-| Core structured type/declaration graph | Implemented for pointers/references/arrays/aliases and recursive/nested/referenced records; namespace/fallback identity and broader type kinds pending |
+| Core structured type/declaration graph | Implemented for pointers/references/arrays/aliases and recursive/nested/referenced records, namespace contexts/aliases, and unnamed declaration identity/storage; broader type kinds pending |
 | Review hardening | Named file roots, exact layout integers, scalar extents, complete member diagnostics, argument/normalization regressions, content-addressed baseline sidecars, and pinned Ruff CI implemented |
 | GCC 8.5/12 extractor host builds | Dedicated LLVM 17 / Rocky Linux 8 CI jobs; does not establish generated-code conformance |
 | GCC 8.5/12 layout and generated-operation probes | Pending |
@@ -91,7 +91,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Exact platform packages and ADR decisions | Package matrix pending; ICG-001 and ICG-002 accepted, eight initial ADRs pending |
 
 The capability decision and first standalone extractor slice are implemented.
-The core structural-model increment is also implemented. Next extend namespace
-and anonymous declaration identity/source coverage, while obtaining actual legacy
+The core structural model and namespace/anonymous declaration increment are also
+implemented. Next extend enum and bitfield facts, while obtaining actual legacy
 baseline evidence and closing the
 remaining Phase 0 gates. This does not authorize switching the production ICG.

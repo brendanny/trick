@@ -1,8 +1,8 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "document_kind": "trick.icg.extracted-facts",
   "provenance": {
-    "extractor_version": "0.3.0-synthetic-fixture",
+    "extractor_version": "0.4.0-synthetic-fixture",
     "frontend_api": "libtooling",
     "frontend_version": "17.0.6",
     "translation_unit": "file:fixture",
@@ -52,6 +52,8 @@
       "name": "Sample",
       "qualified_name": "Sample",
       "usr": "c:@S@Sample",
+      "identity_kind": "usr",
+      "anonymous": false,
       "source": {
         "spelling": {"file_id": "file:fixture", "line": 1, "column": 1, "offset": 0},
         "expansion": {"file_id": "file:fixture", "line": 1, "column": 1, "offset": 0},
@@ -85,6 +87,8 @@
       "name": "value",
       "qualified_name": "Sample::value",
       "usr": "c:@S@Sample@FI@value",
+      "identity_kind": "usr",
+      "anonymous_member": false,
       "source": {
         "spelling": {"file_id": "file:fixture", "line": 2, "column": 5, "offset": 20},
         "expansion": {"file_id": "file:fixture", "line": 2, "column": 5, "offset": 20},

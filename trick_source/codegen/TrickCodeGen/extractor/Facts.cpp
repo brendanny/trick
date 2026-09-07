@@ -94,7 +94,7 @@ namespace trick::icg
         for (const auto& entry : types)
             typeNodes.emplace_back(entry.second.json());
         return llvm::json::Object {
-            { "schema_version", 3                              },
+            { "schema_version", 4                              },
             { "document_kind",  "trick.icg.extracted-facts"    },
             { "provenance",     llvm::json::Object(provenance) },
             { "files",          nodes(files)                   },

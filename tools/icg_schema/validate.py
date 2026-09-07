@@ -93,6 +93,7 @@ def validate_graph(document: dict) -> None:
         "semantic_parent_id",
         "lexical_parent_id",
         "canonical_declaration_id",
+        "target_namespace_id",
     )
     type_links = ("type_id", "underlying_type_id", "return_type_id")
     for node in declarations.values():
@@ -101,10 +102,14 @@ def validate_graph(document: dict) -> None:
         for field in declaration_links:
             if field in node:
                 require(node[field], declarations, f"{context}.{field}")
-        for identifier in node.get("field_ids", []) + node.get(
-            "nested_declaration_ids", []
+        for identifier in (
+            node.get("field_ids", [])
+            + node.get("nested_declaration_ids", [])
+            + node.get("declaration_ids", [])
         ):
             require(identifier, declarations, context)
+        for reopening in node.get("reopening_sources", []):
+            source(reopening, f"{context}.reopening_sources")
         for field in type_links:
             if field in node:
                 require(node[field], types, f"{context}.{field}")
@@ -203,6 +208,78 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
 
     for node in declarations.values():
         kind = node["kind"]
+        if node["identity_kind"] == "usr" and not node["usr"]:
+            raise ValueError(f"{node['id']} has no USR for its identity")
+        if kind in {"record", "field", "alias", "namespace", "namespace_alias"}:
+            if node.get("canonical_declaration_id") != node["id"]:
+                raise ValueError(f"{node['id']} is not a canonical declaration")
+        for key in ("semantic_parent_id", "lexical_parent_id"):
+            if key in node and declarations[node[key]]["kind"] not in {
+                "record",
+                "namespace",
+            }:
+                raise ValueError(f"{node['id']} has an invalid declaration context")
+        parent = declarations.get(node.get("semantic_parent_id"))
+        if parent:
+            if (
+                parent["identity_kind"] == "source"
+                and node["identity_kind"] != "source"
+            ):
+                raise ValueError(
+                    f"{node['id']} must inherit source identity from its context"
+                )
+            if parent["kind"] == "namespace" and node["id"] not in parent.get(
+                "declaration_ids", []
+            ):
+                raise ValueError(f"{node['id']} has inconsistent namespace ownership")
+            if (
+                parent["kind"] == "record"
+                and kind in {"record", "alias"}
+                and node["id"] not in parent.get("nested_declaration_ids", [])
+            ):
+                raise ValueError(
+                    f"{node['id']} has inconsistent nested declaration ownership"
+                )
+        namespace_fields = {"inline", "declaration_ids", "reopening_sources"}
+        if kind != "namespace" and namespace_fields & node.keys():
+            raise ValueError(f"{node['id']} has namespace-only fields")
+        if kind != "namespace_alias" and "target_namespace_id" in node:
+            raise ValueError(f"{node['id']} has a namespace-alias-only field")
+        if kind in {"record", "namespace"}:
+            need(node, {"anonymous"})
+            if node["anonymous"] != (node["name"] == ""):
+                raise ValueError(f"{node['id']} has inconsistent anonymous naming")
+            if node["anonymous"] and node["identity_kind"] != "source":
+                raise ValueError(
+                    f"{node['id']} anonymous declaration requires source identity"
+                )
+        if kind == "namespace":
+            need(node, namespace_fields)
+            if any(
+                key in node
+                for key in ("type_id", "field_ids", "size_bits", "offset_bits")
+            ):
+                raise ValueError(f"{node['id']} namespace claims type or layout facts")
+            if node["declaration_ids"] != sorted(node["declaration_ids"]):
+                raise ValueError(f"{node['id']} namespace members are not sorted")
+            if node["source"] != node["reopening_sources"][0]:
+                raise ValueError(
+                    f"{node['id']} namespace source is not its first block"
+                )
+            for identifier in node["declaration_ids"]:
+                member = declarations[identifier]
+                if (
+                    member.get("semantic_parent_id") != node["id"]
+                    or member["kind"] == "field"
+                ):
+                    raise ValueError(f"{node['id']} has an invalid namespace member")
+        if kind == "namespace_alias":
+            need(node, {"target_namespace_id"})
+            if declarations[node["target_namespace_id"]]["kind"] not in {
+                "namespace",
+                "namespace_alias",
+            }:
+                raise ValueError(f"{node['id']} has an invalid namespace alias target")
         if kind == "alias":
             need(node, {"type_id", "underlying_type_id"})
             alias = types[node["type_id"]]
@@ -247,12 +324,49 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                             f"{node['id']} has an invalid member in {field}"
                         )
         if kind == "field":
-            need(node, {"type_id", "semantic_parent_id"})
+            need(node, {"type_id", "semantic_parent_id", "anonymous_member"})
+            if node["anonymous_member"] != (node["name"] == ""):
+                raise ValueError(
+                    f"{node['id']} has inconsistent anonymous member naming"
+                )
+            if node["anonymous_member"]:
+                target = types[node["type_id"]]
+                if (
+                    target["kind"] != "record"
+                    or not declarations[target["declaration_id"]]["anonymous"]
+                ):
+                    raise ValueError(
+                        f"{node['id']} anonymous storage must have an unnamed record type"
+                    )
+                if target["declaration_id"] not in declarations[
+                    node["semantic_parent_id"]
+                ].get("nested_declaration_ids", []):
+                    raise ValueError(
+                        f"{node['id']} anonymous storage type belongs to another context"
+                    )
+                if node["identity_kind"] != "source":
+                    raise ValueError(
+                        f"{node['id']} anonymous storage requires source identity"
+                    )
             parent = declarations[node["semantic_parent_id"]]
             if parent["kind"] != "record" or node["id"] not in parent.get(
                 "field_ids", []
             ):
                 raise ValueError(f"{node['id']} has inconsistent field ownership")
+
+    # Each context graph and namespace-alias chain must terminate. They are
+    # independent of record/type dependency cycles, which are valid C++.
+    for edge in ("semantic_parent_id", "lexical_parent_id", "target_namespace_id"):
+        complete = set()
+        for root_id in declarations:
+            active = set()
+            identifier = root_id
+            while identifier is not None and identifier not in complete:
+                if identifier in active:
+                    raise ValueError(f"declaration context/alias cycle at {identifier}")
+                active.add(identifier)
+                identifier = declarations[identifier].get(edge)
+            complete.update(active)
 
     # A record pointer can refer back to its record declaration, but pure type
     # structure (including alias targets) cannot contain a direct cycle. Use an

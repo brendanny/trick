@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v3.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v4.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 3},
+    "schema_version": {"const": 4},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -300,6 +300,7 @@
         "name",
         "qualified_name",
         "usr",
+        "identity_kind",
         "source",
         "access",
         "origin",
@@ -309,10 +310,22 @@
       ],
       "properties": {
         "id": {"$ref": "#/$defs/id"},
-        "kind": {"enum": ["record", "field", "enum", "callable", "variable", "alias", "friend"]},
+        "kind": {"enum": ["namespace", "namespace_alias", "record", "field", "enum", "callable", "variable", "alias", "friend"]},
         "name": {"type": "string"},
         "qualified_name": {"type": "string"},
         "usr": {"type": ["string", "null"]},
+        "identity_kind": {"enum": ["usr", "source"]},
+        "anonymous": {"type": "boolean"},
+        "inline": {"type": "boolean"},
+        "declaration_ids": {
+          "description": "Selected semantic children of a namespace, sorted by ID; not an inventory of every declaration in included namespace blocks.",
+          "type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true
+        },
+        "reopening_sources": {
+          "description": "All observed namespace blocks in translation-unit order. Annotations from all blocks are retained in annotations in the same order.",
+          "type": "array", "items": {"$ref": "#/$defs/source"}, "minItems": 1
+        },
+        "target_namespace_id": {"$ref": "#/$defs/id"},
         "source": {"$ref": "#/$defs/source"},
         "access": {"enum": ["public", "protected", "private", "none"]},
         "origin": {"enum": ["user", "trick", "system"]},
@@ -335,6 +348,10 @@
         "static": {"type": "boolean"},
         "mutable": {"type": "boolean"},
         "bitfield": {"type": "boolean"},
+        "anonymous_member": {
+          "type": "boolean",
+          "description": "Unnamed physical storage field for an anonymous struct/union; injected lookup aliases are represented by walking this field's record type, not as duplicate storage fields."
+        },
         "bit_width": {"$ref": "#/$defs/optional_unsigned"},
         "offset_bits": {"$ref": "#/$defs/optional_unsigned"},
         "scoped": {"type": "boolean"},

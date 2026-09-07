@@ -30,10 +30,12 @@ namespace trick::icg
             return get(context.getQualifiedType(paren->getInnerType(), value.getLocalQualifiers()), owner);
 
         TypeNode node;
-        auto policy               = context.getPrintingPolicy();
-        policy.SuppressTagKeyword = true;
-        node.spelling             = value.getAsString(policy);
-        const auto qualifiers     = value.getLocalQualifiers();
+        auto policy                    = context.getPrintingPolicy();
+        policy.SuppressTagKeyword      = true;
+        policy.AnonymousTagLocations   = false;
+        policy.SuppressInlineNamespace = false;
+        node.spelling                  = value.getAsString(policy);
+        const auto qualifiers          = value.getLocalQualifiers();
         if (qualifiers.hasNonFastQualifiers())
         {
             unsupported(owner, "Non-CVR qualifiers are not yet represented: " + node.spelling);

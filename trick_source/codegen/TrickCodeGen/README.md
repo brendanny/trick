@@ -1,4 +1,4 @@
-# LibTooling extractor: structural model slice
+# LibTooling extractor: structural model and declaration contexts
 
 `trick-icg-extract` implements step 3 and the core structural-model portion of
 step 4 of the [rewrite sequence](../../../docs/developer_docs/ICG_REWRITE_PLAN.md#20-suggested-first-pr-sequence).
@@ -70,7 +70,7 @@ applies. No code-generation options are silently stripped: other options, respon
 files, compiler plugins, alternate dialects, and extra source inputs are rejected.
 This is **not yet the GCC argument classifier** or a compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-3 facts document
+Successful extraction writes one deterministic, schema-version-4 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction
@@ -88,11 +88,28 @@ Clang's human warning/error-count summaries. Fix-it edits are not yet extracted.
 
 ## Implemented facts and deliberate limits
 
-This slice starts with named records and aliases **in the main file**, and closes
-their record/alias dependencies, including declarations in other headers. Nested
-named records and aliases retain semantic and lexical parent links. Unreferenced
-included declarations are not selected; referenced unsupported declarations fail
-the whole extraction. This is dependency closure, not Trick selection policy.
+This slice selects records, type aliases, namespaces, and namespace aliases **in
+the main file**, including declarations inside namespace blocks. It closes their
+type and context dependencies across included headers. Semantic and lexical parent
+links distinguish out-of-line record definitions from their owning scope.
+Unreferenced included siblings are not selected; a referenced unsupported
+declaration fails the whole extraction. This is dependency closure, not Trick
+selection policy.
+
+Named, inline, nested, reopened, and anonymous namespaces are supported. A namespace
+has one canonical node, sorted `declaration_ids` for its selected semantic children,
+and `reopening_sources` for all its blocks in translation-unit order. The first
+block supplies `source`; annotations from all blocks are retained in that order.
+Namespace aliases preserve their immediate `target_namespace_id`, including alias
+chains. Qualified display names retain inline namespaces.
+
+Unnamed records are supported through typedefs, named member declarators, and
+anonymous struct/union members. `anonymous` marks unnamed records and namespaces.
+An anonymous aggregate's implicit physical storage field has an empty name and
+`anonymous_member: true`; its type refers to the nested unnamed record. Field
+offsets are relative to each owning record. Implicit lookup aliases for promoted
+members are not duplicated: consumers walk the anonymous storage's nested fields
+and add offsets when they need flattened member paths.
 
 For complete records it records size/alignment and traits, source-order fields,
 access/mutability/qualifiers, frontend field offsets, raw comments and
@@ -101,8 +118,8 @@ Forward declarations are folded into a single record node at its definition when
 one exists in the translation unit. Otherwise the node is incomplete, with no
 field facts, null size/alignment, and `INCOMPLETE_TYPE` layout capability. It does
 not query Clang's layout or definition-only base APIs for incomplete records.
-Per-redeclaration source/annotation history is not yet modeled; the selected
-definition (or canonical forward declaration) supplies that node's source.
+Record redeclaration source/annotation history is not yet modeled; the selected
+definition (or canonical forward declaration) supplies that record's source.
 End locations for declaration ranges
 are exclusive, following the final token; point diagnostics need not span a token.
 No Trick annotation policy is applied. Size and offset units are bits, with the
@@ -137,21 +154,35 @@ diagnostic information, not a round-trip source representation or identity key.
 When equivalent types intern to one node, the lexicographically smallest observed
 spelling is retained. Per-use spelling is not modeled by this structural node.
 
-Declaration IDs hash USRs, with forward declarations and definitions sharing one
-node. A worklist extracts dependency declarations after type interning, permitting
-self/mutually recursive record references without recursive field expansion.
-Missing USRs and anonymous declarations are still rejected: the fallback identity
-model and namespace contexts remain explicit follow-up work. Node IDs are opaque;
-the extractor-version bump to 0.3.0 invalidates earlier evidence fingerprints.
-Facts schema version 3 adds named file roots, scalar array extents, and exact
-integer encoding to the structural invariants introduced in v2. The synthetic
-minimal fixture is migrated; the reader rejects v1/v2 facts. The diagnostics
-envelope advances to version 2 because its file nodes now require a root name.
+Named declaration IDs normally hash Clang USRs. Unnamed declarations, declarations
+without USRs, and descendants of a source-identified context instead hash the
+declaration kind, semantic parent ID, name, and rooted physical source anchor.
+The anchor includes the complete macro caller chain, distinguishing repeated uses
+inside one outer expansion. Anonymous namespaces also include the translation-unit
+file ID so header-local entities are not merged across different translation units.
+`identity_kind` records `usr` or `source`; `usr` retains frontend evidence when
+available and is null otherwise. Distinct canonical declarations that collide
+produce `ICG_IDENTITY_COLLISION`; missing physical fallback locations produce
+`ICG_IDENTITY_SOURCE`. Neither failure publishes facts.
+
+Source-based IDs survive root relocation and symlink aliases with unchanged rooted
+file names and bytes. Source edits or a different first namespace block may change
+them; they are not persistent symbol IDs across revisions. Anonymous display names
+omit physical locations, and names are not unique identity keys. Forward
+declarations and definitions share one node. A worklist closes dependencies without
+recursively expanding mutually referential record fields. Fallback overload and
+template identity are not implemented because those declaration kinds remain
+unsupported.
+
+Extractor 0.4.0 advances facts to schema 4 for these identity and context meanings.
+The synthetic minimal fixture is migrated; the reader rejects v1/v2/v3 facts.
+Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
+in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
 
 Physical input files, their bytes' SHA-256 digests, and resolved include directives
 are recorded through preprocessor callbacks. Forced includes are tracked as inputs
 even when their directive comes from Clang's synthetic command-line buffer.
-Only referenced included records/aliases enter the declaration graph. Every
+Only dependency declarations and their contexts enter from included headers. Every
 physical file must match a named path root. `source` comes from `--source-root`
 (default: current directory); `resource-dir` defaults to the matching Clang
 installation. Repeat `--path-root NAME=DIR` for `sysroot`, `build`, or vendor roots.
@@ -189,23 +220,27 @@ arguments, environment, frontend facts, physical inputs, and exact paths. It is
 not relocatable and does not capture all filesystem probes, volatile predefined
 macros, or every possible environment influence. No cache is created or reused.
 
-Inheritance, templates, namespaces, enums, bitfields, methods, friends, anonymous
-records, and unsupported structural type kinds in the selected declaration closure
+Inheritance, templates, enums, bitfields, methods, friends, variables, explicit
+using declarations/directives, linkage contexts, and unsupported structural types
+in the selected declaration closure
 fail explicitly rather than producing apparently complete facts. Unsupported
 members are collected across a record before it is rejected, so one run reports
 all offending member locations while still publishing no partial facts. The graph
 validator checks required/kind-specific edges, self-canonical targets, canonical
 pointee/element consistency, alias targets, member ownership, incomplete layout,
-and direct structural cycles. Record-reference cycles are valid; pointer/alias
+namespace ownership, context/namespace-alias cycles, anonymous storage, source
+identity propagation, and direct structural cycles. Record-reference cycles are
+valid; pointer/alias
 type cycles with no intervening record declaration are not. It still does not
 prove every invariant for not-yet-implemented schema kinds.
 
 The checked-in `tests/fixtures/structured.hh` exercises aliases, recursive/header
-records, arrays, and incomplete/reference types. CI captures both this and the
-original `record.hh` output for inspection on Linux and macOS.
+records, arrays, and incomplete/reference types. `contexts.hh` adds reopened and
+inline namespaces, namespace aliases, unnamed records, anonymous union storage,
+and nested macro expansions. CI captures these and the original `record.hh` output
+for inspection on Linux and macOS.
 
-Next extend namespace/anonymous declaration identity and source coverage before
-growing enum, bitfield, inheritance, and callable extraction. Legacy differential
+Next grow enum and bitfield extraction before inheritance and callable facts. Legacy differential
 baselines and the remaining Phase 0 gates still need
 completion before any production switch.
 

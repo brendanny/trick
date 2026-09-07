@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 2; the independent diagnostics envelope is v1.
+current facts schema is version 4; the independent diagnostics envelope is v2.
 
 The document contains frontend facts only:
 
@@ -30,11 +30,13 @@ Python normalization will produce a separate resolved codegen model. Selection,
 legacy-printability decisions, output directories, Make formatting, and binding
 library types do not enter extracted facts.
 
-Within a document, Clang USRs are preferred declaration identity when present.
-The extractor derives deterministic fallback IDs from declaration kind, semantic
-parent identity, portable spelling location, and overload/type identity. Types use
-structural IDs and references. IDs are opaque to consumers; consumers must not
-parse them for semantics.
+Within a document, Clang USRs are preferred for named declaration identity when
+present. The extractor derives deterministic fallback IDs for unnamed declarations,
+missing USRs, and descendants of source-identified contexts from declaration kind,
+semantic parent identity, name, and rooted physical source anchors. Overload/type
+discriminators must be added before supporting kinds that require them; those
+kinds remain rejected today. Types use structural IDs and references. IDs are
+opaque to consumers; consumers must not parse them for semantics.
 
 Arrays are sorted by ID unless their order has semantic meaning, such as function
 parameters, template arguments, dimensions, or source-order enumerators. JSON
@@ -99,3 +101,41 @@ Per-use spelling requires a future use-site model if a consumer needs it.
 
 The minimal fixture is migrated and older facts are rejected. This revision does
 not freeze the wire contract or complete namespace/fallback identity.
+
+## Declaration contexts: schema 4
+
+Extractor 0.4.0 adds named/inline/nested/reopened/anonymous namespaces, namespace
+aliases, unnamed records, and anonymous aggregate storage. Namespace nodes merge
+canonical redeclarations and retain all block sources and annotations in
+translation-unit order. Their sorted child IDs describe selected semantic
+ownership, so closing an included namespace does not select its unused siblings.
+Alias nodes retain the immediate namespace-or-alias target. Semantic and lexical
+parent links remain distinct for out-of-line definitions.
+
+Declarations state `identity_kind` (`usr` or `source`) separately from retained
+nullable USR evidence. A source anchor contains rooted file/offset locations for
+the declaration and its complete macro caller chain. Intermediate callers prevent
+collisions when one macro expands the same unnamed-record macro multiple times.
+Anonymous namespaces additionally salt their identity with the translation-unit
+file ID; source identity propagates to descendants. Canonical AST pointers are
+only local memoization/collision-check keys and never enter emitted identity.
+Distinct canonical declarations with the same ID or an unrepresentable physical
+anchor fail extraction without publishing a document.
+
+This fallback is deterministic for unchanged rooted source trees, including
+relocation and symlink aliases. It is not edit-stable: source motion, changes in
+macro expansion sites, or a different canonical namespace block can change IDs.
+Display names omit anonymous tag locations and retain inline namespace components;
+they are descriptive rather than unique keys. Future overload/template identity
+remains a separate extension, guarded by the current fail-closed kind checks.
+
+Unnamed records have `anonymous: true`. Their implicit anonymous storage fields
+have `anonymous_member: true`, an empty name, a source-based ID, and a record type
+link to the nested unnamed declaration. Each physical field appears once; Clang's
+implicit promoted lookup aliases do not add storage or duplicate offsets. A
+consumer that flattens anonymous member paths must traverse these storage links.
+
+The graph validator checks these relationships and rejects context/alias cycles.
+The minimal fixture is migrated and v1/v2/v3 facts are rejected. The diagnostics
+envelope stays at v2 because its wire shape did not change. This revision does not
+complete enum, bitfield, inheritance, callable, or production selection policy.
