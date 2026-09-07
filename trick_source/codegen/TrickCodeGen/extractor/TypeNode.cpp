@@ -16,6 +16,9 @@ namespace trick::icg
         case TypeKind::Record:
             name = "record";
             break;
+        case TypeKind::Enum:
+            name = "enum";
+            break;
         case TypeKind::Alias:
             name = "alias";
             break;
@@ -42,6 +45,7 @@ namespace trick::icg
         switch (kind)
         {
         case TypeKind::Record:
+        case TypeKind::Enum:
         case TypeKind::Alias:
             result["declaration_id"] = declarationID;
             break;

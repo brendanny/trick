@@ -70,7 +70,7 @@ applies. No code-generation options are silently stripped: other options, respon
 files, compiler plugins, alternate dialects, and extra source inputs are rejected.
 This is **not yet the GCC argument classifier** or a compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-4 facts document
+Successful extraction writes one deterministic, schema-version-5 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction
@@ -88,7 +88,7 @@ Clang's human warning/error-count summaries. Fix-it edits are not yet extracted.
 
 ## Implemented facts and deliberate limits
 
-This slice selects records, type aliases, namespaces, and namespace aliases **in
+This slice selects records, enums, type aliases, namespaces, and namespace aliases **in
 the main file**, including declarations inside namespace blocks. It closes their
 type and context dependencies across included headers. Semantic and lexical parent
 links distinguish out-of-line record definitions from their owning scope.
@@ -104,7 +104,7 @@ Namespace aliases preserve their immediate `target_namespace_id`, including alia
 chains. Qualified display names retain inline namespaces.
 
 Unnamed records are supported through typedefs, named member declarators, and
-anonymous struct/union members. `anonymous` marks unnamed records and namespaces.
+anonymous struct/union members. `anonymous` marks unnamed records, enums, and namespaces.
 An anonymous aggregate's implicit physical storage field has an empty name and
 `anonymous_member: true`; its type refers to the nested unnamed record. Field
 offsets are relative to each owning record. Implicit lookup aliases for promoted
@@ -128,13 +128,39 @@ numbers through `2^53-1`, then canonical decimal strings, preserving exact value
 in readers that store JSON numbers as binary64. Null retains its unknown or
 incomplete meaning. The extractor supports array extents through 64 bits.
 
+Enums preserve scopedness, fixedness and signedness of the underlying type, a
+structural underlying-type link, size/alignment, and source-order enumerators with
+raw comments/annotations and spelling/expansion locations. Each enumerator has one
+canonical decimal-string `value`: its exact mathematical value after conversion
+to the underlying type, not two signed/unsigned reinterpretations. Values beyond
+64 bits are supported through Clang's arbitrary-precision integers. Different
+names may have the same value. Enumerator entries are owned by their enum rather
+than duplicated as independent declarations. Named, unnamed, nested, and referenced
+enums use the existing identity and dependency-closure rules.
+
+An opaque fixed enum (for example `enum class State : int;`) has `complete: true`
+and known layout, but `definition: false` and no enumerators. Scoped enums have a
+fixed underlying type even when `int` is implicit. Redeclarations fold to a
+definition if one exists; otherwise the canonical opaque declaration supplies
+source/annotations. Enum redeclaration history is not yet retained.
+
+Bitfields retain their declared `bit_width` and Clang's record-relative bit offset.
+`field_ids` includes unnamed padding and zero-width separators in source order;
+these have empty names and source-based IDs, but are **not** anonymous aggregate
+members. A width larger than the underlying type is valid C++ padding and is not
+clamped. The supported concrete width range matches Clang's unsigned 32-bit layout
+API; dependent or unevaluable widths fail extraction. Every bitfield carries
+`field-address: unsupported / BITFIELD_NOT_ADDRESSABLE`. Its offset is frontend
+layout evidence, not a pointer or permission to emit address-of/`offsetof` code.
+No generated bitfield accessor or GCC-layout conformance claim is made here.
+
 The frontend adapter copies facts into owned values while the AST is alive.
 Serialization occurs after the frontend action ends; no Clang object or borrowed
 source buffer crosses that lifetime boundary. Object keys and node arrays are
-sorted; fields, includes, diagnostics, and arguments retain semantic order.
+sorted; fields, enumerators, includes, diagnostics, and arguments retain semantic order.
 
 `TypeNode` is a typed, frontend-independent value model. `TypeGraph` is a
-translation-unit-local interner for builtin types, record references, typedef/using
+translation-unit-local interner for builtin types, record/enum references, typedef/using
 aliases, pointers, lvalue/rvalue references, and fixed/incomplete arrays. Each array
 node describes one dimension using scalar `extent` (null for incomplete arrays);
 multidimensional arrays nest via `element_id`.
@@ -176,8 +202,9 @@ recursively expanding mutually referential record fields. Fallback overload and
 template identity are not implemented because those declaration kinds remain
 unsupported.
 
-Extractor 0.4.0 advances facts to schema 4 for these identity and context meanings.
-The synthetic minimal fixture is migrated; the reader rejects v1/v2/v3 facts.
+Extractor 0.5.0 advances facts to schema 5 for enum values/completeness and bitfield
+layout/capability rules, retaining the v4 identity and context meanings.
+The synthetic minimal fixture is migrated; the reader rejects v1/v2/v3/v4 facts.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
 in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
 
@@ -222,7 +249,7 @@ arguments, environment, frontend facts, physical inputs, and exact paths. It is
 not relocatable and does not capture all filesystem probes, volatile predefined
 macros, or every possible environment influence. No cache is created or reused.
 
-Inheritance, templates, enums, bitfields, methods, friends, variables, explicit
+Inheritance, templates, methods, friends, variables, explicit
 using declarations/directives, linkage contexts, and unsupported structural types
 in the selected declaration closure
 fail explicitly rather than producing apparently complete facts. Unsupported
@@ -231,7 +258,8 @@ all offending member locations while still publishing no partial facts. The grap
 validator checks required/kind-specific edges, self-canonical targets, canonical
 pointee/element consistency, alias targets, member ownership, incomplete layout,
 namespace ownership, context/namespace-alias cycles, anonymous storage, source
-identity propagation, and direct structural cycles. Record-reference cycles are
+identity propagation, enum value ranges/completeness, bitfield layout/addressability,
+and direct structural cycles. Record-reference cycles are
 valid; pointer/alias
 type cycles with no intervening record declaration are not. It still does not
 prove every invariant for not-yet-implemented schema kinds.
@@ -239,11 +267,12 @@ prove every invariant for not-yet-implemented schema kinds.
 The checked-in `tests/fixtures/structured.hh` exercises aliases, recursive/header
 records, arrays, and incomplete/reference types. `contexts.hh` adds reopened and
 inline namespaces, namespace aliases, unnamed records, anonymous union storage,
-and nested macro expansions. CI captures these and the original `record.hh` output
+and nested macro expansions. `enums-bitfields.hh` adds enum values/opaque types and
+bitfield storage/separators. CI captures these and the original `record.hh` output
 for inspection on Linux and macOS.
 
-Next grow enum and bitfield extraction before inheritance and callable facts. Legacy differential
-baselines and the remaining Phase 0 gates still need
+Next extend inheritance/base-layout facts before callable extraction. Legacy
+differential baselines and the remaining Phase 0 gates still need
 completion before any production switch.
 
 ## Python style

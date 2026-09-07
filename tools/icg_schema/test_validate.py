@@ -25,7 +25,8 @@ class ValidateTests(unittest.TestCase):
             lambda value: value.update(schema_version=1),
             lambda value: value.update(schema_version=2),
             lambda value: value.update(schema_version=3),
-            lambda value: value.update(schema_version=5),
+            lambda value: value.update(schema_version=4),
+            lambda value: value.update(schema_version=6),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)
@@ -192,9 +193,9 @@ class ValidateTests(unittest.TestCase):
         document["declarations"][0]["enumerators"] = [
             {
                 "name": "Value",
-                "signed_value": "1",
-                "unsigned_value": "1",
+                "value": "1",
                 "source": source,
+                "annotations": [],
             }
         ]
         with self.assertRaisesRegex(ValueError, "dangling reference"):
@@ -377,6 +378,209 @@ class ValidateTests(unittest.TestCase):
         document["declarations"][1].update(name="named", anonymous_member=False)
         document["declarations"][0]["nested_declaration_ids"] = []
         with self.assertRaisesRegex(ValueError, "nested declaration ownership"):
+            ir.validate(self.schema, document)
+
+    def enum_document(self):
+        document = copy.deepcopy(self.fixture)
+        record = document["declarations"][0]
+        node = {
+            key: copy.deepcopy(record[key])
+            for key in (
+                "source",
+                "access",
+                "origin",
+                "annotations",
+                "capabilities",
+            )
+        }
+        node.update(
+            id="decl:enum",
+            canonical_declaration_id="decl:enum",
+            kind="enum",
+            name="E",
+            qualified_name="E",
+            usr="c:@E@E",
+            identity_kind="usr",
+            anonymous=False,
+            scoped=True,
+            underlying_fixed=True,
+            underlying_signed=True,
+            complete=True,
+            definition=True,
+            size_bits=32,
+            alignment_bits=32,
+            type_id="type:enum",
+            underlying_type_id="type:int",
+            enumerators=[
+                {
+                    "name": "Value",
+                    "value": "-1",
+                    "source": copy.deepcopy(record["source"]),
+                    "annotations": [],
+                }
+            ],
+        )
+        document["declarations"].append(node)
+        document["types"].append({
+            "id": "type:enum",
+            "kind": "enum",
+            "spelling": "E",
+            "canonical_id": "type:enum",
+            "declaration_id": node["id"],
+            "qualifiers": {"const": False, "volatile": False, "restrict": False},
+        })
+        return document
+
+    def test_enum_type_and_required_facts_are_validated(self):
+        ir.validate(self.schema, self.enum_document())
+        for key in (
+            "underlying_fixed",
+            "underlying_signed",
+            "underlying_type_id",
+            "enumerators",
+        ):
+            document = self.enum_document()
+            del document["declarations"][-1][key]
+            with self.assertRaisesRegex(ValueError, "missing structural fields"):
+                ir.validate(self.schema, document)
+        document = self.enum_document()
+        document["types"][-1]["declaration_id"] = "decl:sample"
+        with self.assertRaisesRegex(ValueError, "wrong declaration kind"):
+            ir.validate(self.schema, document)
+        document = self.enum_document()
+        document["declarations"][-1]["underlying_type_id"] = "type:enum"
+        with self.assertRaisesRegex(ValueError, "not a supported integral type"):
+            ir.validate(self.schema, document)
+
+    def test_enum_values_are_canonical_exact_and_range_checked(self):
+        for value in ("-2147483648", "0", "2147483647"):
+            document = self.enum_document()
+            document["declarations"][-1]["enumerators"][0]["value"] = value
+            ir.validate(self.schema, document)
+        for value in ("-0", "01", "+1", "-01", 1):
+            document = self.enum_document()
+            document["declarations"][-1]["enumerators"][0]["value"] = value
+            with self.assertRaises(ValidationError):
+                ir.validate(self.schema, document)
+        for value in ("2147483648", "-2147483649"):
+            document = self.enum_document()
+            document["declarations"][-1]["enumerators"][0]["value"] = value
+            with self.assertRaisesRegex(ValueError, "outside its underlying range"):
+                ir.validate(self.schema, document)
+
+    def test_unsigned_enum_range_and_signedness_are_checked(self):
+        document = self.enum_document()
+        node = document["declarations"][-1]
+        node.update(underlying_signed=False, underlying_type_id="type:unsigned")
+        underlying = copy.deepcopy(document["types"][0])
+        underlying.update(
+            id="type:unsigned", canonical_id="type:unsigned", spelling="unsigned int"
+        )
+        document["types"].append(underlying)
+        for value in ("0", "4294967295"):
+            node["enumerators"][0]["value"] = value
+            ir.validate(self.schema, document)
+        for value in ("-1", "4294967296"):
+            node["enumerators"][0]["value"] = value
+            with self.assertRaisesRegex(ValueError, "outside its underlying range"):
+                ir.validate(self.schema, document)
+        node["underlying_signed"] = True
+        with self.assertRaisesRegex(ValueError, "underlying signedness"):
+            ir.validate(self.schema, document)
+
+    def test_enum_definition_completeness_and_scoping_are_independent(self):
+        document = self.enum_document()
+        node = document["declarations"][-1]
+        node.update(definition=False, enumerators=[])
+        ir.validate(self.schema, document)
+        node["underlying_fixed"] = False
+        with self.assertRaisesRegex(ValueError, "scoped enum must be named and fixed"):
+            ir.validate(self.schema, document)
+        node["scoped"] = False
+        with self.assertRaisesRegex(ValueError, "opaque enum must be fixed"):
+            ir.validate(self.schema, document)
+        node.update(underlying_fixed=True, complete=False)
+        with self.assertRaisesRegex(ValueError, "complete integral layout"):
+            ir.validate(self.schema, document)
+
+    def test_enum_members_allow_duplicate_values_not_duplicate_names(self):
+        document = self.enum_document()
+        node = document["declarations"][-1]
+        duplicate = copy.deepcopy(node["enumerators"][0])
+        duplicate["name"] = "SameValue"
+        node["enumerators"].append(duplicate)
+        ir.validate(self.schema, document)
+        duplicate["name"] = "Value"
+        with self.assertRaisesRegex(ValueError, "duplicate enumerator names"):
+            ir.validate(self.schema, document)
+        node["enumerators"].pop()
+        node["enumerators"][0]["annotations"] = [
+            {
+                "syntax": "comment",
+                "payload": "note",
+                "source": copy.deepcopy(node["source"]),
+            }
+        ]
+        node["enumerators"][0]["annotations"][0]["source"]["spelling"]["file_id"] = (
+            "file:missing"
+        )
+        with self.assertRaisesRegex(ValueError, "dangling reference"):
+            ir.validate(self.schema, document)
+
+    def bitfield_document(self):
+        document = copy.deepcopy(self.fixture)
+        document["declarations"][1].update(
+            bitfield=True,
+            bit_width=3,
+            capabilities=[
+                {
+                    "name": "field-address",
+                    "status": "unsupported",
+                    "reason_code": "BITFIELD_NOT_ADDRESSABLE",
+                }
+            ],
+        )
+        return document
+
+    def test_bitfield_width_padding_and_layout_are_validated(self):
+        ir.validate(self.schema, self.bitfield_document())
+        for mutation, message in (
+            ({"bit_width": None}, "concrete 32-bit width"),
+            ({"bit_width": 4294967296}, "concrete 32-bit width"),
+            ({"bit_width": 0}, "zero-width bitfield must be unnamed"),
+            ({"offset_bits": 31}, "exceeds its owning record layout"),
+            ({"type_id": "type:sample"}, "not a supported integral type"),
+            ({"name": ""}, "unnamed bitfield requires source identity"),
+        ):
+            document = self.bitfield_document()
+            document["declarations"][1].update(mutation)
+            with self.assertRaisesRegex(ValueError, message):
+                ir.validate(self.schema, document)
+        document = self.bitfield_document()
+        document["declarations"][1].update(
+            name="", identity_kind="source", bit_width=0, offset_bits=32
+        )
+        ir.validate(self.schema, document)
+
+    def test_bitfield_cannot_claim_addressability_or_disappear_into_aggregate(self):
+        for mutation in (
+            {"capabilities": []},
+            {"anonymous_member": True},
+            {"bitfield": False},
+        ):
+            document = self.bitfield_document()
+            document["declarations"][1].update(mutation)
+            with self.assertRaises(ValueError):
+                ir.validate(self.schema, document)
+        document = self.bitfield_document()
+        document["declarations"][1]["capabilities"][0]["status"] = "supported"
+        with self.assertRaisesRegex(ValueError, "explicitly non-addressable"):
+            ir.validate(self.schema, document)
+
+    def test_enum_properties_cannot_be_attached_to_a_record(self):
+        document = copy.deepcopy(self.fixture)
+        document["declarations"][0]["scoped"] = True
+        with self.assertRaisesRegex(ValueError, "enum-only fields"):
             ir.validate(self.schema, document)
 
 

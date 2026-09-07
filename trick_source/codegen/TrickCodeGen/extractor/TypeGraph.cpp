@@ -55,6 +55,12 @@ namespace trick::icg
             node.declarationID = requestDeclaration(record->getDecl());
             identity           = "record:" + node.declarationID;
         }
+        else if (const auto* enumeration = llvm::dyn_cast<clang::EnumType>(raw))
+        {
+            node.kind          = TypeKind::Enum;
+            node.declarationID = requestDeclaration(enumeration->getDecl());
+            identity           = "enum:" + node.declarationID;
+        }
         else if (const auto* alias = llvm::dyn_cast<clang::TypedefType>(raw))
         {
             node.kind          = TypeKind::Alias;

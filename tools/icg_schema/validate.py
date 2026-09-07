@@ -133,6 +133,8 @@ def validate_graph(document: dict) -> None:
     for node in declarations.values():
         for enumerator in node.get("enumerators", []):
             source(enumerator["source"], f"{node['id']}.enumerators")
+            for annotation in enumerator["annotations"]:
+                source(annotation["source"], f"{node['id']}.enumerators.annotations")
 
     validate_structure(types, declarations)
 
@@ -151,6 +153,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
     shapes = {
         "builtin": set(),
         "record": {"declaration_id"},
+        "enum": {"declaration_id"},
         "alias": {"declaration_id"},
         "pointer": {"pointee_id"},
         "lvalue_reference": {"pointee_id"},
@@ -184,7 +187,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             if kind != "alias" and node["qualifiers"] != canonical["qualifiers"]:
                 raise ValueError(f"{node['id']} has inconsistent canonical qualifiers")
         if (
-            kind in ("record", "alias")
+            kind in ("record", "enum", "alias")
             and declarations[node["declaration_id"]]["kind"] != kind
         ):
             raise ValueError(f"{node['id']} points to the wrong declaration kind")
@@ -192,10 +195,10 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             raise ValueError(
                 f"{node['id']} array qualifiers must be on the element type"
             )
-        if kind == "record" and node["declaration_id"] != canonical.get(
+        if kind in {"record", "enum"} and node["declaration_id"] != canonical.get(
             "declaration_id"
         ):
-            raise ValueError(f"{node['id']} has inconsistent canonical record identity")
+            raise ValueError(f"{node['id']} has inconsistent canonical {kind} identity")
         if kind in ("pointer", "lvalue_reference", "rvalue_reference") and types[
             node["pointee_id"]
         ]["canonical_id"] != canonical.get("pointee_id"):
@@ -206,11 +209,40 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             if node["extent"] != canonical.get("extent"):
                 raise ValueError(f"{node['id']} has inconsistent canonical extent")
 
+    def integer_type(identifier: str) -> dict:
+        node = types[types[identifier]["canonical_id"]]
+        name = " ".join(
+            word
+            for word in node["spelling"].split()
+            if word not in {"const", "volatile", "restrict"}
+        )
+        if node["kind"] != "builtin" or name not in {
+            "bool",
+            "char",
+            "signed char",
+            "unsigned char",
+            "wchar_t",
+            "char16_t",
+            "char32_t",
+            "short",
+            "unsigned short",
+            "int",
+            "unsigned int",
+            "long",
+            "unsigned long",
+            "long long",
+            "unsigned long long",
+            "__int128",
+            "unsigned __int128",
+        }:
+            raise ValueError(f"{identifier} is not a supported integral type")
+        return node
+
     for node in declarations.values():
         kind = node["kind"]
         if node["identity_kind"] == "usr" and not node["usr"]:
             raise ValueError(f"{node['id']} has no USR for its identity")
-        if kind in {"record", "field", "alias", "namespace", "namespace_alias"}:
+        if kind in {"record", "field", "enum", "alias", "namespace", "namespace_alias"}:
             if node.get("canonical_declaration_id") != node["id"]:
                 raise ValueError(f"{node['id']} is not a canonical declaration")
         for key in ("semantic_parent_id", "lexical_parent_id"):
@@ -234,7 +266,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                 raise ValueError(f"{node['id']} has inconsistent namespace ownership")
             if (
                 parent["kind"] == "record"
-                and kind in {"record", "alias"}
+                and kind in {"record", "enum", "alias"}
                 and node["id"] not in parent.get("nested_declaration_ids", [])
             ):
                 raise ValueError(
@@ -245,7 +277,10 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             raise ValueError(f"{node['id']} has namespace-only fields")
         if kind != "namespace_alias" and "target_namespace_id" in node:
             raise ValueError(f"{node['id']} has a namespace-alias-only field")
-        if kind in {"record", "namespace"}:
+        enum_fields = {"scoped", "underlying_fixed", "underlying_signed", "enumerators"}
+        if kind != "enum" and enum_fields & node.keys():
+            raise ValueError(f"{node['id']} has enum-only fields")
+        if kind in {"record", "enum", "namespace"}:
             need(node, {"anonymous"})
             if node["anonymous"] != (node["name"] == ""):
                 raise ValueError(f"{node['id']} has inconsistent anonymous naming")
@@ -290,6 +325,72 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                 != types[node["underlying_type_id"]]["canonical_id"]
             ):
                 raise ValueError(f"{node['id']} has an inconsistent alias target")
+        if kind == "enum":
+            need(
+                node,
+                enum_fields
+                | {
+                    "type_id",
+                    "underlying_type_id",
+                    "complete",
+                    "size_bits",
+                    "alignment_bits",
+                },
+            )
+            enum_type = types[node["type_id"]]
+            if enum_type["kind"] != "enum" or enum_type["declaration_id"] != node["id"]:
+                raise ValueError(f"{node['id']} has an invalid enum type")
+            underlying = integer_type(node["underlying_type_id"])
+            if any(underlying["qualifiers"].values()):
+                raise ValueError(f"{node['id']} has a qualified enum underlying type")
+            name = underlying["spelling"]
+            # Plain char and wchar_t signedness is target-dependent. The other
+            # supported integral builtin spellings have fixed signedness.
+            if name not in {"char", "wchar_t"}:
+                signed = not (
+                    name.startswith("unsigned ")
+                    or name in {"bool", "char16_t", "char32_t"}
+                )
+                if node["underlying_signed"] != signed:
+                    raise ValueError(
+                        f"{node['id']} has inconsistent underlying signedness"
+                    )
+            if (
+                not node["complete"]
+                or node["size_bits"] is None
+                or node["alignment_bits"] is None
+            ):
+                raise ValueError(
+                    f"{node['id']} enum requires a complete integral layout"
+                )
+            width = int(node["size_bits"])
+            if width < 1 or int(node["alignment_bits"]) < 1:
+                raise ValueError(f"{node['id']} enum has an invalid layout")
+            if node["scoped"] and (not node["underlying_fixed"] or node["anonymous"]):
+                raise ValueError(f"{node['id']} scoped enum must be named and fixed")
+            if not node["definition"] and (
+                not node["underlying_fixed"] or node["enumerators"]
+            ):
+                raise ValueError(
+                    f"{node['id']} opaque enum must be fixed and have no enumerators"
+                )
+            names = [entry["name"] for entry in node["enumerators"]]
+            if any(not name for name in names) or len(names) != len(set(names)):
+                raise ValueError(
+                    f"{node['id']} enum has empty or duplicate enumerator names"
+                )
+            for entry in node["enumerators"]:
+                value = int(entry["value"])
+                if node["underlying_signed"]:
+                    fits = (value if value >= 0 else ~value).bit_length() < width
+                else:
+                    fits = value >= 0 and value.bit_length() <= width
+                if not fits or (
+                    underlying["spelling"] == "bool" and value not in (0, 1)
+                ):
+                    raise ValueError(
+                        f"{node['id']} enumerator is outside its underlying range"
+                    )
         if kind == "record":
             need(node, {"type_id", "complete", "field_ids", "nested_declaration_ids"})
             record_type = types[node["type_id"]]
@@ -324,8 +425,20 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                             f"{node['id']} has an invalid member in {field}"
                         )
         if kind == "field":
-            need(node, {"type_id", "semantic_parent_id", "anonymous_member"})
-            if node["anonymous_member"] != (node["name"] == ""):
+            need(
+                node,
+                {
+                    "type_id",
+                    "semantic_parent_id",
+                    "anonymous_member",
+                    "bitfield",
+                    "bit_width",
+                    "offset_bits",
+                },
+            )
+            if node["anonymous_member"] != (
+                node["name"] == "" and not node["bitfield"]
+            ):
                 raise ValueError(
                     f"{node['id']} has inconsistent anonymous member naming"
                 )
@@ -348,6 +461,48 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                     raise ValueError(
                         f"{node['id']} anonymous storage requires source identity"
                     )
+            if node["bitfield"]:
+                if (
+                    node["bit_width"] is None
+                    or not 0 <= int(node["bit_width"]) <= 4294967295
+                ):
+                    raise ValueError(
+                        f"{node['id']} bitfield requires a concrete 32-bit width"
+                    )
+                if node["name"] == "" and node["identity_kind"] != "source":
+                    raise ValueError(
+                        f"{node['id']} unnamed bitfield requires source identity"
+                    )
+                if node["bit_width"] == 0 and node["name"]:
+                    raise ValueError(
+                        f"{node['id']} zero-width bitfield must be unnamed"
+                    )
+                target = types[types[node["type_id"]]["canonical_id"]]
+                if target["kind"] != "enum":
+                    integer_type(node["type_id"])
+                address = [
+                    c for c in node["capabilities"] if c["name"] == "field-address"
+                ]
+                if (
+                    len(address) != 1
+                    or address[0]["status"] != "unsupported"
+                    or address[0]["reason_code"] != "BITFIELD_NOT_ADDRESSABLE"
+                ):
+                    raise ValueError(
+                        f"{node['id']} bitfield must be explicitly non-addressable"
+                    )
+                parent = declarations[node["semantic_parent_id"]]
+                if (
+                    node["offset_bits"] is None
+                    or parent.get("size_bits") is None
+                    or int(node["offset_bits"]) + int(node["bit_width"])
+                    > int(parent["size_bits"])
+                ):
+                    raise ValueError(
+                        f"{node['id']} bitfield exceeds its owning record layout"
+                    )
+            elif node["bit_width"] is not None:
+                raise ValueError(f"{node['id']} non-bitfield must have null width")
             parent = declarations[node["semantic_parent_id"]]
             if parent["kind"] != "record" or node["id"] not in parent.get(
                 "field_ids", []

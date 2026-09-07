@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v4.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v5.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 4},
+    "schema_version": {"const": 5},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -272,12 +272,15 @@
     "enumerator": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "signed_value", "unsigned_value", "source"],
+      "required": ["name", "value", "source", "annotations"],
       "properties": {
         "name": {"type": "string"},
-        "signed_value": {"type": "string", "pattern": "^-?[0-9]+$"},
-        "unsigned_value": {"type": "string", "pattern": "^[0-9]+$"},
-        "source": {"$ref": "#/$defs/source"}
+        "value": {
+          "type": "string", "pattern": "^(0|-?[1-9][0-9]*)$",
+          "description": "Exact mathematical value after conversion to the enum's underlying type, always a canonical decimal string."
+        },
+        "source": {"$ref": "#/$defs/source"},
+        "annotations": {"type": "array", "items": {"$ref": "#/$defs/annotation"}}
       }
     },
     "parameter": {
@@ -355,6 +358,8 @@
         "bit_width": {"$ref": "#/$defs/optional_unsigned"},
         "offset_bits": {"$ref": "#/$defs/optional_unsigned"},
         "scoped": {"type": "boolean"},
+        "underlying_fixed": {"type": "boolean"},
+        "underlying_signed": {"type": "boolean"},
         "underlying_type_id": {"$ref": "#/$defs/id"},
         "enumerators": {"type": "array", "items": {"$ref": "#/$defs/enumerator"}},
         "callable_kind": {"enum": ["constructor", "destructor", "method", "function", "conversion"]},

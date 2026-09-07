@@ -605,7 +605,7 @@ Keep early reviews small and behavior-neutral:
 2. Add ADRs/spike results and the initial IR schema fixtures.
 3. Add C++17 extractor target, LLVM 17 package discovery, the selected frontend API, and argument/diagnostic plumbing for one record. **Implemented as a standalone development slice:** [scope, invocation, and tests](../../trick_source/codegen/TrickCodeGen/README.md).
 4. Add the structured type graph, declaration identity, source/file/include model, and serializer. **Core implemented:** owned structural types, canonical alias/record links, nested/referenced declaration closure, named file roots, namespace contexts/aliases, anonymous declaration identity/storage, and graph validation. Broader type kinds and future overload/template identity remain.
-5. Add records/enums/fields/inheritance/layout and annotation normalization with fixture parity.
+5. Add records/enums/fields/inheritance/layout and annotation normalization with fixture parity. **Incremental frontend facts implemented:** records/fields, scoped/unnamed/opaque enums with exact values, bitfield widths/offsets/padding, and raw annotations. Inheritance, annotation policy/normalization, GCC conformance, and legacy fixture parity remain.
 6. Add the Python 3.11 package, IR reader/validator, `extract`/`inspect`/`doctor`, and deterministic writer.
 7. Add a minimal legacy emitter for one class, then grow it capability by capability behind normalized differential tests.
 8. Add dual-generation of selected simulations; do not switch authoritative output yet.

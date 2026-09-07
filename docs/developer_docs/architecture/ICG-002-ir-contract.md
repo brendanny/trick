@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 4; the independent diagnostics envelope is v2.
+current facts schema is version 5; the independent diagnostics envelope is v2.
 
 The document contains frontend facts only:
 
@@ -141,3 +141,41 @@ The graph validator checks these relationships and rejects context/alias cycles.
 The minimal fixture is migrated and v1/v2/v3 facts are rejected. The diagnostics
 envelope stays at v2 because its wire shape did not change. This revision does not
 complete enum, bitfield, inheritance, callable, or production selection policy.
+
+## Enums and bitfields: schema 5
+
+Extractor 0.5.0 adds enum type nodes, enum declaration dependencies, and bitfield
+layout facts. Enums record `scoped`, `underlying_fixed`, `underlying_signed`,
+`underlying_type_id`, size/alignment, and source-order enumerators. Enum declaration
+identity and nested/context ownership follow the same rules as records. Enumerator
+entries remain inline, with a name, exact value, source and raw annotations.
+
+The provisional, previously unused enumerator `signed_value`/`unsigned_value`
+pair is replaced by one `value`: a canonical decimal string representing the
+mathematical value after conversion to the enum's underlying type. It is never a
+JSON number, supports values wider than 64 bits, and is not a bit reinterpretation.
+The validator checks signed/unsigned range against the recorded width, canonical
+decimal syntax, unique names (duplicate values are legal), and source references.
+Template-argument integral fields are unchanged.
+
+Enum type completeness is separate from an enumerator definition. A fixed opaque
+enum has known size/alignment and `complete: true` even with `definition: false`.
+It has no enumerator list entries. Scoped enums always have fixed underlying types.
+The selected definition, or canonical opaque declaration if none exists, supplies
+source/annotation evidence; full enum redeclaration history remains future work.
+
+Bitfields retain declared width and Clang's record-relative bit offset. The record
+field list includes unnamed padding and zero-width alignment separators in source
+order. They use empty names and source identities, with `anonymous_member: false`.
+An overwide C++ bitfield may contain padding beyond its underlying type width;
+the extractor does not clamp it. Widths must be concrete and fit Clang's unsigned
+32-bit layout interface. Invalid/dependent input publishes no partial document.
+
+Every bitfield states `field-address: unsupported / BITFIELD_NOT_ADDRESSABLE`.
+These offsets do not license address-of/offsetof-based emission; named bitfields
+will require generated get/set operations and GCC conformance probes. Zero-width
+entries describe alignment, not addressable storage. This increment does not
+implement accessor generation, inheritance, or callable extraction.
+
+Facts advance to v5; v1/v2/v3/v4 documents are rejected and the minimal fixture is
+migrated. The diagnostics envelope remains v2 because its shape is unchanged.

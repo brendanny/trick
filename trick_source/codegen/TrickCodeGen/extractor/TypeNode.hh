@@ -13,6 +13,7 @@ namespace trick::icg
     {
         Builtin,
         Record,
+        Enum,
         Alias,
         Pointer,
         LValueReference,

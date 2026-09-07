@@ -58,7 +58,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 4)
+        self.assertEqual(document["schema_version"], 5)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -253,12 +253,10 @@ class ExtractTests(unittest.TestCase):
 
     def test_unsupported_declarations_fail_closed(self):
         for source in (
-            "struct Sample { unsigned value:3; };",
             "struct Sample { void method(); };",
             "struct Base {}; struct Sample: Base {};",
             "template<class T> struct Sample { T value; };",
             "namespace ns { void function(); }",
-            "enum E { A };",
             "struct { int value; } anonymous;",
         ):
             with self.subTest(source=source):
@@ -520,7 +518,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_all_unsupported_members_are_reported_in_one_run(self):
         self.header.write_text(
-            "struct Sample {\nunsigned bits : 1;\nstatic int value;\nvoid run();\nenum E { A };\n};\n"
+            "struct Sample {\nfriend struct Friend;\nstatic int value;\nvoid run();\nSample();\n};\n"
         )
         report = self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
         lines = {
@@ -797,7 +795,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_unimplemented_namespace_members_fail_closed(self):
         for source in (
-            "namespace N { struct Good {}; enum E { A }; }",
+            "namespace N { struct Good {}; void function(); }",
             "namespace N { struct Good {}; } using namespace N;",
             "namespace N { struct Good {}; } using N::Good;",
             'extern "C++" { struct Good {}; }',
@@ -840,6 +838,264 @@ class ExtractTests(unittest.TestCase):
             self.assertEqual(
                 {f["id"] for f in first["files"]}, {f["id"] for f in second["files"]}
             )
+
+    def test_scoped_unscoped_enums_and_duplicate_values(self):
+        self.header.write_text(
+            "enum Plain { Negative=-7, Next, Same=Next, Last=100 };\n"
+            "enum class Scoped : unsigned short { Zero, High=65535 };\n"
+            "using Alias = Scoped; struct Model { const Alias state; Plain values[2]; };\n"
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        plain, scoped = nodes["Plain"], nodes["Scoped"]
+        self.assertFalse(plain["scoped"])
+        self.assertFalse(plain["underlying_fixed"])
+        self.assertTrue(plain["underlying_signed"])
+        self.assertEqual(
+            [e["value"] for e in plain["enumerators"]], ["-7", "-6", "-6", "100"]
+        )
+        self.assertEqual(
+            [e["name"] for e in plain["enumerators"]],
+            ["Negative", "Next", "Same", "Last"],
+        )
+        self.assertTrue(scoped["scoped"])
+        self.assertTrue(scoped["underlying_fixed"])
+        self.assertFalse(scoped["underlying_signed"])
+        self.assertEqual((scoped["size_bits"], scoped["alignment_bits"]), (16, 16))
+        types = {t["id"]: t for t in document["types"]}
+        alias = types[nodes["Model::state"]["type_id"]]
+        canonical = types[alias["canonical_id"]]
+        self.assertEqual(canonical["kind"], "enum")
+        self.assertEqual(canonical["declaration_id"], scoped["id"])
+        self.assertTrue(canonical["qualifiers"]["const"])
+
+    def test_enum_integrals_remain_exact_beyond_json_and_64_bits(self):
+        self.header.write_text(
+            "enum class Unsigned : unsigned long long { Max=18446744073709551615ULL, Exact=9007199254740993ULL };\n"
+            "enum Signed : long long { Min=(-9223372036854775807LL-1) };\n"
+            "enum class Wide : unsigned __int128 { High=((unsigned __int128)1 << 100), Max=~(unsigned __int128)0 };\n"
+            "enum class WideSigned : __int128 { Low=-((__int128)1 << 100) };\n"
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertEqual(
+            [e["value"] for e in nodes["Unsigned"]["enumerators"]],
+            [str(2**64 - 1), str(2**53 + 1)],
+        )
+        self.assertEqual(nodes["Signed"]["enumerators"][0]["value"], str(-(2**63)))
+        self.assertEqual(
+            [e["value"] for e in nodes["Wide"]["enumerators"]],
+            [str(2**100), str(2**128 - 1)],
+        )
+        self.assertEqual(nodes["WideSigned"]["enumerators"][0]["value"], str(-(2**100)))
+        self.assertEqual(nodes["Wide"]["size_bits"], 128)
+
+    def test_opaque_enum_is_complete_without_a_definition(self):
+        self.header.write_text(
+            "enum class State; enum Mode : unsigned char;\n"
+            "struct Sample { State state; Mode mode; };\n"
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        for name, size in (("State", 32), ("Mode", 8)):
+            node = nodes[name]
+            self.assertTrue(node["complete"])
+            self.assertFalse(node["definition"])
+            self.assertTrue(node["underlying_fixed"])
+            self.assertEqual(node["enumerators"], [])
+            self.assertEqual(node["size_bits"], size)
+
+    def test_enum_redeclarations_fold_to_definition_and_keep_identity(self):
+        self.header.write_text("enum class State : int;\n")
+        first = self.success(self.invoke())
+        self.header.write_text(
+            "enum class State : int;\nenum class State : int { On=2 };\nenum class State : int;\n"
+        )
+        second = self.success(self.invoke())
+        enum = self.declarations(second)["State"]
+        self.assertEqual(enum["id"], self.declarations(first)["State"]["id"])
+        self.assertTrue(enum["definition"])
+        self.assertEqual(enum["source"]["spelling"]["line"], 2)
+        self.assertEqual(len(second["declarations"]), 1)
+
+    def test_nested_and_referenced_enums_preserve_selection_and_context(self):
+        (self.root / "types.hh").write_text(
+            "namespace N { enum class Used { A }; struct Unused { void run(); }; }\n"
+        )
+        self.header.write_text(
+            '#include "types.hh"\nnamespace N { struct Holder { enum E { Item }; E value; Used used; }; }\n'
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertNotIn("N::Unused", nodes)
+        self.assertEqual(
+            nodes["N::Holder::E"]["semantic_parent_id"], nodes["N::Holder"]["id"]
+        )
+        self.assertEqual(
+            nodes["N::Holder"]["nested_declaration_ids"], [nodes["N::Holder::E"]["id"]]
+        )
+        self.assertIn(nodes["N::Used"]["id"], nodes["N"]["declaration_ids"])
+
+    def test_enum_underlying_alias_bool_and_character_types(self):
+        self.header.write_text(
+            "using Byte = unsigned char; enum class E : Byte { Max=255 };\n"
+            "enum class Boolean : bool { No=false, Yes=true };\n"
+            "enum class Character : char { A=65 }; enum class WideChar : wchar_t { A=65 };\n"
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertEqual(nodes["E"]["size_bits"], 8)
+        self.assertFalse(nodes["E"]["underlying_signed"])
+        self.assertEqual(
+            [e["value"] for e in nodes["Boolean"]["enumerators"]], ["0", "1"]
+        )
+
+    def test_enum_comments_attributes_and_macro_sources(self):
+        self.header.write_text(
+            "#define ITEM(NAME) NAME = 3\n/// enum note\n"
+            "enum E {\n/// value note\n"
+            'Value [[clang::annotate("enum-value")]] = 2,\nITEM(Macro)\n};\n'
+        )
+        node = self.declarations(self.success(self.invoke()))["E"]
+        self.assertEqual(node["annotations"][0]["payload"], "/// enum note")
+        first, macro = node["enumerators"]
+        self.assertEqual(
+            [a["payload"] for a in first["annotations"]],
+            ["/// value note", "enum-value"],
+        )
+        self.assertTrue(macro["source"]["macro_expansion"])
+        self.assertEqual(macro["value"], "3")
+
+    def test_enum_layout_honors_alignment_and_packing_attributes(self):
+        self.header.write_text(
+            "enum __attribute__((aligned(16))) Aligned { A };\n"
+            "enum __attribute__((packed)) Packed { P=3 };\n"
+            "static_assert(alignof(Aligned)==16); static_assert(sizeof(Aligned)==4);\n"
+            "static_assert(alignof(Packed)==1); static_assert(sizeof(Packed)==1);\n"
+        )
+        nodes = self.declarations(
+            self.success(self.invoke(["--target=x86_64-unknown-linux-gnu"]))
+        )
+        self.assertEqual(
+            (nodes["Aligned"]["size_bits"], nodes["Aligned"]["alignment_bits"]),
+            (32, 128),
+        )
+        self.assertEqual(
+            (nodes["Packed"]["size_bits"], nodes["Packed"]["alignment_bits"]), (8, 8)
+        )
+
+    def test_anonymous_enums_and_bitfields_keep_relocatable_distinct_ids(self):
+        self.header.write_text(
+            "typedef enum { One } First; typedef enum { Two } Second;\n"
+            "#define PADDING unsigned : 1;\n"
+            "#define TWO PADDING PADDING\n"
+            "namespace { struct Model { TWO enum { Three } value; }; }\n"
+        )
+        first_result = self.invoke()
+        first = self.success(first_result)
+        self.assertEqual(first_result.stdout, self.invoke().stdout)
+        enums = [n for n in first["declarations"] if n["kind"] == "enum"]
+        self.assertEqual(len(enums), 3)
+        self.assertTrue(
+            all(n["anonymous"] and n["identity_kind"] == "source" for n in enums)
+        )
+        bits = [n for n in first["declarations"] if n.get("bitfield")]
+        self.assertEqual(len(bits), 2)
+        self.assertNotEqual(bits[0]["id"], bits[1]["id"])
+        with tempfile.TemporaryDirectory(prefix="icg-enum-relocated-") as relocated:
+            shutil.copy2(self.header, Path(relocated) / self.header.name)
+            second = self.success(
+                self.invoke(cwd=relocated, options=["--source-root", relocated])
+            )
+            for key in ("types", "declarations"):
+                self.assertEqual(first[key], second[key])
+
+    def test_bitfields_keep_padding_separators_offsets_and_capabilities(self):
+        self.header.write_text(
+            "struct Bits { unsigned a:3; unsigned :2; unsigned b:3; unsigned :0; signed c:4; bool d:1; };\n"
+        )
+        document = self.success(self.invoke(["--target=x86_64-unknown-linux-gnu"]))
+        nodes = {n["id"]: n for n in document["declarations"]}
+        record = self.declarations(document)["Bits"]
+        fields = [nodes[i] for i in record["field_ids"]]
+        self.assertEqual([f["name"] for f in fields], ["a", "", "b", "", "c", "d"])
+        self.assertEqual([f["bit_width"] for f in fields], [3, 2, 3, 0, 4, 1])
+        self.assertEqual([f["offset_bits"] for f in fields], [0, 3, 5, 32, 32, 36])
+        self.assertEqual(record["size_bits"], 64)
+        for field in fields:
+            self.assertTrue(field["bitfield"])
+            self.assertFalse(field["anonymous_member"])
+            self.assertEqual(
+                field["capabilities"],
+                [
+                    {
+                        "name": "field-address",
+                        "status": "unsupported",
+                        "reason_code": "BITFIELD_NOT_ADDRESSABLE",
+                    }
+                ],
+            )
+            if not field["name"]:
+                self.assertEqual(field["identity_kind"], "source")
+
+    def test_packed_union_and_overwide_bitfield_layout(self):
+        self.header.write_text(
+            "struct __attribute__((packed)) Packed { unsigned a:3; unsigned b:10; unsigned char tail; };\n"
+            "union Overlay { unsigned a:3; unsigned b:5; };\n"
+            "struct Wide { unsigned char value:12; };\n"
+        )
+        document = self.success(self.invoke(["--target=x86_64-unknown-linux-gnu"]))
+        nodes = self.declarations(document)
+        self.assertEqual(
+            (nodes["Packed"]["size_bits"], nodes["Packed"]["alignment_bits"]), (24, 8)
+        )
+        self.assertEqual(nodes["Packed::b"]["offset_bits"], 3)
+        self.assertEqual(nodes["Packed::tail"]["offset_bits"], 16)
+        self.assertEqual(
+            nodes["Overlay::a"]["offset_bits"], nodes["Overlay::b"]["offset_bits"]
+        )
+        self.assertEqual(nodes["Wide::value"]["bit_width"], 12)
+        self.assertTrue(
+            any(d["severity"] == "warning" for d in document["diagnostics"])
+        )
+
+    def test_enum_bitfield_types_width_expressions_and_annotations(self):
+        self.header.write_text(
+            "enum class State : unsigned char { Ready=3 };\n#define WIDTH 2\n"
+            'struct Sample { /// field note\n[[clang::annotate("bits")]] State state:WIDTH; const unsigned count:(1+2); };\n'
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        field = nodes["Sample::state"]
+        self.assertEqual(field["bit_width"], 2)
+        self.assertEqual(
+            [a["payload"] for a in field["annotations"]], ["/// field note", "bits"]
+        )
+        self.assertEqual(nodes["Sample::count"]["bit_width"], 3)
+        self.assertIn(
+            nodes["State"]["type_id"],
+            {t["id"] for t in document["types"] if t["kind"] == "enum"},
+        )
+
+    def test_invalid_or_dependent_enums_and_bitfields_publish_nothing(self):
+        for source in (
+            "enum class E : unsigned char { Bad=256 };",
+            "enum class E : unsigned { Bad=-1 };",
+            "struct Bits { unsigned zero:0; };",
+            "struct Bits { unsigned negative:-1; };",
+            "struct Bits { float invalid:2; };",
+            "template<int N> struct Bits { unsigned value:N; };",
+            "template<class T> struct Model { enum class E : T { A }; };",
+        ):
+            with self.subTest(source=source):
+                self.header.write_text(source)
+                self.failure(self.invoke())
+
+    def test_checked_in_enum_and_bitfield_fixture(self):
+        self.header.write_text((HERE / "fixtures/enums-bitfields.hh").read_text())
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertEqual(
+            nodes["model::Limits"]["enumerators"][0]["value"], str(2**64 - 1)
+        )
+        self.assertFalse(nodes["model::Opaque"]["definition"])
+        self.assertEqual(nodes["model::Packet::count"]["bit_width"], 5)
 
     def test_real_resource_headers_survive_installation_relocation(self):
         self.header.write_text(

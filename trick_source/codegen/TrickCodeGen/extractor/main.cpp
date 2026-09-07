@@ -294,6 +294,9 @@ namespace
             {
                 if (const auto* record = llvm::dyn_cast<clang::CXXRecordDecl>(decl))
                     decl = record->getDefinition() ? record->getDefinition() : record->getCanonicalDecl();
+                else if (const auto* enumeration = llvm::dyn_cast<clang::EnumDecl>(decl))
+                    decl
+                        = enumeration->getDefinition() ? enumeration->getDefinition() : enumeration->getCanonicalDecl();
                 else if (const auto* alias = llvm::dyn_cast<clang::TypedefNameDecl>(decl))
                     decl = alias->getCanonicalDecl();
                 else if (const auto* ns = llvm::dyn_cast<clang::NamespaceDecl>(decl))
@@ -303,7 +306,7 @@ namespace
                 else
                 {
                     unsupported(*context, decl,
-                                "Only records, aliases, and namespace declaration references are supported");
+                                "Only records, enums, aliases, and namespace declaration references are supported");
                     return { };
                 }
                 auto id = declarationID(decl);
@@ -319,12 +322,8 @@ namespace
                 return id;
             }
 
-            Object common(clang::ASTContext& ctx, const clang::NamedDecl* decl, const char* kind)
+            Array annotations(clang::ASTContext& ctx, const clang::NamedDecl* decl)
             {
-                auto location = sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts());
-                const auto& identity = identities->get(decl);
-                if (location.kind() == Value::Null || identity.id.empty())
-                    unsupported(ctx, decl, "Declaration has no supported physical source or stable identity");
                 Array annotations;
                 if (const auto* comment = ctx.getRawCommentForDeclNoCache(decl))
                 {
@@ -347,6 +346,15 @@ namespace
                 for (const auto& annotation : annotations)
                     if (annotation.getAsObject()->get("source")->kind() == Value::Null)
                         unsupported(ctx, decl, "Annotation has no supported physical source location");
+                return annotations;
+            }
+
+            Object common(clang::ASTContext& ctx, const clang::NamedDecl* decl, const char* kind)
+            {
+                auto location = sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts());
+                const auto& identity = identities->get(decl);
+                if (location.kind() == Value::Null || identity.id.empty())
+                    unsupported(ctx, decl, "Declaration has no supported physical source or stable identity");
                 clang::PrintingPolicy policy(ctx.getLangOpts());
                 policy.AnonymousTagLocations   = false;
                 policy.SuppressInlineNamespace = false;
@@ -354,19 +362,19 @@ namespace
                 llvm::raw_string_ostream nameStream(qualifiedName);
                 decl->printQualifiedName(nameStream, policy);
                 Object node {
-                    { "id",                       declarationID(decl)                                                              },
-                    { "kind",                     kind                                                                             },
-                    { "name",                     decl->getNameAsString()                                                          },
-                    { "qualified_name",           qualifiedName                                                                    },
-                    { "usr",                      identity.usr.empty() ? Value(nullptr) : Value(identity.usr)                      },
-                    { "identity_kind",            identity.fromSource ? "source" : "usr"                                           },
-                    { "source",                   std::move(location)                                                              },
-                    { "access",                   access(decl->getAccess())                                                        },
-                    { "origin",                   ctx.getSourceManager().isInSystemHeader(decl->getLocation()) ? "system" : "user" },
-                    { "definition",               true                                                                             },
-                    { "canonical_declaration_id", declarationID(decl)                                                              },
-                    { "annotations",              std::move(annotations)                                                           },
-                    { "capabilities",             Array { }                                                                        }
+                    { "id", declarationID(decl) },
+                    { "kind", kind },
+                    { "name", decl->getNameAsString() },
+                    { "qualified_name", qualifiedName },
+                    { "usr", identity.usr.empty() ? Value(nullptr) : Value(identity.usr) },
+                    { "identity_kind", identity.fromSource ? "source" : "usr" },
+                    { "source", std::move(location) },
+                    { "access", access(decl->getAccess()) },
+                    { "origin", ctx.getSourceManager().isInSystemHeader(decl->getLocation()) ? "system" : "user" },
+                    { "definition", true },
+                    { "canonical_declaration_id", declarationID(decl) },
+                    { "annotations", annotations(ctx, decl) },
+                    { "capabilities", Array { } }
                 };
                 auto semantic = parentID(decl->getDeclContext());
                 auto lexical  = parentID(decl->getLexicalDeclContext());
@@ -419,11 +427,12 @@ namespace
                         selectMainFile(ctx, ns);
                     if (!sm.isWrittenInMainFile(sm.getExpansionLoc(decl->getLocation())))
                         continue;
-                    if (llvm::isa<clang::CXXRecordDecl, clang::TypedefNameDecl, clang::NamespaceDecl,
+                    if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl, clang::NamespaceDecl,
                                   clang::NamespaceAliasDecl>(decl))
                         request(llvm::cast<clang::NamedDecl>(decl));
                     else if (!llvm::isa<clang::EmptyDecl, clang::StaticAssertDecl>(decl))
-                        unsupported(ctx, decl, "Only records, aliases, and namespaces are extracted in this slice");
+                        unsupported(ctx, decl,
+                                    "Only records, enums, aliases, and namespaces are extracted in this slice");
                 }
             }
 
@@ -432,6 +441,48 @@ namespace
                 auto node                  = common(ctx, decl, "alias");
                 node["type_id"]            = types->get(ctx.getTypedefType(decl), decl);
                 node["underlying_type_id"] = types->get(decl->getUnderlyingType(), decl);
+                facts.declarations.emplace(declarationID(decl), std::move(node));
+            }
+
+            void enumeration(clang::ASTContext& ctx, const clang::EnumDecl* decl)
+            {
+                auto underlying = decl->getIntegerType();
+                if (!decl->isComplete() || underlying.isNull() || decl->isDependentType()
+                    || !underlying->isIntegerType())
+                {
+                    unsupported(ctx, decl, "Enum requires a concrete integral underlying type");
+                    return;
+                }
+                auto node                  = common(ctx, decl, "enum");
+                node["type_id"]            = types->get(ctx.getEnumType(decl), decl);
+                node["anonymous"]          = decl->getIdentifier() == nullptr;
+                node["scoped"]             = decl->isScoped();
+                node["underlying_fixed"]   = decl->isFixed();
+                node["underlying_signed"]  = underlying->isSignedIntegerType();
+                node["underlying_type_id"] = types->get(underlying, decl);
+                // Opaque fixed enums are complete types without an enumerator body.
+                node["complete"]   = true;
+                node["definition"] = decl->isCompleteDefinition();
+                node["size_bits"]  = trick::icg::unsignedInteger(ctx.getTypeSize(ctx.getEnumType(decl)));
+                // Enum alignment attributes need not match the underlying type.
+                node["alignment_bits"] = trick::icg::unsignedInteger(ctx.getTypeAlign(ctx.getEnumType(decl)));
+                Array values;
+                for (const auto* constant : decl->enumerators())
+                {
+                    auto location
+                        = sources.source(ctx.getSourceManager(), constant->getSourceRange(), &ctx.getLangOpts());
+                    if (location.kind() == Value::Null)
+                        unsupported(ctx, constant, "Enumerator has no supported physical source");
+                    llvm::SmallString<64> value;
+                    constant->getInitVal().toString(value, 10);
+                    values.emplace_back(Object {
+                        { "name", constant->getNameAsString() },
+                        { "value", value.str().str() },
+                        { "source", std::move(location) },
+                        { "annotations", annotations(ctx, constant) }
+                    });
+                }
+                node["enumerators"] = std::move(values);
                 facts.declarations.emplace(declarationID(decl), std::move(node));
             }
 
@@ -466,6 +517,7 @@ namespace
                 }
                 Array nested;
                 std::set<std::string> nestedIDs;
+                std::map<const clang::FieldDecl*, uint64_t> bitWidths;
                 bool unsupportedMembers = false;
                 for (const auto* member : decl->decls())
                 {
@@ -474,7 +526,7 @@ namespace
                     if ((member->isImplicit() && !anonymousMember)
                         || llvm::isa<clang::AccessSpecDecl, clang::StaticAssertDecl>(member))
                         continue;
-                    if (llvm::isa<clang::CXXRecordDecl, clang::TypedefNameDecl>(member))
+                    if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl>(member))
                     {
                         auto id             = request(llvm::cast<clang::NamedDecl>(member));
                         unsupportedMembers |= id.empty();
@@ -482,12 +534,25 @@ namespace
                             nested.emplace_back(id);
                         continue;
                     }
-                    if (!field || (field->getIdentifier() == nullptr && !anonymousMember) || field->isBitField())
+                    if (!field || (field->getIdentifier() == nullptr && !anonymousMember && !field->isBitField()))
                     {
                         unsupported(ctx, member,
-                                    "Only non-bitfield data members, anonymous aggregates, and nested records/aliases "
+                                    "Only data members, anonymous aggregates, and nested records/enums/aliases "
                                     "are supported");
                         unsupportedMembers = true;
+                    }
+                    else if (field->isBitField())
+                    {
+                        clang::Expr::EvalResult width;
+                        if (field->getBitWidth()->isValueDependent() || !field->getBitWidth()->EvaluateAsInt(width, ctx)
+                            || width.Val.getInt().isNegative() || width.Val.getInt().getActiveBits() > 32)
+                        {
+                            unsupported(ctx, field,
+                                        "Bitfield requires a concrete width within Clang's 32-bit layout range");
+                            unsupportedMembers = true;
+                        }
+                        else
+                            bitWidths.emplace(field, width.Val.getInt().getZExtValue());
                     }
                 }
                 if (unsupportedMembers)
@@ -518,10 +583,17 @@ namespace
                     data["type_id"]            = types->get(field->getType(), field);
                     data["static"]             = false;
                     data["mutable"]            = field->isMutable();
-                    data["bitfield"]           = false;
+                    data["bitfield"]           = field->isBitField();
                     data["anonymous_member"]   = field->isAnonymousStructOrUnion();
-                    data["bit_width"]          = nullptr;
-                    data["offset_bits"]        = trick::icg::unsignedInteger(layout.getFieldOffset(index++));
+                    data["bit_width"]
+                        = field->isBitField() ? trick::icg::unsignedInteger(bitWidths.at(field)) : Value(nullptr);
+                    data["offset_bits"] = trick::icg::unsignedInteger(layout.getFieldOffset(index++));
+                    if (field->isBitField())
+                        data["capabilities"] = Array {
+                            Object { { "name", "field-address" },
+                                    { "status", "unsupported" },
+                                    { "reason_code", "BITFIELD_NOT_ADDRESSABLE" } }
+                        };
                     fields.emplace_back(declarationID(field));
                     facts.declarations.emplace(declarationID(field), std::move(data));
                 }
@@ -559,6 +631,8 @@ namespace
                 for (size_t index = 0; index < pending.size(); ++index)
                     if (const auto* value = llvm::dyn_cast<clang::CXXRecordDecl>(pending[index]))
                         record(ctx, value);
+                    else if (const auto* value = llvm::dyn_cast<clang::EnumDecl>(pending[index]))
+                        enumeration(ctx, value);
                     else if (const auto* value = llvm::dyn_cast<clang::TypedefNameDecl>(pending[index]))
                         alias(ctx, value);
                     else if (const auto* value = llvm::dyn_cast<clang::NamespaceDecl>(pending[index]))
