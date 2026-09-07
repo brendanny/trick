@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -18,6 +20,63 @@ SPECIAL_MEMBERS = (
     "move_assignment",
     "destructor",
 )
+
+
+def graph_digest(document: dict) -> str:
+    """Version 1: exact graph facts with only file spelled/real paths omitted.
+
+    This is an output-equivalence fingerprint, not a parse cache key or a claim
+    that different targets/frontends must produce identical facts.
+    """
+    graph = {
+        "schema_version": document["schema_version"],
+        "identity_version": document["provenance"]["identity_version"],
+        "graph_digest_version": document["provenance"]["graph_digest_version"],
+        **{
+            key: sorted(copy.deepcopy(document[key]), key=lambda node: node["id"])
+            for key in ("files", "types", "declarations")
+        },
+    }
+    for node in graph["files"]:
+        del node["path"]["spelled"]
+        del node["path"]["real"]
+    encoded = json.dumps(
+        graph, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def validate_capabilities(node: dict) -> None:
+    capabilities = node["capabilities"]
+    names = [entry["name"] for entry in capabilities]
+    if len(names) != len(set(names)):
+        raise ValueError(f"{node['id']} has duplicate capability names")
+    by_name = {entry["name"]: entry for entry in capabilities}
+    # Known reason codes have prerequisites even under a mislabeled capability.
+    for entry in capabilities:
+        if entry["reason_code"] == "BITFIELD_NOT_ADDRESSABLE" and (
+            node["kind"] != "field"
+            or not node.get("bitfield")
+            or entry["name"] != "field-address"
+        ):
+            raise ValueError(
+                f"{node['id']} BITFIELD_NOT_ADDRESSABLE requires a bitfield field-address capability"
+            )
+        if entry["name"] == "frontend-record-layout" and node["kind"] != "record":
+            raise ValueError(f"{node['id']} record-layout capability requires a record")
+        if entry["name"] == "field-address" and node["kind"] != "field":
+            raise ValueError(f"{node['id']} field-address capability requires a field")
+    if node["kind"] == "record":
+        expected = (
+            ("supported", "SUPPORTED")
+            if node["complete"]
+            else ("unknown", "INCOMPLETE_TYPE")
+        )
+        layout = by_name.get("frontend-record-layout")
+        if layout is None or (layout["status"], layout["reason_code"]) != expected:
+            raise ValueError(
+                f"{node['id']} record-layout capability disagrees with completeness"
+            )
 
 
 def unique(nodes: list[dict], category: str) -> dict[str, dict]:
@@ -176,6 +235,8 @@ def validate_graph(document: dict) -> None:
                 source(annotation["source"], f"{node['id']}.enumerators.annotations")
 
     validate_structure(types, declarations)
+    for node in declarations.values():
+        validate_capabilities(node)
 
 
 def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) -> None:
@@ -1075,6 +1136,8 @@ def validate(schema: dict, document: dict) -> None:
     Draft202012Validator.check_schema(schema)
     Draft202012Validator(schema).validate(document)
     validate_graph(document)
+    if document["provenance"]["graph_digest"] != graph_digest(document):
+        raise ValueError("graph_digest does not match normalized graph facts")
 
 
 def main() -> int:

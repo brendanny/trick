@@ -208,9 +208,20 @@ header basename. Their IDs still survive relocation of unchanged named roots.
 
 Extractor 0.7.0 advances facts to schema 7 for callables and special-member
 declaration state, retaining the inheritance, enum/bitfield, identity, and context meanings.
-The synthetic minimal fixture is migrated; the reader rejects v1/v2/v3/v4/v5/v6 facts.
+Extractor 0.8.0 advances facts to schema 8 for review hardening: versioned,
+extractor-owned source-identity kind tags, consistent anonymous display names,
+capability prerequisites, and a verified normalized graph fingerprint.
+The synthetic minimal fixture is migrated; the reader rejects versions 1 through 7.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
 in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
+
+`provenance.identity_version: 1` replaces the earlier unversioned source recipe,
+including Clang-internal kind strings, with owned tags and an explicit version in
+the hashed object. Source-based IDs intentionally change at this revision; USR
+identity does not. This does not promise stable IDs across LLVM upgrades. Qualified
+display names use consistent semantic context components, including associated
+typedef names for unnamed tags. Two unnamed siblings can still share a display
+name; consumers must follow parent/type IDs rather than match name prefixes.
 
 Non-template records support single, multiple, and virtual inheritance. `bases`
 contains only direct edges, in source order, with the canonical record declaration,
@@ -318,6 +329,20 @@ the deterministic document before inserting the digest, covering the recorded
 arguments, environment, frontend facts, physical inputs, and exact paths. It is
 not relocatable and does not capture all filesystem probes, volatile predefined
 macros, or every possible environment influence. No cache is created or reused.
+
+`graph_digest` is a separate, validator-verified fingerprint of normalized graph
+output. Version 1 hashes schema/identity/digest versions and the ID-sorted
+`files`/`types`/`declarations`, omitting only file `path.spelled` and `path.real`.
+All other graph facts, rooted paths, file contents' digests, and ordered arrays
+remain significant. Other provenance and diagnostics are excluded. This permits
+comparison after relocation of unchanged rooted inputs/facts, including vendor
+and real resource headers. An unused command-line define changes `input_digest`
+but not `graph_digest`; changed file bytes, layouts, or annotations change both.
+Paths embedded in actual facts (for example `__FILE__` in an annotation) are not
+rewritten. Equal graph hashes alone prove neither ABI compatibility nor complete
+cache inputs; inspect target/frontend provenance separately, and do not require
+Linux/macOS graphs to match. See [ICG-002](../../../docs/developer_docs/architecture/ICG-002-ir-contract.md#review-hardening-schema-8)
+for the exact canonical serialization and projection contract.
 
 Templates, function/member-pointer signatures, deduced-return structural types,
 friends, variables, explicit

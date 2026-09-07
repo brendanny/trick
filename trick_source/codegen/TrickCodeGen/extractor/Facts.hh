@@ -9,6 +9,9 @@
 
 namespace trick::icg
 {
+    inline constexpr int FactsSchemaVersion         = 8;
+    inline constexpr int DeclarationIdentityVersion = 1;
+    inline constexpr int GraphDigestVersion         = 1;
 
     // Owned wire values only. No AST, SourceManager, StringRef, or frontend lifetime
     // escapes the adapter. The schema is the public process boundary.
@@ -25,6 +28,9 @@ namespace trick::icg
             void diagnose(std::string severity, std::string code, std::string message,
                           llvm::json::Value source = nullptr);
             llvm::json::Object document() const;
+            // Fingerprint the versioned graph projection, not invocation evidence
+            // or a cache key. Only file path spelled/real evidence is removed.
+            std::string graphDigest() const;
     };
 
     std::string digest(llvm::StringRef bytes);

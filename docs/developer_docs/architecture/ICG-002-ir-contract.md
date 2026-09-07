@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 7; the independent diagnostics envelope is v2.
+current facts schema is version 8; the independent diagnostics envelope is v2.
 
 The document contains frontend facts only:
 
@@ -43,6 +43,9 @@ parameters, template arguments, dimensions, or source-order enumerators. JSON
 object member order is insignificant. Integral constants are decimal strings
 where their full signed/unsigned range may exceed JSON's interoperable integer
 range.
+
+The v8 review-hardening contract below specifies the current identity tags,
+display-name convention, capability checks, and normalized graph fingerprint.
 
 Paths retain their spelled and real forms for diagnostics and provenance. The
 portable form replaces configured roots and is the only form permitted in cache
@@ -282,3 +285,73 @@ conformance evidence, not the full generated-operation gate.
 Facts advance to v7 and the minimal fixture is migrated; versions 1 through 6 are
 rejected. The diagnostics envelope remains v2. Templates, friends, static data,
 annotation policy, legacy emission, and production integration remain future work.
+
+## Review hardening: schema 8
+
+Extractor 0.8.0 introduces explicit `provenance.identity_version: 1`. Earlier
+source-identity recipes were unversioned and included Clang's `getDeclKindName()`;
+that internal display string is no longer an identity input. The owned kind tags
+are `namespace`, `namespace-alias`, `record`, `enum`, `typedef`, `type-alias`,
+`field`, `function`, `method`, `constructor`, `destructor`, and `conversion`.
+Unsupported kinds diagnose rather than falling back to a frontend string.
+The source-identity object now includes `version: 1` alongside kind, parent, name,
+and the physical-anchor digest (and translation-unit salt when required). This
+intentionally changes source-based IDs and structural IDs that depend on them.
+USR-based IDs retain their existing recipe. Opaque IDs still make no persistence
+promise across source edits or LLVM upgrades: USRs, canonical declarations, and
+source/macro behavior remain frontend dependencies. A future cache must account
+for schema, identity, extractor, and frontend versions, plus complete parse inputs.
+
+Qualified declaration display names are composed from semantic context components,
+using the same component when a declaration names itself or parents another node.
+Inline namespaces are retained. Unnamed tags use their associated typedef name
+when present, otherwise `(anonymous struct)`, `(anonymous class)`,
+`(anonymous union)`, or `(anonymous enum)`; unnamed namespaces use
+`(anonymous namespace)`. Storage fields and padding bitfields use
+`(anonymous member)` and `(unnamed bitfield)`. The raw `name` remains empty for
+unnamed declarations. Callable components retain constructor/destructor/operator
+and conversion spellings. Display names are neither unique nor identity inputs:
+two unnamed siblings may still have the same display name, and a typedef may share
+its name with its underlying unnamed record. Ownership always follows IDs.
+
+Known capabilities must agree with their prerequisites, and capability names are
+unique per declaration. Bitfields require exactly
+`field-address: unsupported / BITFIELD_NOT_ADDRESSABLE`; that reason cannot be
+attached to a non-bitfield or another capability. A `frontend-record-layout`
+capability belongs only to records and is required: complete records state
+`supported / SUPPORTED`, incomplete records `unknown / INCOMPLETE_TYPE`.
+Other field-address decisions and future capability names are not inferred here.
+Request failures do not insert empty IDs into reference collections; null virtual
+base targets diagnose, and collecting other independent errors continues.
+
+`provenance.graph_digest_version: 1` and `provenance.graph_digest` introduce a
+second SHA-256 fingerprint. Its input is the following exact projection:
+
+- `schema_version`, `identity_version`, and `graph_digest_version`;
+- `files`, sorted by ID, with only each `path.spelled` and `path.real` removed;
+- `types` and `declarations`, each sorted by ID, with every fact retained.
+
+Root names, portable paths, file-content digests, includes, source anchors, display
+strings, annotations, and all ordered semantic arrays are retained. No provenance
+object or diagnostics enter this projection. Canonical JSON uses recursively
+sorted object keys, compact separators, UTF-8 without ASCII escaping or Unicode
+normalization, decimal integers, and lowercase `\u00xx` for control characters
+other than the short escapes `\b`, `\f`, `\n`, `\r`, and `\t`. Quote and backslash
+are escaped; slash is not. There is no trailing newline in the hashed bytes.
+The Python validator independently reconstructs the projection and rejects a
+stale digest, unknown version, or missing version. The exact-evidence
+`input_digest` remains separate and includes the graph fingerprint before hashing
+the document with only `input_digest` itself absent.
+
+This is normalized **output equivalence**, not a semantic-only hash or production
+cache key. Identical rooted inputs/facts can compare equal after source, vendor,
+and resource-directory relocation; path strings embedded in actual annotations,
+include spellings, or default arguments are not blindly rewritten. Source-byte
+changes (including comments) change the fingerprint. Target/frontend/invocation
+provenance must still be considered separately: Linux and macOS graphs can differ
+legitimately, and equality does not prove ABI compatibility or that all parse
+inputs have been captured. There is no unconditional cross-lane equality gate.
+
+Facts advance to v8; versions 1 through 7 are rejected. The synthetic fixture is
+migrated and includes a real graph fingerprint, while its input/file evidence
+digests remain explicitly synthetic. The diagnostics envelope remains v2.

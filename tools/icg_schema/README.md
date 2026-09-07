@@ -10,7 +10,21 @@ incomplete-record layout, and direct type cycles. Each array node represents one
 dimension, with CVR qualification on its element. Recursive record references are
 valid; a pointer/alias graph cannot refer to itself without a record boundary.
 
-Facts schema version 7 adds explicit non-template callable validation: ownership,
+Facts schema version 8 validates the normalized `graph_digest` independently of
+the extractor. `graph_digest_version` and `identity_version` are required and
+currently 1; older facts versions and unknown fingerprint/identity versions fail.
+The projection retains all graph facts except file `path.spelled`/`path.real`,
+sorts top-level node arrays by ID, and excludes diagnostics and other provenance.
+It is output-equivalence evidence, not a production cache key or ABI assertion.
+
+Known capability prerequisites are checked in both directions: only bitfields
+may carry `BITFIELD_NOT_ADDRESSABLE`, attached to `field-address`, and all
+bitfields must state that unsupported capability. Record-layout capabilities
+must agree with completeness (`supported / SUPPORTED` or
+`unknown / INCOMPLETE_TYPE`). Capability names must be unique and these known
+capabilities may not be placed on the wrong declaration kind.
+
+Version 7 added explicit non-template callable validation: ownership,
 kind-specific flags and return types, adjusted/original parameter relationships,
 redeclaration signatures and evidence, all-or-nothing defaults, and override
 targets in base records. Constructors/operators retain overload-aware identities.

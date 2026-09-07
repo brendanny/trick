@@ -45,6 +45,39 @@ namespace
         return result.str().str();
     }
 
+    std::string qualifiedDisplayName(const clang::NamedDecl* decl, const clang::PrintingPolicy& policy)
+    {
+        std::string name;
+        if (!decl->getDeclName().isEmpty())
+        {
+            llvm::raw_string_ostream out(name);
+            // Preserve constructors, operators, and conversion names under the
+            // same printing policy without asking Clang to print their context.
+            decl->getDeclName().print(out, policy);
+        }
+        else if (llvm::isa<clang::NamespaceDecl>(decl))
+            name = "(anonymous namespace)";
+        else if (const auto* tag = llvm::dyn_cast<clang::TagDecl>(decl))
+        {
+            if (const auto* alias = tag->getTypedefNameForAnonDecl())
+                name = alias->getNameAsString();
+            else
+                name = "(anonymous " + tag->getKindName().str() + ")";
+        }
+        else if (const auto* field = llvm::dyn_cast<clang::FieldDecl>(decl))
+            name = field->isAnonymousStructOrUnion() ? "(anonymous member)" : "(unnamed bitfield)";
+
+        const auto* context = decl->getDeclContext();
+        if (!context->isTranslationUnit())
+            if (const auto* parent = llvm::dyn_cast<clang::NamedDecl>(clang::Decl::castFromDeclContext(context)))
+            {
+                auto prefix = qualifiedDisplayName(parent, policy);
+                if (!prefix.empty())
+                    name = prefix + "::" + name;
+            }
+        return name;
+    }
+
     class Sources
     {
             Facts& facts;
@@ -314,6 +347,11 @@ namespace
 
             std::string request(const clang::NamedDecl* decl)
             {
+                if (!decl)
+                {
+                    facts.diagnose("error", "ICG_DECLARATION_REFERENCE", "Declaration reference has no target");
+                    return { };
+                }
                 if (const auto* record = llvm::dyn_cast<clang::CXXRecordDecl>(decl))
                     decl = record->getDefinition() ? record->getDefinition() : record->getCanonicalDecl();
                 else if (const auto* enumeration = llvm::dyn_cast<clang::EnumDecl>(decl))
@@ -344,6 +382,20 @@ namespace
                 }
                 pending.push_back(decl);
                 return id;
+            }
+
+            void request(const clang::NamedDecl* decl, std::set<std::string>& ids)
+            {
+                auto id = request(decl);
+                if (!id.empty())
+                    ids.insert(std::move(id));
+            }
+
+            void publish(const clang::NamedDecl* decl, Object node)
+            {
+                auto id = declarationID(decl);
+                if (!id.empty())
+                    facts.declarations.emplace(std::move(id), std::move(node));
             }
 
             Array annotations(clang::ASTContext& ctx, const clang::NamedDecl* decl)
@@ -382,14 +434,11 @@ namespace
                 clang::PrintingPolicy policy(ctx.getLangOpts());
                 policy.AnonymousTagLocations   = false;
                 policy.SuppressInlineNamespace = false;
-                std::string qualifiedName;
-                llvm::raw_string_ostream nameStream(qualifiedName);
-                decl->printQualifiedName(nameStream, policy);
                 Object node {
                     { "id", declarationID(decl) },
                     { "kind", kind },
                     { "name", decl->getNameAsString() },
-                    { "qualified_name", qualifiedName },
+                    { "qualified_name", qualifiedDisplayName(decl, policy) },
                     { "usr", identity.usr.empty() ? Value(nullptr) : Value(identity.usr) },
                     { "identity_kind", identity.fromSource ? "source" : "usr" },
                     { "source", std::move(location) },
@@ -430,14 +479,17 @@ namespace
                 }
                 node["reopening_sources"] = std::move(locations);
                 node["annotations"]       = std::move(annotations);
-                facts.declarations.emplace(declarationID(decl), std::move(node));
+                publish(decl, std::move(node));
             }
 
             void namespaceAlias(clang::ASTContext& ctx, const clang::NamespaceAliasDecl* decl)
             {
-                auto node                   = common(ctx, decl, "namespace_alias");
-                node["target_namespace_id"] = request(decl->getAliasedNamespace());
-                facts.declarations.emplace(declarationID(decl), std::move(node));
+                auto node   = common(ctx, decl, "namespace_alias");
+                auto target = request(decl->getAliasedNamespace());
+                if (target.empty())
+                    return;
+                node["target_namespace_id"] = std::move(target);
+                publish(decl, std::move(node));
             }
 
             void selectMainFile(clang::ASTContext& ctx, const clang::DeclContext* scope)
@@ -466,7 +518,7 @@ namespace
                 auto node                  = common(ctx, decl, "alias");
                 node["type_id"]            = types->get(ctx.getTypedefType(decl), decl);
                 node["underlying_type_id"] = types->get(decl->getUnderlyingType(), decl);
-                facts.declarations.emplace(declarationID(decl), std::move(node));
+                publish(decl, std::move(node));
             }
 
             void enumeration(clang::ASTContext& ctx, const clang::EnumDecl* decl)
@@ -508,7 +560,7 @@ namespace
                     });
                 }
                 node["enumerators"] = std::move(values);
-                facts.declarations.emplace(declarationID(decl), std::move(node));
+                publish(decl, std::move(node));
             }
 
             const char* specialKind(const clang::FunctionDecl* decl)
@@ -654,9 +706,9 @@ namespace
                 {
                     for (const auto* overridden : method->overridden_methods())
                         if (overridden->isImplicit() && llvm::isa<clang::CXXDestructorDecl>(overridden))
-                            implicitOverrideIDs.insert(request(overridden->getParent()));
+                            request(overridden->getParent(), implicitOverrideIDs);
                         else
-                            overrideIDs.insert(request(overridden));
+                            request(overridden, overrideIDs);
                 }
                 for (const auto& id : overrideIDs)
                     overrides.emplace_back(id);
@@ -696,7 +748,7 @@ namespace
                 node["defaulted"]      = defaulted;
                 node["redeclarations"] = std::move(occurrences);
                 node["annotations"]    = std::move(allAnnotations);
-                facts.declarations.emplace(declarationID(decl), std::move(node));
+                publish(decl, std::move(node));
             }
 
             Array specialMembers(clang::ASTContext& ctx, const clang::CXXRecordDecl* decl)
@@ -730,7 +782,7 @@ namespace
                                     slot["noexcept"] = exceptionFact(method);
                                 }
                                 else
-                                    declared.insert(request(method));
+                                    request(method, declared);
                             }
                     if (!declared.empty())
                     {
@@ -777,7 +829,7 @@ namespace
                                 { "status", "unknown" },
                                 { "reason_code", "INCOMPLETE_TYPE" } }
                     };
-                    facts.declarations.emplace(declarationID(decl), std::move(node));
+                    publish(decl, std::move(node));
                     return;
                 }
                 Array nested;
@@ -797,7 +849,7 @@ namespace
                     {
                         auto id             = request(function);
                         unsupportedMembers |= id.empty();
-                        if (callableIDs.insert(id).second)
+                        if (!id.empty() && callableIDs.insert(id).second)
                             callables.emplace_back(id);
                         continue;
                     }
@@ -805,7 +857,7 @@ namespace
                     {
                         auto id             = request(llvm::cast<clang::NamedDecl>(member));
                         unsupportedMembers |= id.empty();
-                        if (nestedIDs.insert(id).second)
+                        if (!id.empty() && nestedIDs.insert(id).second)
                             nested.emplace_back(id);
                         continue;
                     }
@@ -858,6 +910,10 @@ namespace
                         unsupported(ctx, decl, "Base requires a concrete record definition and physical source");
                         continue;
                     }
+                    auto targetID = request(target);
+                    auto typeID   = types->get(base.getType(), decl);
+                    if (targetID.empty() || typeID.empty())
+                        continue;
                     // A virtual base has no fixed offset relative to an arbitrary
                     // base subobject. Its complete-object position lives below.
                     Value offset = nullptr;
@@ -866,13 +922,13 @@ namespace
                             static_cast<uint64_t>(layout.getBaseClassOffset(target).getQuantity())
                             * ctx.getCharWidth());
                     bases.emplace_back(Object {
-                        { "declaration_id", request(target) },
-                        { "type_id", types->get(base.getType(), decl) },
-                        { "access", access(base.getAccessSpecifier()) },
+                        { "declaration_id", std::move(targetID)                        },
+                        { "type_id",        std::move(typeID)                          },
+                        { "access",         access(base.getAccessSpecifier())          },
                         { "written_access", access(base.getAccessSpecifierAsWritten()) },
-                        { "virtual", base.isVirtual() },
-                        { "offset_bits", std::move(offset) },
-                        { "source", std::move(location) }
+                        { "virtual",        base.isVirtual()                           },
+                        { "offset_bits",    std::move(offset)                          },
+                        { "source",         std::move(location)                        }
                     });
                 }
                 node["bases"] = std::move(bases);
@@ -882,7 +938,15 @@ namespace
                 for (const auto& base : decl->vbases())
                 {
                     const auto* target = base.getType()->getAsCXXRecordDecl();
-                    virtualOffsets.emplace(request(target),
+                    if (!target || !target->getDefinition() || base.isPackExpansion())
+                    {
+                        unsupported(ctx, decl, "Virtual base requires a concrete record definition");
+                        continue;
+                    }
+                    auto id = request(target);
+                    if (id.empty())
+                        continue;
+                    virtualOffsets.emplace(std::move(id),
                                            trick::icg::unsignedInteger(
                                                static_cast<uint64_t>(layout.getVBaseClassOffset(target).getQuantity())
                                                * ctx.getCharWidth()));
@@ -921,12 +985,15 @@ namespace
                                     { "status", "unsupported" },
                                     { "reason_code", "BITFIELD_NOT_ADDRESSABLE" } }
                         };
-                    fields.emplace_back(declarationID(field));
-                    facts.declarations.emplace(declarationID(field), std::move(data));
+                    auto id = declarationID(field);
+                    if (id.empty())
+                        continue;
+                    fields.emplace_back(std::move(id));
+                    publish(field, std::move(data));
                 }
                 node["field_ids"]    = std::move(fields);
                 node["callable_ids"] = std::move(callables);
-                facts.declarations.emplace(declarationID(decl), std::move(node));
+                publish(decl, std::move(node));
             }
 
         public:
@@ -1188,11 +1255,13 @@ int main(int argc, const char** argv)
                               "SOURCE_DATE_EPOCH" })
         if (const auto* value = std::getenv(name))
             environment[name] = std::string(value);
-    facts.provenance["extractor_version"] = ICG_EXTRACTOR_VERSION;
-    facts.provenance["frontend_api"]      = "libtooling";
-    facts.provenance["frontend_version"]  = clang::getClangFullVersion();
-    facts.provenance["language_standard"] = "c++17";
-    facts.provenance["working_directory"] = cwd.str().str();
+    facts.provenance["extractor_version"]    = ICG_EXTRACTOR_VERSION;
+    facts.provenance["identity_version"]     = trick::icg::DeclarationIdentityVersion;
+    facts.provenance["graph_digest_version"] = trick::icg::GraphDigestVersion;
+    facts.provenance["frontend_api"]         = "libtooling";
+    facts.provenance["frontend_version"]     = clang::getClangFullVersion();
+    facts.provenance["language_standard"]    = "c++17";
+    facts.provenance["working_directory"]    = cwd.str().str();
     Object pathRoots;
     for (const auto& entry : roots)
         pathRoots[entry.first] = entry.second;
@@ -1206,6 +1275,7 @@ int main(int argc, const char** argv)
     printDiagnostics(facts, jsonDiagnostics);
     if (facts.failed)
         return 1;
+    facts.provenance["graph_digest"] = facts.graphDigest();
     // Evidence fingerprint, NOT a production cache key: exact arguments, paths,
     // environment, frontend facts, and contents of observed physical inputs.
     facts.provenance["input_digest"] = digest(serialize(facts.document()));

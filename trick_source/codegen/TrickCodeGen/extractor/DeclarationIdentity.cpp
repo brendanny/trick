@@ -7,6 +7,41 @@
 
 namespace trick::icg
 {
+    // Extractor-owned tags, not Clang's internal display strings or enum values.
+    // Keep distinctions even where multiple kinds share a wire node shape.
+    static llvm::StringRef identityKind(const clang::NamedDecl* decl)
+    {
+        switch (decl->getKind())
+        {
+        case clang::Decl::Namespace:
+            return "namespace";
+        case clang::Decl::NamespaceAlias:
+            return "namespace-alias";
+        case clang::Decl::CXXRecord:
+            return "record";
+        case clang::Decl::Enum:
+            return "enum";
+        case clang::Decl::Typedef:
+            return "typedef";
+        case clang::Decl::TypeAlias:
+            return "type-alias";
+        case clang::Decl::Field:
+            return "field";
+        case clang::Decl::Function:
+            return "function";
+        case clang::Decl::CXXMethod:
+            return "method";
+        case clang::Decl::CXXConstructor:
+            return "constructor";
+        case clang::Decl::CXXDestructor:
+            return "destructor";
+        case clang::Decl::CXXConversion:
+            return "conversion";
+        default:
+            return { };
+        }
+    }
+
     DeclarationIdentity::DeclarationIdentity(Facts& facts, clang::ASTContext& context,
                                              std::function<llvm::json::Value(clang::SourceLocation)> point)
         : facts(facts)
@@ -88,16 +123,20 @@ namespace trick::icg
         if (value.fromSource)
         {
             auto location = anchor(decl->getLocation());
-            if (location.empty())
+            auto kind     = identityKind(decl);
+            if (kind.empty())
+                facts.diagnose("error", "ICG_IDENTITY_KIND", "Declaration has no supported identity kind");
+            else if (location.empty())
                 facts.diagnose("error", "ICG_IDENTITY_SOURCE",
                                "Cannot form a physical source identity for " + decl->getNameAsString());
             else
             {
                 llvm::json::Object identity {
-                    { "kind",     decl->getDeclKindName() },
-                    { "parent",   parentID                },
-                    { "name",     decl->getNameAsString() },
-                    { "location", std::move(location)     }
+                    { "version",  DeclarationIdentityVersion },
+                    { "kind",     kind                       },
+                    { "parent",   parentID                   },
+                    { "name",     decl->getNameAsString()    },
+                    { "location", std::move(location)        }
                 };
                 if (const auto* ns = llvm::dyn_cast<clang::NamespaceDecl>(decl); ns && ns->isAnonymousNamespace())
                     identity["translation_unit"] = facts.provenance.getString("translation_unit")->str();

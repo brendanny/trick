@@ -68,7 +68,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 7)
+        self.assertEqual(document["schema_version"], 8)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -139,6 +139,51 @@ class ExtractTests(unittest.TestCase):
         for key in ("files", "types", "declarations"):
             ids = [entry["id"] for entry in document[key]]
             self.assertEqual(ids, sorted(ids))
+
+    def test_graph_and_evidence_digests_are_independently_reproducible(self):
+        # Exercise UTF-8 and JSON escaping, including control characters, across
+        # the C++ serializer and the independently implemented Python projection.
+        self.header.write_text(
+            '/// café 漢字 \\ "quoted"\n'
+            'struct Sample { [[clang::annotate("\\v\\f\\b\\t\\n\\r")]] int value; };\n',
+            encoding="utf-8",
+        )
+        document = self.success(self.invoke())
+        self.assertEqual(document["provenance"]["identity_version"], 1)
+        self.assertEqual(document["provenance"]["graph_digest_version"], 1)
+        self.assertEqual(
+            document["provenance"]["graph_digest"], VALIDATOR.graph_digest(document)
+        )
+        expected = document["provenance"].pop("input_digest")
+        encoded = json.dumps(
+            document, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+        self.assertEqual(expected, hashlib.sha256(encoded).hexdigest())
+
+    def test_graph_digest_distinguishes_target_layout_changes(self):
+        self.header.write_text("struct Sample { long value; };\n")
+        first = self.success(self.invoke(["--target=x86_64-unknown-linux-gnu"]))
+        second = self.success(self.invoke(["--target=i386-unknown-linux-gnu"]))
+        self.assertNotEqual(
+            first["provenance"]["graph_digest"], second["provenance"]["graph_digest"]
+        )
+
+    def test_graph_digest_does_not_rewrite_paths_embedded_in_facts(self):
+        self.header.write_text("struct [[clang::annotate(__FILE__)]] Sample {};\n")
+        first = self.success(self.invoke(input=str(self.header)))
+        with tempfile.TemporaryDirectory(prefix="icg-embedded-path-") as relocated:
+            target = Path(relocated) / self.header.name
+            shutil.copy2(self.header, target)
+            second = self.success(
+                self.invoke(
+                    input=str(target),
+                    cwd=relocated,
+                    options=["--source-root", relocated],
+                )
+            )
+        self.assertNotEqual(
+            first["provenance"]["graph_digest"], second["provenance"]["graph_digest"]
+        )
 
     def test_explicit_arguments_and_target_affect_the_parse(self):
         self.header.write_text(
@@ -647,6 +692,86 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(field["identity_kind"], "source")
         self.assertFalse(field["anonymous_member"])
 
+    def test_anonymous_display_names_use_the_same_semantic_context_components(self):
+        self.header.write_text(
+            "namespace N { inline namespace v1 {\n"
+            "typedef struct { int x; } Point;\n"
+            "typedef union { int i; double d; } Value;\n"
+            "typedef enum { E } Code;\n"
+            "struct Outer { struct { int u; } a; union { int b; float c; };\n"
+            "unsigned : 0; Outer(); ~Outer(); operator int() const; int operator()(int) const; };\n"
+            "}}\nN::v1::Outer::Outer() = default;\n"
+            "#define PAIR(Owner) struct Owner { struct { int u; } a; };\n"
+            "PAIR(P1) PAIR(P2)\n"
+        )
+        document = self.success(self.invoke())
+        nodes = {n["id"]: n for n in document["declarations"]}
+        for node in nodes.values():
+            if "semantic_parent_id" in node:
+                parent = nodes[node["semantic_parent_id"]]
+                self.assertTrue(
+                    node["qualified_name"].startswith(parent["qualified_name"] + "::"),
+                    node,
+                )
+        names = {n["qualified_name"] for n in nodes.values()}
+        self.assertTrue(
+            {
+                "N::v1::Point::x",
+                "N::v1::Value::i",
+                "N::v1::Code",
+                "P1::(anonymous struct)::u",
+                "P2::(anonymous struct)::u",
+                "N::v1::Outer::(anonymous union)::b",
+                "N::v1::Outer::(unnamed bitfield)",
+                "N::v1::Outer::Outer",
+                "N::v1::Outer::~Outer",
+                "N::v1::Outer::operator int",
+                "N::v1::Outer::operator()",
+            }.issubset(names),
+            names,
+        )
+
+    def test_source_identity_uses_versioned_extractor_owned_kind_tags(self):
+        text = "typedef struct { int value; } Point;\n"
+        self.header.write_text(text)
+        document = self.success(self.invoke())
+        record = next(n for n in document["declarations"] if n["kind"] == "record")
+        field = next(n for n in document["declarations"] if n["kind"] == "field")
+
+        def hashed(value):
+            return hashlib.sha256(
+                json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+
+        for node, kind, token, parent in (
+            (record, "record", "struct", ""),
+            (field, "field", "value", record["id"]),
+        ):
+            offset = text.index(token)
+            location = {
+                "file_id": document["files"][0]["id"],
+                "line": 1,
+                "column": offset + 1,
+                "offset": offset,
+            }
+            identity = {
+                "version": 1,
+                "kind": kind,
+                "parent": parent,
+                "name": node["name"],
+                "location": hashed(location),
+            }
+            expected = (
+                "decl:"
+                + hashlib.sha256(
+                    (
+                        "source:"
+                        + json.dumps(identity, sort_keys=True, separators=(",", ":"))
+                    ).encode()
+                ).hexdigest()
+            )
+            self.assertEqual(node["id"], expected)
+
     def test_distinct_unnamed_member_types_are_not_merged(self):
         self.header.write_text(
             "struct Outer { struct { int value; } a; struct { int value; } b; };\n"
@@ -801,6 +926,14 @@ class ExtractTests(unittest.TestCase):
                     )
                     for key in ("declarations", "types"):
                         self.assertEqual(first[key], second[key])
+                    self.assertEqual(
+                        first["provenance"]["graph_digest"],
+                        second["provenance"]["graph_digest"],
+                    )
+                    self.assertNotEqual(
+                        first["provenance"]["input_digest"],
+                        second["provenance"]["input_digest"],
+                    )
 
     def test_unimplemented_namespace_members_fail_closed(self):
         for source in (
@@ -817,6 +950,33 @@ class ExtractTests(unittest.TestCase):
         self.header.write_text("typedef ANON Point;\n")
         self.failure(
             self.invoke(["-DANON=struct { int value; }"]), "ICG_IDENTITY_SOURCE"
+        )
+
+    def test_failed_references_in_bases_nested_types_and_callables_collect_errors(self):
+        self.header.write_text(
+            "namespace { BASE struct Methods { METHODS }; }\n"
+            "struct Derived : virtual Base { ~Derived() override; };\n"
+            "struct HasNested { NESTED value; static int rejected; };\n"
+        )
+        report = self.failure(
+            self.invoke([
+                "-DBASE=struct Base { virtual ~Base(); };",
+                "-DMETHODS=Methods(); Methods(const Methods&); virtual ~Methods();",
+                "-DNESTED=struct { int value; }",
+            ]),
+            "ICG_IDENTITY_SOURCE",
+        )
+        # Unrepresentable anchors exercise empty request results in direct and
+        # virtual bases, overrides, explicit special members, and nested IDs.
+        self.assertGreaterEqual(
+            sum(d["code"] == "ICG_IDENTITY_SOURCE" for d in report["diagnostics"]), 4
+        )
+        self.assertTrue(
+            any(
+                d["code"] == "ICG_UNSUPPORTED_DECLARATION" and "members" in d["message"]
+                for d in report["diagnostics"]
+            ),
+            report,
         )
 
     def test_external_headers_require_explicit_roots(self):
@@ -846,6 +1006,10 @@ class ExtractTests(unittest.TestCase):
                 self.assertEqual(first[key], second[key])
             self.assertEqual(
                 {f["id"] for f in first["files"]}, {f["id"] for f in second["files"]}
+            )
+            self.assertEqual(
+                first["provenance"]["graph_digest"],
+                second["provenance"]["graph_digest"],
             )
 
     def test_scoped_unscoped_enums_and_duplicate_values(self):
@@ -1711,6 +1875,12 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(
             {f["id"] for f in first["files"]}, {f["id"] for f in second["files"]}
         )
+        self.assertEqual(
+            first["provenance"]["graph_digest"], second["provenance"]["graph_digest"]
+        )
+        self.assertNotEqual(
+            first["provenance"]["input_digest"], second["provenance"]["input_digest"]
+        )
 
     def test_named_roots_use_longest_match_and_disambiguate_relative_names(self):
         build = self.root / "build"
@@ -1768,10 +1938,16 @@ class ExtractTests(unittest.TestCase):
         self.assertNotEqual(
             first["provenance"]["input_digest"], second["provenance"]["input_digest"]
         )
+        self.assertEqual(
+            first["provenance"]["graph_digest"], second["provenance"]["graph_digest"]
+        )
         self.header.write_text(self.header.read_text() + "\n// changed\n")
         third = self.success(self.invoke())
         self.assertNotEqual(
             first["provenance"]["input_digest"], third["provenance"]["input_digest"]
+        )
+        self.assertNotEqual(
+            first["provenance"]["graph_digest"], third["provenance"]["graph_digest"]
         )
 
     def test_environment_inputs_are_recorded(self):

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v7.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v8.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 7},
+    "schema_version": {"const": 8},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -54,7 +54,10 @@
         "arguments",
         "target_triple",
         "language_standard",
-        "input_digest"
+        "input_digest",
+        "identity_version",
+        "graph_digest_version",
+        "graph_digest"
       ],
       "properties": {
         "extractor_version": {"type": "string", "minLength": 1},
@@ -75,6 +78,9 @@
         "target_triple": {"type": "string", "minLength": 1},
         "language_standard": {"const": "c++17"},
         "input_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "identity_version": {"const": 1},
+        "graph_digest_version": {"const": 1},
+        "graph_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "environment": {
           "type": "object",
           "additionalProperties": {"type": "string"}
