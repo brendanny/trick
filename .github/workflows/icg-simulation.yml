@@ -1,0 +1,87 @@
+name: ICG configured simulation
+
+on:
+  push:
+    branches: [master, icg-rewrite]
+    paths:
+      - 'tools/icg_baseline/**'
+      - 'test/SIM_test_templates/**'
+      - 'trick_source/**'
+      - 'include/**'
+      - 'bin/**'
+      - 'libexec/**'
+      - 'share/trick/**'
+      - 'Makefile'
+      - 'configure'
+      - '.github/workflows/icg-simulation.yml'
+  pull_request:
+    paths:
+      - 'tools/icg_baseline/**'
+      - 'test/SIM_test_templates/**'
+      - 'trick_source/**'
+      - 'include/**'
+      - 'bin/**'
+      - 'libexec/**'
+      - 'share/trick/**'
+      - 'Makefile'
+      - 'configure'
+      - '.github/workflows/icg-simulation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  templates:
+    name: Templates / LLVM 17 / GCC 13 / Python 3.12 / SWIG 4.2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install the configured reference stack
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-13 make bison flex perl pkg-config zip curl \
+            python3-dev swig=4.2.0-2ubuntu1 libxml2-dev zlib1g-dev \
+            clang-17=1:17.0.6-9ubuntu1 llvm-17-dev=1:17.0.6-9ubuntu1 \
+            libclang-17-dev=1:17.0.6-9ubuntu1 libclang-cpp17-dev=1:17.0.6-9ubuntu1 \
+            libudunits2-dev=2.2.28-7build1
+          mkdir -p build/icg-simulation-setup
+          dpkg-query -W > build/icg-simulation-setup/packages.txt
+          test "$(llvm-config-17 --version)" = 17.0.6
+          /usr/bin/python3 -c 'import sys; assert sys.version_info[:2] == (3, 12)'
+          swig -version | tee build/icg-simulation-setup/swig-version.txt
+      - name: Configure the existing production build
+        run: |
+          set -o pipefail
+          ./configure --with-llvm=/usr/lib/llvm-17 --with-python=/usr/bin --with-swig=/usr/bin \
+            --disable-java --without-x --without-hdf5 --without-gsl --without-civetweb \
+            CC=gcc-13 CXX=g++-13 PYTHON_VERSION=3 \
+            2>&1 | tee build/icg-simulation-setup/configure.log
+      - name: Build Trick core and its existing SWIG bindings
+        run: |
+          set -o pipefail
+          # LLVM 17's analysis archive needs ASTMatchers, which the legacy
+          # configure archive list omits. Use Ubuntu's supported combined DSO.
+          make -j2 no_dp TRICK_VERBOSE_BUILD=1 ICG_CLANGLIBS=-lclang-cpp \
+            > build/icg-simulation-setup/build.log 2>&1 || {
+              tail -100 build/icg-simulation-setup/build.log
+              exit 1
+            }
+      - name: Capture complete builds and verify runtime checkpoint readback
+        run: |
+          /usr/bin/python3 tools/icg_baseline/simulation.py \
+            --output build/icg-simulation-evidence --jobs 2
+      - name: Preserve configuration, build, runtime, and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: icg-configured-templates-llvm17-linux
+          path: |
+            build/icg-simulation-setup
+            build/icg-simulation-evidence
+            config.log
+            share/trick/makefiles/config_user.mk
+            share/trick/makefiles/config_Linux.mk
+          if-no-files-found: error
+          retention-days: 30

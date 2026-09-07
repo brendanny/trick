@@ -78,7 +78,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 |---|---|
 | Focused corpus manifest and artifact capture | Implemented; synthetic plumbing tests plus actual legacy header reference integrity tests |
 | Command timing, CPU/RSS, bytes/files/churn | Implemented; no production performance claim |
-| Actual normalized legacy output baselines | Four existing headers / 12 cold-warm-forced snapshots captured with unchanged LLVM 17 legacy ICG; [scope and observations](../../tools/icg_baseline/legacy/README.md). Configured full simulations and minimum-stack captures still pending |
+| Actual normalized legacy output baselines | Four headers / 12 checked-in snapshots plus a configured `SIM_test_templates` cold/warm/forced/rebuilt capture lane; [header references](../../tools/icg_baseline/legacy/README.md) and [full-build scope](../../tools/icg_baseline/runtime/README.md). Full-build golden promotion, broader simulations, and minimum stacks remain pending |
 | Small/medium/large representative corpus | Focused cases selected; medium/large selection pending |
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |
@@ -92,7 +92,8 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Review hardening | Named file roots, exact integers/scalar extents, complete member diagnostics and safe reference collection, argument/normalization regressions, content-addressed sidecars, pinned Ruff CI, versioned owned identity tags, consistent display names, capability prerequisites, and verified normalized graph fingerprints implemented |
 | GCC 8.5/12 extractor host builds | Dedicated LLVM 17 / Rocky Linux 8 CI jobs; does not establish generated-code conformance |
 | GCC 8.5/12 layout and generated-operation probes | Focused native size/alignment/public base-path, special-member type-trait, and concrete-template layout probes wired into host CI; broader layout and generated-operation gates pending |
-| Runtime/Python behavior, S_define, binding spikes | Pending |
+| Runtime/Python behavior | Configured template simulation checks scalar/array/enum/nested-template bindings and checkpoint readback into existing allocations before/after regeneration; executive restart, lifetime, units/I/O, and broader coverage pending |
+| S_define and replacement-binding spikes | Pending; configured baseline uses the existing Perl/SWIG path |
 | Exact platform packages and ADR decisions | Package matrix pending; ICG-001 and ICG-002 accepted, eight initial ADRs pending |
 
 The capability decision and first standalone extractor slice are implemented.
@@ -102,5 +103,5 @@ Callable facts and implicit special-member summaries are now implemented as well
 Class-template signature metadata and concrete specialization graphs are implemented;
 language-linkage blocks and written/inherited callable defaults are now explicit.
 Dependent bodies and function/alias templates remain. The next priority is obtaining
-configured full-simulation legacy baseline evidence and closing the
+broader configured simulation/runtime baseline evidence and closing the
 remaining Phase 0 gates. This does not authorize switching the production ICG.

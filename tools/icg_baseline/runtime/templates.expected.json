@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "scenario": "templates-checkpoint-read",
+  "sim_time": 0.1,
+  "before": {
+    "integer": 1000,
+    "real": 2000.25,
+    "integers": [1, 2],
+    "reals": [1.25, -2.5, 3.75],
+    "enum": 0,
+    "enums": [0, 1],
+    "nested": 17
+  },
+  "mutated": {
+    "integer": -10,
+    "real": -20.5,
+    "integers": [-1, -2],
+    "reals": [-1.25, 2.5, -3.75],
+    "enum": 1,
+    "enums": [1, 0],
+    "nested": -17
+  },
+  "restored": {
+    "integer": 1000,
+    "real": 2000.25,
+    "integers": [1, 2],
+    "reals": [1.25, -2.5, 3.75],
+    "enum": 0,
+    "enums": [0, 1],
+    "nested": 17
+  },
+  "restore_status": 0
+}

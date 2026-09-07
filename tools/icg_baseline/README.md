@@ -78,6 +78,12 @@ simulation workflow below remains the separate full-build evidence path.
 
 ## Collect an existing simulation
 
+For the automated full-build and runtime path, see
+[configured SIM_test_templates evidence](runtime/README.md). It captures cold,
+warm, forced, and rebuilt output and checks Python field access plus checkpoint
+readback using the actual linked simulation. Other cases can use the general
+commands below.
+
 First configure and build this checkout of Trick using its normal installation
 instructions. Record the exact installed LLVM, GCC, Python, Java, and SWIG package
 versions with the evidence. The rewrite target is LLVM 17, GCC 8.5 and GCC 12,
@@ -207,8 +213,8 @@ exit status (including negative signal status) is retained in the report.
 
 ## Remaining Phase 0 work
 
-- Extend the checked-in isolated header references to configured full simulation
-  captures and the minimum/reference stacks; those gates remain open.
+- Extend the configured template simulation capture/runtime lane to additional
+  simulations and minimum stacks; promote reviewed full-build references.
 - Add representative medium and real large/old simulations with reproducible
   commands and dependencies. The 12 checked-in cases are focused regressions,
   not a claimed representative performance distribution.
