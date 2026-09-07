@@ -7,12 +7,14 @@ The production build, runtime ABI, and generated metadata are unchanged.
 
 ## Build and test
 
-Requires matching LLVM/Clang **17** development packages and resource headers,
+Requires matching LLVM/Clang **17–23** development packages and resource headers,
 CMake 3.20+, a C++17 host compiler, and Python 3.11+ with
 `jsonschema>=4.18,<5` for the integration tests. CMake uses the LLVM and Clang
 configuration packages and their imported targets, and queries that installation's
-`clang -print-resource-dir`. This first adapter deliberately rejects other LLVM
-major versions until tested; it does not lower any of the plan's toolchain floors.
+`clang -print-resource-dir`. Configuration rejects majors outside that range and
+a driver whose major differs from the selected LLVM package; a compile-time check
+also requires matching Clang headers. LLVM 17 remains the minimum/reference
+frontend, and the C++17, GCC 8.5, and Python 3.11 floors are unchanged.
 
 ```sh
 python3 -m pip install 'jsonschema>=4.18,<5'
@@ -30,11 +32,60 @@ python3 tools/icg_schema/validate.py \
 ```
 
 On macOS, install [`llvm@17`](https://formulae.brew.sh/formula/llvm@17) and pass
-`-DLLVM_DIR="$(brew --prefix llvm@17)/lib/cmake/llvm"`. The CI matrix builds and
-tests Linux/macOS with Python 3.11/3.12. Two Rocky Linux 8 lanes also require GCC
-8.5 and GCC 12, build against LLVM 17 with `-Werror`, and run the extractor suite.
-The Rocky packages use the combined `clang-cpp` library. These host-build checks
-do not complete the separate GCC layout/generated-operation conformance gate.
+`-DLLVM_DIR="$(brew --prefix llvm@17)/lib/cmake/llvm"`; substitute any supported
+major in both places. Linux CI uses the explicit versioned
+[`apt.llvm.org`](https://apt.llvm.org/) Noble repositories, including
+`llvm-toolchain-noble-23`, rather than the rolling snapshot repository.
+
+The [extractor workflow](../../../.github/workflows/icg-extractor.yml) requires
+`-Wall -Wextra -Wpedantic -Werror` builds and the actual-binary integration suite:
+
+| Platform / compiler | LLVM majors | Python / linkage |
+|---|---|---|
+| Ubuntu 24.04 / GCC | Every major 17–23 | 3.11 / package default |
+| macOS 14 / AppleClang | Every major 17–23 | 3.11 / package default |
+| Ubuntu 24.04 / GCC | 17, 22, 23 | 3.12 / component libraries |
+| macOS 14 / AppleClang | 17, 23 | 3.12 / package default |
+| Rocky Linux 8 / GCC 8.5 and 12 | 17 | 3.11 / combined `clang-cpp` |
+
+`-DICG_CLANG_LINKAGE=AUTO` follows the package configuration. `SHARED` explicitly
+selects `clang-cpp` plus LLVM; `COMPONENTS` selects the imported `clangTooling` and
+`clangIndex` targets and their dependencies. The latter exercises the changed
+Clang 22/23 link graph. Some distributions, including Rocky, ship only the
+combined library. Each Linux/macOS artifact records exact package versions,
+driver/LLVM versions, CMake configuration, test logs, and all eight facts fixtures.
+These are tested package combinations, not a GCC 8.5 × LLVM 17–23 runtime/ABI
+guarantee. Installation/distribution policy and broader generated-operation
+conformance remain separate gates.
+
+Two comparison jobs require all seven versions' eight fixtures, validate each
+document and its digest independently, and compare complete `graph_digest` values
+against LLVM 17 on the same platform and target. Missing/duplicate fixtures,
+mislabeled frontends, different targets, and any changed graph fact fail the job.
+Only the existing digest's machine-path/provenance exclusions apply: type
+spellings, declaration IDs, source evidence, layouts, annotations, and capabilities
+are all compared. Linux and macOS targets are not equated. The comparison report
+and full input artifacts are retained; an equal graph is not a parse-cache key.
+
+### Frontend adapters
+
+Version conditions live in `extractor/ClangCompat.hh`, outside the owned facts:
+
+- LLVM 18: scoped linkage and pure-virtual queries; all versions use `FileEntryRef`.
+- LLVM 19: include callbacks and structured template-default arguments.
+- LLVM 22: removed `ElaboratedType`, declaration-type queries, and type printing.
+  Strip only elaboration while preserving local qualifiers and alias nodes;
+  retain fully scoped names and the previous anonymous-name display policy.
+- LLVM 23: USR header/library relocation, explicit-instantiation directive nodes,
+  anonymous-name policy, and occurrence-specific comment lookup. Recover raw
+  bytes through the public local parsed-comment API and owning raw-comment list;
+  fail closed if the original attachment cannot be recovered. Never substitute a
+  comment from a different redeclaration.
+
+Native layout/type-trait probes, rooted paths and symlinks, qualifiers/aliases,
+templates/packs, comment provenance/invalid UTF-8, and failure-output checks run
+against each actual frontend. This increment does not enable newer model language
+modes, experimental evaluators, warning-policy files, or profiling flags.
 
 ## Invocation contract
 
@@ -70,7 +121,7 @@ applies. No code-generation options are silently stripped: other options, respon
 files, compiler plugins, alternate dialects, and extra source inputs are rejected.
 This is **not yet the GCC argument classifier** or a compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-7 facts document
+Successful extraction writes one deterministic, schema-version-10 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction

@@ -1,3 +1,4 @@
+#include "ClangCompat.hh"
 #include "Config.hh"
 #include "DeclarationIdentity.hh"
 #include "Facts.hh"
@@ -104,7 +105,7 @@ namespace
 
             std::string file(clang::SourceManager& sm, clang::FileID fid)
             {
-                const auto* entry = sm.getFileEntryForID(fid);
+                const auto entry = sm.getFileEntryRefForID(fid);
                 if (!entry)
                     return { }; // built-in/command-line buffers have no physical file
                 std::string spelled = entry->getName().str();
@@ -240,7 +241,7 @@ namespace
             }
     };
 
-    class Includes : public clang::PPCallbacks
+    class Includes : public trick::icg::compat::PPCallbacks
     {
             Facts& facts;
             Sources& sources;
@@ -263,10 +264,8 @@ namespace
                     sources.file(sm, fid);
             }
 
-            void InclusionDirective(clang::SourceLocation hash, const clang::Token&, llvm::StringRef name, bool angled,
-                                    clang::CharSourceRange range, clang::OptionalFileEntryRef entry, llvm::StringRef,
-                                    llvm::StringRef, const clang::Module*,
-                                    clang::SrcMgr::CharacteristicKind kind) override
+            void inclusion(clang::SourceLocation hash, llvm::StringRef name, bool angled, clang::CharSourceRange range,
+                           clang::OptionalFileEntryRef entry, clang::SrcMgr::CharacteristicKind kind) override
             {
                 if (!entry)
                     return; // Clang reports missing includes separately.
@@ -302,26 +301,6 @@ namespace
             return "private";
         case clang::AS_none:
             return "none";
-        }
-        return "none";
-    }
-
-    const char* linkage(clang::Linkage value)
-    {
-        switch (value)
-        {
-        case clang::NoLinkage:
-            return "none";
-        case clang::InternalLinkage:
-            return "internal";
-        case clang::UniqueExternalLinkage:
-            return "unique_external";
-        case clang::VisibleNoLinkage:
-            return "visible_no_linkage";
-        case clang::ModuleLinkage:
-            return "module";
-        case clang::ExternalLinkage:
-            return "external";
         }
         return "none";
     }
@@ -432,7 +411,11 @@ namespace
             Array annotations(clang::ASTContext& ctx, const clang::NamedDecl* decl)
             {
                 Array annotations;
-                if (const auto* comment = ctx.getRawCommentForDeclNoCache(decl))
+                bool validComment   = false;
+                const auto* comment = trick::icg::compat::localRawComment(ctx, decl, validComment);
+                if (!validComment)
+                    unsupported(ctx, decl, "Cannot recover occurrence-specific raw comment bytes");
+                if (comment)
                 {
                     const auto payload = comment->getRawText(ctx.getSourceManager());
                     auto location
@@ -478,7 +461,7 @@ namespace
                 if (location.kind() == Value::Null || identity.id.empty())
                     unsupported(ctx, decl, "Declaration has no supported physical source or stable identity");
                 clang::PrintingPolicy policy(ctx.getLangOpts());
-                policy.AnonymousTagLocations   = false;
+                trick::icg::compat::anonymousNamesWithoutLocations(policy);
                 policy.SuppressInlineNamespace = false;
                 Object node {
                     { "id", declarationID(decl) },
@@ -563,6 +546,14 @@ namespace
                                 request(instance);
                     if (!sm.isWrittenInMainFile(sm.getExpansionLoc(decl->getLocation())))
                         continue;
+                    if (const auto* instance = trick::icg::compat::explicitInstantiation(decl))
+                    {
+                        if (llvm::isa<clang::CXXRecordDecl>(instance))
+                            request(instance);
+                        else
+                            unsupported(ctx, decl, "Only class explicit instantiation directives are supported");
+                        continue;
+                    }
                     if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl, clang::NamespaceDecl,
                                   clang::NamespaceAliasDecl, clang::FunctionDecl, clang::ClassTemplateDecl>(decl))
                         request(llvm::cast<clang::NamedDecl>(decl));
@@ -653,9 +644,9 @@ namespace
                 node["instantiation_arguments"]  = nullptr;
                 if (auto from = decl->getInstantiatedFrom(); !from.isNull())
                 {
-                    const clang::NamedDecl* pattern = from.dyn_cast<clang::ClassTemplateDecl*>();
+                    const clang::NamedDecl* pattern = llvm::dyn_cast<clang::ClassTemplateDecl*>(from);
                     if (!pattern)
-                        pattern = from.get<clang::ClassTemplatePartialSpecializationDecl*>();
+                        pattern = llvm::cast<clang::ClassTemplatePartialSpecializationDecl*>(from);
                     auto id = request(pattern);
                     if (!id.empty())
                         node["instantiation_pattern_id"] = std::move(id);
@@ -670,7 +661,7 @@ namespace
             void alias(clang::ASTContext& ctx, const clang::TypedefNameDecl* decl)
             {
                 auto node                  = common(ctx, decl, "alias");
-                node["type_id"]            = types->get(ctx.getTypedefType(decl), decl);
+                node["type_id"]            = types->get(trick::icg::compat::declarationType(ctx, decl), decl);
                 node["underlying_type_id"] = types->get(decl->getUnderlyingType(), decl);
                 publish(decl, std::move(node));
             }
@@ -685,7 +676,7 @@ namespace
                     return;
                 }
                 auto node                  = common(ctx, decl, "enum");
-                node["type_id"]            = types->get(ctx.getEnumType(decl), decl);
+                node["type_id"]            = types->get(trick::icg::compat::declarationType(ctx, decl), decl);
                 node["anonymous"]          = decl->getIdentifier() == nullptr;
                 node["scoped"]             = decl->isScoped();
                 node["underlying_fixed"]   = decl->isFixed();
@@ -694,9 +685,11 @@ namespace
                 // Opaque fixed enums are complete types without an enumerator body.
                 node["complete"]   = true;
                 node["definition"] = decl->isCompleteDefinition();
-                node["size_bits"]  = trick::icg::unsignedInteger(ctx.getTypeSize(ctx.getEnumType(decl)));
+                node["size_bits"]
+                    = trick::icg::unsignedInteger(ctx.getTypeSize(trick::icg::compat::declarationType(ctx, decl)));
                 // Enum alignment attributes need not match the underlying type.
-                node["alignment_bits"] = trick::icg::unsignedInteger(ctx.getTypeAlign(ctx.getEnumType(decl)));
+                node["alignment_bits"]
+                    = trick::icg::unsignedInteger(ctx.getTypeAlign(trick::icg::compat::declarationType(ctx, decl)));
                 Array values;
                 for (const auto* constant : decl->enumerators())
                 {
@@ -799,8 +792,8 @@ namespace
                                 unsupported(ctx, parameter, "Default argument requires physical source evidence");
                             std::string spelling;
                             llvm::raw_string_ostream stream(spelling);
-                            auto policy                  = ctx.getPrintingPolicy();
-                            policy.AnonymousTagLocations = false;
+                            auto policy = ctx.getPrintingPolicy();
+                            trick::icg::compat::anonymousNamesWithoutLocations(policy);
                             expression->printPretty(stream, nullptr, policy);
                             item["default_spelling"] = stream.str();
                             item["default_source"]   = std::move(source);
@@ -843,7 +836,7 @@ namespace
                 node["const"]          = method && method->isConst();
                 node["volatile"]       = method && method->isVolatile();
                 node["static"]         = method && method->isStatic();
-                node["linkage"]        = linkage(decl->getLinkageInternal());
+                node["linkage"]        = trick::icg::compat::linkage(decl->getLinkageInternal());
                 switch (decl->getLanguageLinkage())
                 {
                 case clang::CLanguageLinkage:
@@ -861,7 +854,7 @@ namespace
                                                                                           : "none";
                 node["noexcept"]           = exceptionFact(decl);
                 node["virtual"]            = method && method->isVirtual();
-                node["pure"]               = decl->isPure();
+                node["pure"]               = trick::icg::compat::pureVirtual(decl);
                 node["final"]              = decl->hasAttr<clang::FinalAttr>();
                 node["deleted"]            = decl->isDeleted();
                 node["explicit"]           = ctor ? ctor->isExplicit() : conversion && conversion->isExplicit();
@@ -978,7 +971,7 @@ namespace
                 auto node = common(ctx, decl, "record");
                 if (const auto* specialization = llvm::dyn_cast<clang::ClassTemplateSpecializationDecl>(decl))
                     specializationFacts(node, specialization);
-                node["type_id"]                = types->get(ctx.getRecordType(decl), decl);
+                node["type_id"]                = types->get(trick::icg::compat::declarationType(ctx, decl), decl);
                 node["record_tag"]             = decl->isUnion() ? "union" : (decl->isClass() ? "class" : "struct");
                 node["anonymous"]              = decl->getIdentifier() == nullptr;
                 node["definition"]             = decl->isCompleteDefinition();

@@ -352,6 +352,14 @@ provenance must still be considered separately: Linux and macOS graphs can diffe
 legitimately, and equality does not prove ABI compatibility or that all parse
 inputs have been captured. There is no unconditional cross-lane equality gate.
 
+The LLVM 17–23 adapter matrix adds a **controlled** equality gate for the eight
+checked-in extractor fixtures: compare every major against LLVM 17 separately
+on Linux and macOS, with matching target triples and C++17. Each input is fully
+validated before its graph digest is compared; no display or semantic fields are
+removed. The gate fails for missing versions or artifacts and records exact
+frontend versions. This establishes regression evidence for that fixture set,
+not a cross-target ABI promise or a frontend-independent cache identity.
+
 Facts advance to v8; versions 1 through 7 are rejected. The synthetic fixture is
 migrated and includes a real graph fingerprint, while its input/file evidence
 digests remain explicitly synthetic. The diagnostics envelope remains v2.

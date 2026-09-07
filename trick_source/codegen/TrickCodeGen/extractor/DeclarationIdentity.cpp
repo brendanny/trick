@@ -1,10 +1,11 @@
 #include "DeclarationIdentity.hh"
 
+#include "ClangCompat.hh"
+
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Index/USRGeneration.h"
 
 namespace trick::icg
 {
@@ -114,10 +115,9 @@ namespace trick::icg
             instance = nullptr;
         // Instantiated members share their pattern's physical locations. Include
         // canonical semantic arguments before source identity propagates to them.
-        value.fromSource                |= instance != nullptr;
-        const bool translationUnitLocal  = llvm::isa<clang::FunctionDecl>(decl)
-            && (decl->getLinkageInternal() == clang::InternalLinkage
-                || decl->getLinkageInternal() == clang::UniqueExternalLinkage);
+        value.fromSource |= instance != nullptr;
+        const bool translationUnitLocal
+            = llvm::isa<clang::FunctionDecl>(decl) && compat::translationUnitLocalLinkage(decl->getLinkageInternal());
         value.fromSource |= translationUnitLocal;
         std::string parentID;
         const auto* parent = decl->getDeclContext();

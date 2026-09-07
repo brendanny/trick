@@ -1,4 +1,4 @@
-"""Exercise the real LLVM 17 executable and validate every successful document."""
+"""Exercise the real LibTooling executable and validate every successful document."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,7 @@ SPEC.loader.exec_module(VALIDATOR)
 EXTRACTOR: Path
 PATH_ROOTS: list[str] = []
 LAYOUT_COMPILER: Path | None = None
+LLVM_MAJOR: int | None = None
 
 
 def layout_compiler_path(value):
@@ -130,7 +132,14 @@ class ExtractTests(unittest.TestCase):
         )
         self.assertEqual(document["files"][0]["path"]["portable"], "record.hh")
         self.assertEqual(document["provenance"]["frontend_api"], "libtooling")
-        self.assertIn("17.0", document["provenance"]["frontend_version"])
+        version = re.search(
+            r"\bclang version (\d+)\.", document["provenance"]["frontend_version"]
+        )
+        self.assertIsNotNone(version)
+        major = int(version.group(1))
+        self.assertIn(major, range(17, 24))
+        if LLVM_MAJOR is not None:
+            self.assertEqual(major, LLVM_MAJOR)
 
     def test_deterministic_serialization_and_sorted_ids(self):
         first = self.invoke()
@@ -612,7 +621,7 @@ class ExtractTests(unittest.TestCase):
         self.header.write_text(
             "/// first block\nnamespace N { struct First {}; }\n"
             "/// second block\nnamespace N { struct Second {}; }\n"
-            'namespace N [[clang::annotate("third")]] { using Third = int; }\n'
+            'namespace [[clang::annotate("third")]] N { using Third = int; }\n'
         )
         document = self.success(self.invoke())
         nodes = self.declarations(document)
@@ -1375,6 +1384,26 @@ class ExtractTests(unittest.TestCase):
             node["redeclarations"][0]["parameters"][0]["annotations"][0]["payload"],
             "one",
         )
+
+    def test_local_comments_preserve_empty_and_uncommented_redeclarations(self):
+        self.header.write_text(
+            "/** first */\nvoid f();\n"
+            "/** */\nvoid f();\n"
+            "void f();\n"
+            "/** last */\nvoid f();\n"
+            "struct A { int value; ///< trailing\n};\n"
+        )
+        document = self.success(self.invoke())
+        node = self.callables(document, "f")[0]
+        self.assertEqual(
+            [
+                (a["payload"], a["source"]["spelling"]["line"])
+                for a in node["annotations"]
+            ],
+            [("/** first */", 1), ("/** */", 3), ("/** last */", 6)],
+        )
+        field = self.declarations(document)["A::value"]
+        self.assertEqual(field["annotations"][0]["payload"], "///< trailing")
 
     def test_implicit_special_members_are_materialized_not_assumed_available(self):
         document = self.callable_fixture()
@@ -2409,8 +2438,10 @@ if __name__ == "__main__":
     parser.add_argument("--extractor", required=True, type=Path)
     parser.add_argument("--path-root", action="append", default=[])
     parser.add_argument("--layout-compiler", type=layout_compiler_path)
+    parser.add_argument("--llvm-major", type=int, choices=range(17, 24))
     args, remaining = parser.parse_known_args()
     EXTRACTOR = args.extractor.resolve(strict=True)
     PATH_ROOTS = args.path_root
     LAYOUT_COMPILER = args.layout_compiler
+    LLVM_MAJOR = args.llvm_major
     unittest.main(argv=[sys.argv[0], *remaining])

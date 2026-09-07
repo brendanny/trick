@@ -19,37 +19,58 @@ permissions:
 
 jobs:
   extractor:
-    name: LLVM 17 / ${{ matrix.os }} / Python ${{ matrix.python }}
+    name: LLVM ${{ matrix.llvm }} / ${{ matrix.os }} / Python ${{ matrix.python }} / ${{ matrix.linkage }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-14]
-        python: ['3.11', '3.12']
+        llvm: [17, 18, 19, 20, 21, 22, 23]
+        python: ['3.11']
+        linkage: [AUTO]
+        include:
+          - {os: ubuntu-24.04, llvm: 17, python: '3.12', linkage: COMPONENTS}
+          - {os: ubuntu-24.04, llvm: 22, python: '3.12', linkage: COMPONENTS}
+          - {os: ubuntu-24.04, llvm: 23, python: '3.12', linkage: COMPONENTS}
+          - {os: macos-14, llvm: 17, python: '3.12', linkage: AUTO}
+          - {os: macos-14, llvm: 23, python: '3.12', linkage: AUTO}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
-      - name: Install LLVM 17 on Linux
+      - name: Install the selected LLVM on Linux
         if: runner.os == 'Linux'
         run: |
-          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
-          chmod +x /tmp/llvm.sh
-          sudo /tmp/llvm.sh 17 all
-          echo "LLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm" >> "$GITHUB_ENV"
-      - name: Install LLVM 17 on macOS
+          curl -fsSLo /tmp/llvm.asc https://apt.llvm.org/llvm-snapshot.gpg.key
+          gpg --dearmor < /tmp/llvm.asc | sudo tee /usr/share/keyrings/icg-llvm.gpg > /dev/null
+          echo 'deb [signed-by=/usr/share/keyrings/icg-llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-${{ matrix.llvm }} main' \
+            | sudo tee /etc/apt/sources.list.d/icg-llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-${{ matrix.llvm }} llvm-${{ matrix.llvm }}-dev \
+            libclang-${{ matrix.llvm }}-dev libclang-cpp${{ matrix.llvm }}-dev
+          echo "LLVM_DIR=/usr/lib/llvm-${{ matrix.llvm }}/lib/cmake/llvm" >> "$GITHUB_ENV"
+          mkdir -p build/icg-evidence
+          dpkg-query -W > build/icg-evidence/packages.txt
+      - name: Install the selected LLVM on macOS
         if: runner.os == 'macOS'
         run: |
-          brew install llvm@17
-          echo "LLVM_DIR=$(brew --prefix llvm@17)/lib/cmake/llvm" >> "$GITHUB_ENV"
+          brew install llvm@${{ matrix.llvm }}
+          echo "LLVM_DIR=$(brew --prefix llvm@${{ matrix.llvm }})/lib/cmake/llvm" >> "$GITHUB_ENV"
+          mkdir -p build/icg-evidence
+          brew info --json=v2 llvm@${{ matrix.llvm }} > build/icg-evidence/packages.json
       - name: Install schema validator
         run: python -m pip install 'jsonschema>=4.18,<5'
       - name: Configure and build standalone extractor
         run: |
+          LLVM_PREFIX="$(cd "$LLVM_DIR/../../.." && pwd)"
+          "$LLVM_PREFIX/bin/llvm-config" --version | tee build/icg-evidence/llvm-version.txt
+          test "$("$LLVM_PREFIX/bin/llvm-config" --version | cut -d. -f1)" = '${{ matrix.llvm }}'
+          "$LLVM_PREFIX/bin/clang" --version > build/icg-evidence/clang-version.txt
           cmake -S trick_source/codegen/TrickCodeGen -B build/icg-extract \
             -DLLVM_DIR="$LLVM_DIR" -DPython3_EXECUTABLE="$(command -v python)" \
+            -DICG_CLANG_LINKAGE=${{ matrix.linkage }} \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-Werror
           cmake --build build/icg-extract --parallel 2
       - name: Test actual extraction and failure paths
@@ -66,9 +87,13 @@ jobs:
           done
           python -m unittest discover -s tools/icg_schema -v
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
-          name: extracted-facts-${{ matrix.os }}-python-${{ matrix.python }}
+          name: extracted-facts-llvm-${{ matrix.llvm }}-${{ matrix.os }}-python-${{ matrix.python }}-${{ matrix.linkage }}
           path: |
+            build/icg-evidence
+            build/icg-extract/CMakeCache.txt
+            build/icg-extract/Testing/Temporary/LastTest.log
             build/icg-extract/record.json
             build/icg-extract/structured.json
             build/icg-extract/contexts.json
@@ -77,6 +102,43 @@ jobs:
             build/icg-extract/callables.json
             build/icg-extract/templates.json
             build/icg-extract/linkage.json
+          if-no-files-found: error
+          retention-days: 30
+
+  compare-versions:
+    name: Exact fixture graphs / ${{ matrix.os }} / LLVM 17–23
+    needs: extractor
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'jsonschema>=4.18,<5'
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: extracted-facts-llvm-*-${{ matrix.os }}-python-3.11-AUTO
+          path: build/version-facts
+      - name: Require all seven frontends and compare every fixture
+        run: |
+          lanes=()
+          for major in 17 18 19 20 21 22 23; do
+            lanes+=(--lane "$major=build/version-facts/extracted-facts-llvm-$major-${{ matrix.os }}-python-3.11-AUTO")
+          done
+          python tools/icg_schema/compare_versions.py \
+            --schema trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json \
+            "${lanes[@]}" > build/version-comparison.json
+      - uses: actions/upload-artifact@v7
+        if: success()
+        with:
+          name: exact-graph-comparison-${{ matrix.os }}
+          path: build/version-comparison.json
           if-no-files-found: error
           retention-days: 30
 

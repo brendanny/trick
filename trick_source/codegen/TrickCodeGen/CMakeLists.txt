@@ -2,13 +2,19 @@ cmake_minimum_required(VERSION 3.20)
 project(trick_icg_extract VERSION 0.10.0 LANGUAGES C CXX)
 
 # Deliberately standalone: the legacy ICG remains the production build path.
-find_package(LLVM 17 REQUIRED CONFIG)
-if(NOT LLVM_VERSION_MAJOR EQUAL 17)
-    message(FATAL_ERROR "This initial extractor is validated with LLVM/Clang 17 only")
+find_package(LLVM REQUIRED CONFIG)
+if(LLVM_VERSION_MAJOR LESS 17 OR LLVM_VERSION_MAJOR GREATER 23)
+    message(FATAL_ERROR "Supported LLVM/Clang majors are 17 through 23")
 endif()
 find_package(Clang REQUIRED CONFIG HINTS "${LLVM_DIR}/../clang" NO_DEFAULT_PATH)
 find_program(ICG_CLANG_EXECUTABLE NAMES clang
     HINTS "${LLVM_TOOLS_BINARY_DIR}" NO_DEFAULT_PATH REQUIRED)
+execute_process(COMMAND "${ICG_CLANG_EXECUTABLE}" -dumpversion
+    RESULT_VARIABLE version_result OUTPUT_VARIABLE clang_version
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT version_result EQUAL 0 OR NOT clang_version MATCHES "^${LLVM_VERSION_MAJOR}\\.")
+    message(FATAL_ERROR "Clang executable does not match LLVM ${LLVM_VERSION_MAJOR}: ${clang_version}")
+endif()
 execute_process(COMMAND "${ICG_CLANG_EXECUTABLE}" -print-resource-dir
     RESULT_VARIABLE resource_result OUTPUT_VARIABLE ICG_RESOURCE_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -30,7 +36,13 @@ if(NOT LLVM_ENABLE_RTTI)
 endif()
 # RHEL/Rocky ship the combined C++ library without the component archives.
 # Respect the package's supported linkage instead of inventing -lclangTooling.
-if(CLANG_LINK_CLANG_DYLIB AND TARGET clang-cpp)
+set(ICG_CLANG_LINKAGE AUTO CACHE STRING "Clang linkage: AUTO, SHARED, or COMPONENTS")
+set_property(CACHE ICG_CLANG_LINKAGE PROPERTY STRINGS AUTO SHARED COMPONENTS)
+if(NOT ICG_CLANG_LINKAGE MATCHES "^(AUTO|SHARED|COMPONENTS)$")
+    message(FATAL_ERROR "Invalid ICG_CLANG_LINKAGE: ${ICG_CLANG_LINKAGE}")
+endif()
+if(ICG_CLANG_LINKAGE STREQUAL "SHARED" OR
+   (ICG_CLANG_LINKAGE STREQUAL "AUTO" AND CLANG_LINK_CLANG_DYLIB AND TARGET clang-cpp))
     target_link_libraries(trick-icg-extract PRIVATE clang-cpp LLVM)
 else()
     target_link_libraries(trick-icg-extract PRIVATE clangTooling clangIndex)
@@ -51,5 +63,6 @@ if(BUILD_TESTING)
     add_test(NAME icg_extract_integration
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_extract.py"
             --extractor "$<TARGET_FILE:trick-icg-extract>"
+            --llvm-major "${LLVM_VERSION_MAJOR}"
             --layout-compiler "${CMAKE_CXX_COMPILER}" ${ICG_TEST_ROOT_ARGS})
 endif()

@@ -1,5 +1,7 @@
 #include "TemplateFacts.hh"
 
+#include "ClangCompat.hh"
+
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Expr.h"
 
@@ -118,8 +120,8 @@ namespace trick::icg
     Array TemplateFacts::parameters(const clang::TemplateParameterList* values)
     {
         Array result;
-        auto policy                    = context.getPrintingPolicy();
-        policy.AnonymousTagLocations   = false;
+        auto policy = context.getPrintingPolicy();
+        compat::anonymousNamesWithoutLocations(policy);
         policy.SuppressInlineNamespace = false;
         for (const auto* parameter : *values)
         {
@@ -143,8 +145,8 @@ namespace trick::icg
                 node["index"] = type->getIndex();
                 if (type->hasDefaultArgument())
                 {
-                    spelling     = type->getDefaultArgument().getAsString(policy);
-                    defaultRange = type->getDefaultArgumentInfo()->getTypeLoc().getSourceRange();
+                    spelling     = compat::defaultType(type).getAsString(policy);
+                    defaultRange = compat::defaultTypeRange(type);
                 }
             }
             else if (const auto* value = llvm::dyn_cast<clang::NonTypeTemplateParmDecl>(parameter))
@@ -156,8 +158,8 @@ namespace trick::icg
                 node["type_dependent"] = value->getType()->isDependentType();
                 if (value->hasDefaultArgument())
                 {
-                    value->getDefaultArgument()->printPretty(out, nullptr, policy);
-                    defaultRange = value->getDefaultArgument()->getSourceRange();
+                    compat::defaultExpression(value)->printPretty(out, nullptr, policy);
+                    defaultRange = compat::defaultExpression(value)->getSourceRange();
                 }
             }
             else if (const auto* nested = llvm::dyn_cast<clang::TemplateTemplateParmDecl>(parameter))
