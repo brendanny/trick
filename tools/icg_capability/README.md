@@ -7,7 +7,8 @@ current ICG, generate production metadata, or become a second extractor.
 The checked-in `llvm17-results.json` was generated with libclang 17.0.6. It
 records three required blockers:
 
-- base declarations and virtuality are available, but base offsets are not;
+- base declarations and virtuality are available, but named-field lookup on a
+  derived type cannot recover ordinary or virtual inherited field offsets;
 - explicitly defaulted/deleted constructors are available, but an implicit
   default constructor has no cursor;
 - a variadic specialization exposes an opaque pack, without its element facts.
@@ -19,6 +20,10 @@ therefore selects one LLVM 17 LibTooling extractor behind the process/IR boundar
 The probe also verifies fields and field offsets, fixed and dependent bitfields,
 type/integral template arguments, partial specializations, comments, annotations,
 friend/access discovery, anonymous records, and abstract-record detection.
+The layout controls query `Root.root` and `Diamond.own` directly. Both
+`clang_Type_getOffsetOf(Diamond, "left")` and `(..., "root")` return `-5`
+(`CXTypeLayoutError_InvalidFieldName`). The older base-cursor field query returns
+`-1`, as expected for that field-only API; it is no longer the sole layout evidence.
 
 ## Reproduce with an LLVM 17 installation
 
@@ -35,7 +40,8 @@ python3 tools/icg_capability/evaluate.py \
 ```
 
 `evaluate.py` fails if observations drift. It ignores only the package-specific
-Clang version spelling and the nonnegative control field's target-specific offset.
+Clang version spelling and the nonnegative control field's target-specific offsets
+(the type and cursor queries must agree).
 The CI job installs LLVM 17 independently and publishes both JSON files as an
 artifact. The result does not replace the pending GCC 8.5/12 layout and generated
 operation probes.

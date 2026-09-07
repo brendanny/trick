@@ -1,0 +1,3 @@
+# Keep the formatter identical in local checks and both style workflows.
+ruff==0.16.6
+jsonschema>=4.18,<5

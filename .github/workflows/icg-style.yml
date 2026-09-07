@@ -1,0 +1,36 @@
+name: ICG Python style
+
+on:
+  push:
+    branches: [master, icg-rewrite]
+    paths:
+      - 'tools/icg_*/**'
+      - 'tools/icg_requirements.txt'
+      - 'trick_source/codegen/TrickCodeGen/tests/**'
+      - 'ruff.toml'
+      - '.github/workflows/icg-style.yml'
+  pull_request:
+    paths:
+      - 'tools/icg_*/**'
+      - 'tools/icg_requirements.txt'
+      - 'trick_source/codegen/TrickCodeGen/tests/**'
+      - 'ruff.toml'
+      - '.github/workflows/icg-style.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r tools/icg_requirements.txt
+      - name: Check formatting and imports with the pinned configuration
+        run: |
+          ruff format --check tools/icg_baseline tools/icg_capability tools/icg_schema trick_source/codegen/TrickCodeGen/tests
+          ruff check tools/icg_baseline tools/icg_capability tools/icg_schema trick_source/codegen/TrickCodeGen/tests

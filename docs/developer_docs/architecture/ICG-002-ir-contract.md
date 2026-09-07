@@ -74,3 +74,28 @@ compatibility strategy.
   minimal fixture is migrated, and the reader rejects v1 facts. This increment
   does not freeze the contract or complete fallback identity, namespace contexts,
   the multi-root file model, or the remaining type kinds.
+
+## Review hardening: schema 3
+
+Extractor 0.3.0 advances facts to v3 and diagnostics envelopes to v2. Files carry
+an explicit named `root` and relative `portable` path; file identity hashes that
+pair after symlink resolution. Source/resource roots are supplied by default,
+additional sysroot/build/vendor roots are explicit, and unmapped physical inputs
+fail extraction. Exact root locations remain in provenance, so the evidence
+fingerprint is still machine-specific and is not a production cache key. OS and
+target differences remain meaningful even with portable identity.
+
+Arrays now carry one scalar `extent`, null when incomplete. Layout quantities and
+extents are JSON numbers through `2^53-1` and canonical decimal strings above that
+threshold; the schema and graph validator enforce this representation. This
+policy also applies to future base offsets and bit widths. Enum/template integral
+values remain decimal strings throughout their full ranges as already specified.
+The extractor's owned extent storage supports 64 bits and rejects larger values.
+
+Type `spelling` is explicitly a representative display value: the smallest
+observed spelling under lexical ordering when structural types intern together.
+It is neither per-use source spelling nor a lossless source reconstruction.
+Per-use spelling requires a future use-site model if a consumer needs it.
+
+The minimal fixture is migrated and older facts are rejected. This revision does
+not freeze the wire contract or complete namespace/fallback identity.

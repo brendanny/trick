@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v2.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v3.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 2},
+    "schema_version": {"const": 3},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -50,6 +50,7 @@
         "frontend_version",
         "translation_unit",
         "working_directory",
+        "path_roots",
         "arguments",
         "target_triple",
         "language_standard",
@@ -61,6 +62,12 @@
         "frontend_version": {"type": "string", "minLength": 1},
         "translation_unit": {"$ref": "#/$defs/id"},
         "working_directory": {"type": "string"},
+        "path_roots": {
+          "type": "object",
+          "required": ["source", "resource-dir"],
+          "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+          "additionalProperties": {"type": "string", "minLength": 1}
+        },
         "arguments": {
           "type": "array",
           "items": {"type": "string"}
@@ -77,11 +84,12 @@
     "path": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["spelled", "real", "portable"],
+      "required": ["spelled", "real", "root", "portable"],
       "properties": {
         "spelled": {"type": "string"},
         "real": {"type": "string"},
-        "portable": {"type": "string"}
+        "root": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+        "portable": {"type": "string", "minLength": 1, "pattern": "^[^/]"}
       }
     },
     "file": {
@@ -143,12 +151,15 @@
         "restrict": {"type": "boolean"}
       }
     },
-    "extent": {
+    "unsigned_integer": {
+      "description": "Numbers through 2^53-1; larger values use canonical decimal strings. The graph validator enforces the string threshold.",
       "oneOf": [
-        {"type": "integer", "minimum": 0},
-        {"const": "incomplete"},
-        {"const": "dependent"}
+        {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        {"type": "string", "pattern": "^[1-9][0-9]*$"}
       ]
+    },
+    "optional_unsigned": {
+      "anyOf": [{"$ref": "#/$defs/unsigned_integer"}, {"type": "null"}]
     },
     "template_argument": {
       "type": "object",
@@ -201,18 +212,18 @@
             "unknown"
           ]
         },
-        "spelling": {"type": "string"},
+        "spelling": {
+          "type": "string",
+          "description": "Deterministic representative display spelling: the lexicographically smallest observed spelling for this structural node. Per-use source spelling is not modeled and cannot be recovered from this field."
+        },
         "canonical_id": {"$ref": "#/$defs/id"},
         "qualifiers": {"$ref": "#/$defs/qualifiers"},
         "declaration_id": {"$ref": "#/$defs/id"},
         "pointee_id": {"$ref": "#/$defs/id"},
         "element_id": {"$ref": "#/$defs/id"},
-        "extents": {
-          "type": "array",
-          "description": "Exactly one dimension per array node; multidimensional arrays use nested element_id edges.",
-          "minItems": 1,
-          "maxItems": 1,
-          "items": {"$ref": "#/$defs/extent"}
+        "extent": {
+          "$ref": "#/$defs/optional_unsigned",
+          "description": "One dimension per array node; null means incomplete. Multidimensional arrays nest element_id edges. Dependent arrays remain unsupported."
         },
         "result_id": {"$ref": "#/$defs/id"},
         "parameter_ids": {
@@ -254,7 +265,7 @@
         "type_id": {"$ref": "#/$defs/id"},
         "access": {"enum": ["public", "protected", "private", "none"]},
         "virtual": {"type": "boolean"},
-        "offset_bits": {"type": ["integer", "null"], "minimum": 0},
+        "offset_bits": {"$ref": "#/$defs/optional_unsigned"},
         "source": {"$ref": "#/$defs/source"}
       }
     },
@@ -316,16 +327,16 @@
         "pod": {"type": "boolean"},
         "standard_layout": {"type": "boolean"},
         "trivial": {"type": "boolean"},
-        "size_bits": {"type": ["integer", "null"], "minimum": 0},
-        "alignment_bits": {"type": ["integer", "null"], "minimum": 0},
+        "size_bits": {"$ref": "#/$defs/optional_unsigned"},
+        "alignment_bits": {"$ref": "#/$defs/optional_unsigned"},
         "bases": {"type": "array", "items": {"$ref": "#/$defs/base"}},
         "field_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
         "nested_declaration_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
         "static": {"type": "boolean"},
         "mutable": {"type": "boolean"},
         "bitfield": {"type": "boolean"},
-        "bit_width": {"type": ["integer", "null"], "minimum": 0},
-        "offset_bits": {"type": ["integer", "null"], "minimum": 0},
+        "bit_width": {"$ref": "#/$defs/optional_unsigned"},
+        "offset_bits": {"$ref": "#/$defs/optional_unsigned"},
         "scoped": {"type": "boolean"},
         "underlying_type_id": {"$ref": "#/$defs/id"},
         "enumerators": {"type": "array", "items": {"$ref": "#/$defs/enumerator"}},

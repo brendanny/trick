@@ -114,6 +114,19 @@ class BaselineTests(unittest.TestCase):
         self.assertIn(f"{self.root}-other/model.hh", normalized)
         self.assertTrue(normalized.endswith('"m/s"\n{"b", 8},\n{"a", 4},\n'))
 
+    def test_normalization_handles_punctuation_without_masking_path_suffixes(self):
+        for suffix in ("; make", ")", ",", "]", "}", "&", "|", "\n", ""):
+            with self.subTest(suffix=suffix):
+                self.assertEqual(
+                    b.normalize(f"cd {self.root}{suffix}", self.root, self.sim),
+                    f"cd ${{TRICK_ROOT}}{suffix}",
+                )
+        for suffix in ("-other", "_other", ".old", "+other", "~backup", "2", "é"):
+            self.assertEqual(
+                b.normalize(f"{self.root}{suffix}", self.root, self.sim),
+                f"{self.root}{suffix}",
+            )
+
     def test_same_normalized_snapshot_across_checkout_roots(self):
         def make_snapshot(root):
             sim = root / self.case["directory"]
@@ -244,9 +257,41 @@ class BaselineTests(unittest.TestCase):
         ):
             bad.write_bytes(b.json_bytes(dict(data, **{key: value})))
             self.assertEqual(self.cli("compare", old, bad)[0], 2)
-        data["artifacts"]["build/io_fixture.cpp"]["text"] += "corruption"
+        data["artifacts"]["build/io_fixture.cpp"]["sha256"] = "../escape"
         bad.write_bytes(b.json_bytes(data))
         self.assertEqual(self.cli("compare", old, bad)[0], 2)
+
+    def test_sidecars_keep_large_snapshots_small_and_deduplicate_content(self):
+        text = "// large generated source\n" * 100000
+        self.artifact(text)
+        self.artifact(text, "build/io_second.cpp")
+        old = self.capture("sidecars")
+        self.assertLess(old.stat().st_size, 3000)
+        objects = list((old.parent / "objects").glob("*.txt"))
+        self.assertEqual(len(objects), 1)
+        self.assertEqual(objects[0].read_text(), text)
+        self.assertEqual(self.cli("compare", old, old)[0], 0)
+        moved = self.base / "moved-evidence"
+        old.parent.rename(moved)
+        path = moved / "snapshot.json"
+        self.assertEqual(self.cli("compare", path, path)[0], 0)
+
+    def test_equal_snapshots_still_require_intact_contained_sidecars(self):
+        self.artifact("original\n")
+        old = self.capture("integrity")
+        obj = next((old.parent / "objects").glob("*.txt"))
+        obj.write_text("corruption\n")
+        code, _, error = self.cli("compare", old, old)
+        self.assertEqual(code, 2)
+        self.assertIn("content digest mismatch", error)
+        obj.unlink()
+        self.assertEqual(self.cli("compare", old, old)[0], 2)
+        outside = self.base / "outside.txt"
+        outside.write_text("original\n")
+        obj.symlink_to(outside)
+        code, _, error = self.cli("compare", old, old)
+        self.assertEqual(code, 2)
+        self.assertIn("path escapes root", error)
 
     def test_churn_separates_rewrites_from_content_changes(self):
         path = self.artifact()

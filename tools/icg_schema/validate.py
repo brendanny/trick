@@ -31,6 +31,33 @@ def validate_graph(document: dict) -> None:
     types = unique(document["types"], "type")
     declarations = unique(document["declarations"], "declaration")
     require(document["provenance"]["translation_unit"], files, "provenance")
+    paths = set()
+    for node in files.values():
+        path = node["path"]
+        require(path["root"], document["provenance"]["path_roots"], node["id"])
+        if any(part in ("", ".", "..") for part in path["portable"].split("/")):
+            raise ValueError(f"{node['id']} has a noncanonical portable path")
+        identity = (path["root"], path["portable"])
+        if identity in paths:
+            raise ValueError(f"duplicate rooted file path: {identity}")
+        paths.add(identity)
+
+    # JSON Schema bounds numeric values. Strings also need a canonical threshold
+    # so equivalent facts cannot alternate between numeric and string encodings.
+    quantities = [*types.values(), *declarations.values()]
+    for node in declarations.values():
+        quantities.extend(node.get("bases", []))
+    for node in quantities:
+        for field in (
+            "extent",
+            "size_bits",
+            "alignment_bits",
+            "offset_bits",
+            "bit_width",
+        ):
+            value = node.get(field)
+            if isinstance(value, str) and int(value) <= 9007199254740991:
+                raise ValueError(f"{field} uses a string for a JSON-safe integer")
 
     def source(value: dict, context: str) -> None:
         for point in ("spelling", "expansion", "end"):
@@ -111,7 +138,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
         "declaration_id",
         "pointee_id",
         "element_id",
-        "extents",
+        "extent",
         "result_id",
         "parameter_ids",
         "template_arguments",
@@ -123,7 +150,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
         "pointer": {"pointee_id"},
         "lvalue_reference": {"pointee_id"},
         "rvalue_reference": {"pointee_id"},
-        "array": {"element_id", "extents"},
+        "array": {"element_id", "extent"},
     }
 
     def need(node: dict, fields: set[str]) -> None:
@@ -156,8 +183,6 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             and declarations[node["declaration_id"]]["kind"] != kind
         ):
             raise ValueError(f"{node['id']} points to the wrong declaration kind")
-        if kind == "array" and len(node["extents"]) != 1:
-            raise ValueError(f"{node['id']} must represent exactly one array dimension")
         if kind == "array" and any(node["qualifiers"].values()):
             raise ValueError(
                 f"{node['id']} array qualifiers must be on the element type"
@@ -173,8 +198,8 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
         if kind == "array":
             if types[node["element_id"]]["canonical_id"] != canonical.get("element_id"):
                 raise ValueError(f"{node['id']} has inconsistent canonical element")
-            if node["extents"] != canonical.get("extents"):
-                raise ValueError(f"{node['id']} has inconsistent canonical extents")
+            if node["extent"] != canonical.get("extent"):
+                raise ValueError(f"{node['id']} has inconsistent canonical extent")
 
     for node in declarations.values():
         kind = node["kind"]

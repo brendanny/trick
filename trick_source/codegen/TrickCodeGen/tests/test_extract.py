@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -55,7 +56,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 2)
+        self.assertEqual(document["schema_version"], 3)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -63,14 +64,20 @@ class ExtractTests(unittest.TestCase):
 
     def report(self, result):
         report = json.loads(result.stderr)
-        self.assertEqual(report["schema_version"], 1)
+        self.assertEqual(report["schema_version"], 2)
         self.assertEqual(report["document_kind"], "trick.icg.diagnostics")
         ids = {node["id"] for node in report["files"]}
+        for node in report["files"]:
+            VALIDATOR.Draft202012Validator({
+                "$defs": SCHEMA["$defs"],
+                "$ref": "#/$defs/file",
+            }).validate(node)
         for diagnostic in report["diagnostics"]:
             # Reuse the same wire definitions for both output channels.
-            VALIDATOR.Draft202012Validator(
-                {"$defs": SCHEMA["$defs"], "$ref": "#/$defs/diagnostic"}
-            ).validate(diagnostic)
+            VALIDATOR.Draft202012Validator({
+                "$defs": SCHEMA["$defs"],
+                "$ref": "#/$defs/diagnostic",
+            }).validate(diagnostic)
             if diagnostic["source"]:
                 for point in ("spelling", "expansion", "end"):
                     self.assertIn(diagnostic["source"][point]["file_id"], ids)
@@ -284,15 +291,15 @@ class ExtractTests(unittest.TestCase):
         declarations = self.declarations(document)
         types = {t["id"]: t for t in document["types"]}
         matrix = types[declarations["Sample::matrix"]["type_id"]]
-        self.assertEqual(matrix["extents"], [2])
-        self.assertEqual(types[matrix["element_id"]]["extents"], [3])
+        self.assertEqual(matrix["extent"], 2)
+        self.assertEqual(types[matrix["element_id"]]["extent"], 3)
         pointers = types[declarations["Sample::pointers"]["type_id"]]
         array = types[declarations["Sample::array"]["type_id"]]
         self.assertEqual(types[pointers["element_id"]]["kind"], "pointer")
         self.assertEqual(types[array["pointee_id"]]["kind"], "array")
         self.assertNotEqual(array["id"], pointers["id"])
         unknown = types[declarations["Sample::unknown"]["type_id"]]
-        self.assertEqual(types[unknown["pointee_id"]]["extents"], ["incomplete"])
+        self.assertIsNone(types[unknown["pointee_id"]]["extent"])
 
     def test_alias_chains_and_canonical_types(self):
         self.header.write_text(
@@ -473,6 +480,141 @@ class ExtractTests(unittest.TestCase):
 
     def test_unknown_warning_option_is_a_driver_error(self):
         self.failure(self.invoke(["-Wicg-nonexistent-warning"]))
+
+    def test_paired_arguments_cannot_swallow_flags(self):
+        for flag in (
+            "-I",
+            "-isystem",
+            "-iquote",
+            "-D",
+            "-U",
+            "-include",
+            "-imacros",
+            "--sysroot",
+            "-isysroot",
+            "-target",
+            "--target",
+        ):
+            for value in ("-DSECRET=1", "--", ""):
+                with self.subTest(flag=flag, value=value):
+                    result = self.invoke([flag, value])
+                    self.failure(result, "ICG_ARGUMENT_VALUE")
+                    self.assertEqual(result.returncode, 2)
+        self.header.write_text(
+            "#ifndef SECRET\n#error missing define\n#endif\nstruct Present {};\n"
+        )
+        self.success(self.invoke(["-I", ".", "-D", "SECRET=1"]))
+
+    def test_pragma_once_warning_is_suppressed_without_hiding_other_warnings(self):
+        self.header.write_text("#pragma once\nstruct Sample {};\n")
+        self.assertEqual(self.success(self.invoke(["-Werror"]))["diagnostics"], [])
+        self.header.write_text(
+            "#pragma once\n#warning visible warning\nstruct Sample {};\n"
+        )
+        diagnostics = self.success(self.invoke())["diagnostics"]
+        self.assertEqual(len(diagnostics), 1)
+        self.assertIn("visible warning", diagnostics[0]["message"])
+        self.failure(self.invoke(["-Werror"]))
+
+    def test_all_unsupported_members_are_reported_in_one_run(self):
+        self.header.write_text(
+            "struct Sample {\nunsigned bits : 1;\nstatic int value;\nvoid run();\nstruct { int item; };\n};\n"
+        )
+        report = self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
+        lines = {
+            d["source"]["expansion"]["line"]
+            for d in report["diagnostics"]
+            if d["code"] == "ICG_UNSUPPORTED_DECLARATION"
+        }
+        self.assertTrue({2, 3, 4, 5} <= lines, report)
+
+    def test_external_headers_require_explicit_roots(self):
+        with tempfile.TemporaryDirectory(prefix="icg-external-") as external:
+            directory = Path(external)
+            (directory / "external.hh").write_text("using External = long;\n")
+            self.header.write_text(
+                "#include <external.hh>\nstruct Sample { External value; };\n"
+            )
+            flags = ["-isystem", external]
+            report = self.failure(self.invoke(flags), "ICG_UNMAPPED_FILE")
+            self.assertEqual(
+                sum(d["code"] == "ICG_UNMAPPED_FILE" for d in report["diagnostics"]), 1
+            )
+            first = self.success(
+                self.invoke(flags, options=["--path-root", f"sysroot={external}"])
+            )
+            with tempfile.TemporaryDirectory(prefix="icg-relocated-sdk-") as relocated:
+                shutil.copy(directory / "external.hh", relocated)
+                second = self.success(
+                    self.invoke(
+                        ["-isystem", relocated],
+                        options=["--path-root", f"sysroot={relocated}"],
+                    )
+                )
+            for key in ("types", "declarations"):
+                self.assertEqual(first[key], second[key])
+            self.assertEqual(
+                {f["id"] for f in first["files"]}, {f["id"] for f in second["files"]}
+            )
+
+    def test_real_resource_headers_survive_installation_relocation(self):
+        self.header.write_text(
+            "#include <stddef.h>\nstruct Sample { size_t value; };\n"
+        )
+        first = self.success(self.invoke())
+        original = Path(first["provenance"]["path_roots"]["resource-dir"])
+        files = [f for f in first["files"] if f["path"]["root"] == "resource-dir"]
+        self.assertTrue(files)
+        self.assertEqual(self.declarations(first)["size_t"]["origin"], "system")
+        with tempfile.TemporaryDirectory(prefix="icg-resource-") as relocated:
+            target = Path(relocated)
+            shutil.copytree(original / "include", target / "include")
+            second = self.success(
+                self.invoke(options=["--path-root", f"resource-dir={relocated}"])
+            )
+        for key in ("types", "declarations"):
+            self.assertEqual(first[key], second[key])
+        self.assertEqual(
+            {f["id"] for f in first["files"]}, {f["id"] for f in second["files"]}
+        )
+
+    def test_named_roots_use_longest_match_and_disambiguate_relative_names(self):
+        build = self.root / "build"
+        build.mkdir()
+        (build / "record.hh").write_text("using Generated = int;\n")
+        self.header.write_text(
+            '#include "build/record.hh"\nstruct Sample { Generated value; };\n'
+        )
+        document = self.success(self.invoke(options=["--path-root", f"build={build}"]))
+        self.assertEqual(
+            {(f["path"]["root"], f["path"]["portable"]) for f in document["files"]},
+            {("source", "record.hh"), ("build", "record.hh")},
+        )
+        alias = self.root / "build-alias"
+        alias.symlink_to(build, target_is_directory=True)
+        second = self.success(self.invoke(options=["--path-root", f"build={alias}"]))
+        self.assertEqual(document["files"], second["files"])
+        self.failure(
+            self.invoke(options=["--path-root", f"duplicate={self.root}"]),
+            "ICG_PATH_ROOT",
+        )
+        self.failure(
+            self.invoke(options=["--path-root", "build=/icg-nonexistent-dir"]),
+            "ICG_PATH_ROOT",
+        )
+
+    def test_large_layout_and_array_quantities_remain_exact(self):
+        self.header.write_text(
+            "struct Huge { char bytes[9007199254740992ULL]; int last; };\n"
+        )
+        document = self.success(self.invoke())
+        declarations = self.declarations(document)
+        self.assertEqual(declarations["Huge::last"]["offset_bits"], str(2**56))
+        self.assertEqual(declarations["Huge"]["size_bits"], str(2**56 + 32))
+        self.assertEqual(
+            next(t["extent"] for t in document["types"] if t["kind"] == "array"),
+            str(2**53),
+        )
 
     def test_cli_requires_one_input_and_separator(self):
         for args in (["record.hh"], ["record.hh", "other.hh", "--"], ["--"]):

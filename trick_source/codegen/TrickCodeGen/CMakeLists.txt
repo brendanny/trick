@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(trick_icg_extract VERSION 0.2.0 LANGUAGES C CXX)
+project(trick_icg_extract VERSION 0.3.0 LANGUAGES C CXX)
 
 # Deliberately standalone: the legacy ICG remains the production build path.
 find_package(LLVM 17 REQUIRED CONFIG)
@@ -28,7 +28,13 @@ target_compile_options(trick-icg-extract PRIVATE -Wall -Wextra -Wpedantic)
 if(NOT LLVM_ENABLE_RTTI)
     target_compile_options(trick-icg-extract PRIVATE -fno-rtti)
 endif()
-target_link_libraries(trick-icg-extract PRIVATE clangTooling clangIndex)
+# RHEL/Rocky ship the combined C++ library without the component archives.
+# Respect the package's supported linkage instead of inventing -lclangTooling.
+if(CLANG_LINK_CLANG_DYLIB AND TARGET clang-cpp)
+    target_link_libraries(trick-icg-extract PRIVATE clang-cpp LLVM)
+else()
+    target_link_libraries(trick-icg-extract PRIVATE clangTooling clangIndex)
+endif()
 
 include(CTest)
 if(BUILD_TESTING)

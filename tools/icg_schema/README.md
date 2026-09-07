@@ -10,11 +10,15 @@ incomplete-record layout, and direct type cycles. Each array node represents one
 dimension, with CVR qualification on its element. Recursive record references are
 valid; a pointer/alias graph cannot refer to itself without a record boundary.
 
-Facts schema version 2 formalizes these structural rules. Version 1 facts are
+Facts schema version 3 adds named path roots, scalar `extent` (null for incomplete
+arrays), and exact layout integers to these structural rules. Numbers through
+`2^53-1` are numeric; larger quantities are canonical decimal strings. Path roots
+must exist in provenance, portable paths must be relative and canonical, and no
+two file nodes may represent the same root/path pair. Version 1/2 facts are
 rejected; the synthetic minimal fixture has been migrated. These checks are not
 complete semantic validation of all future schema kinds, Clang/GCC layout
 agreement, or legacy-printability policy. The independent diagnostics envelope
-remains at version 1.
+uses version 2, with the same rooted file shape.
 
 The validator is development tooling and currently depends on
 `jsonschema>=4.18,<5`. The future `trick_codegen` reader will own production

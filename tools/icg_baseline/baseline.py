@@ -17,6 +17,8 @@ import time
 from pathlib import Path
 
 VERSION = 1
+SNAPSHOT_VERSION = 2
+NORMALIZATION_VERSION = 2
 HERE = Path(__file__).resolve().parent
 DEFAULT_ROOT = HERE.parents[1]
 # Explicit allowlist: do not serialize arbitrary environment variables/secrets.
@@ -131,7 +133,7 @@ def normalize(text: str, root: Path, sim: Path) -> str:
     }
     pattern = "|".join(re.escape(p) for p in sorted(roots, key=len, reverse=True))
     # A boundary prevents /tmp/trick from also masking /tmp/trick-other.
-    return re.sub(f"({pattern})(?=/|$|[\\s\"':])", lambda m: roots[m[1]], text)
+    return re.sub(f"({pattern})(?![\\w.+~-])", lambda m: roots[m[1]], text)
 
 
 def collect(manifest: dict, root: Path, case: dict, *, required: bool = True) -> dict:
@@ -230,12 +232,12 @@ def provenance(root: Path, case: dict, manifest_path: Path) -> dict:
 def snapshot(manifest: dict, case: dict, artifacts: dict) -> dict:
     # Volatile measurement data belongs in report.json, never snapshot.json.
     return {
-        "schema_version": VERSION,
-        "normalization_version": VERSION,
+        "schema_version": SNAPSHOT_VERSION,
+        "normalization_version": NORMALIZATION_VERSION,
         "case": case["id"],
         "artifact_spec": manifest["artifacts"],
         "artifacts": {
-            k: {field: value[field] for field in ("group", "text", "sha256")}
+            k: {field: value[field] for field in ("group", "sha256")}
             for k, value in sorted(artifacts.items())
         },
     }
@@ -294,19 +296,35 @@ def measurement_worker(cwd: str, output: str, command: list[str]) -> int:
     return 0
 
 
+def artifact_text(snapshot_path: Path, artifact: dict) -> str:
+    if set(artifact) != {"group", "sha256"}:
+        raise BaselineError("unexpected snapshot artifact fields")
+    content_digest = artifact["sha256"]
+    if not isinstance(content_digest, str) or not re.fullmatch(
+        "[0-9a-f]{64}", content_digest
+    ):
+        raise BaselineError("invalid snapshot content digest")
+    root = snapshot_path.parent.resolve()
+    sidecar = contained(root, f"objects/{content_digest}.txt")
+    raw = sidecar.read_bytes()
+    if digest(raw) != content_digest:
+        raise BaselineError("snapshot content digest mismatch")
+    return raw.decode("utf-8")
+
+
 def compare(old_path: Path, new_path: Path) -> int:
     old, new = (json.loads(p.read_text()) for p in (old_path, new_path))
-    for value in (old, new):
+    for path, value in ((old_path, old), (new_path, new)):
         if (
-            value.get("schema_version") != VERSION
-            or value.get("normalization_version") != VERSION
+            value.get("schema_version") != SNAPSHOT_VERSION
+            or value.get("normalization_version") != NORMALIZATION_VERSION
         ):
             raise BaselineError("unsupported snapshot version")
         if not value.get("artifacts"):
             raise BaselineError("empty snapshot is not compatibility evidence")
         for artifact in value["artifacts"].values():
-            if artifact["sha256"] != digest(artifact["text"].encode()):
-                raise BaselineError("snapshot content digest mismatch")
+            # Even equal snapshots must have intact content.
+            artifact_text(path, artifact)
     if old["case"] != new["case"] or old["artifact_spec"] != new["artifact_spec"]:
         raise BaselineError(
             "snapshots must use the same case and artifact specification"
@@ -323,8 +341,8 @@ def compare(old_path: Path, new_path: Path) -> int:
             print(f"changed: {name}")
             sys.stdout.writelines(
                 difflib.unified_diff(
-                    left["text"].splitlines(keepends=True),
-                    right["text"].splitlines(keepends=True),
+                    artifact_text(old_path, left).splitlines(keepends=True),
+                    artifact_text(new_path, right).splitlines(keepends=True),
                     fromfile=f"old/{name}",
                     tofile=f"new/{name}",
                 )
@@ -427,6 +445,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         if command:
             report["churn"] = churn(before, after)
+        # Publish the manifest only after every content-addressed object exists.
+        # Equal artifacts share one object, and moving the whole evidence directory
+        # preserves references without embedding machine paths in the snapshot.
+        for artifact in after.values():
+            write_changed(
+                output / "objects" / f"{artifact['sha256']}.txt",
+                artifact["text"].encode(),
+            )
         write_changed(
             output / "snapshot.json", json_bytes(snapshot(manifest, case, after))
         )

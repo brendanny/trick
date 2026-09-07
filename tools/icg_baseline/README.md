@@ -87,7 +87,8 @@ external/trickified projects needs an explicit manifest extension.
 
 | File | Contents |
 |---|---|
-| `snapshot.json` | Versioned artifact specification, normalized filenames and complete UTF-8 text, content digests; no timestamps |
+| `snapshot.json` | Versioned artifact specification, normalized filenames, groups, and content digests; no timestamps or inline artifact text |
+| `objects/<sha256>.txt` | Complete normalized UTF-8 artifact text, addressed by its digest; identical content shares one sidecar |
 | `report.json` | Git revision/status, tracked simulation input digests, manifest digest, host/Python, selected environment values, output bytes/files, raw digests/mtimes, command status and measurements |
 | `stdout.log`, `stderr.log` | Unmodified command output, created by `run` only |
 
@@ -97,6 +98,14 @@ children's resource accounting. Linux and macOS are supported for measurement.
 RSS is **not summed concurrent process memory**; parallel compiler processes can
 use more total memory than this number. CPU/RSS accounting depends on descendants
 being waited for by their parents. Detached background work is not measured.
+
+Snapshot schema 2 publishes the manifest only after its sidecars are written.
+Copy the entire evidence directory to relocate a capture. `compare` verifies every
+object's digest and containment, even when both snapshots have equal hashes;
+missing or corrupt sidecars fail. It loads text one artifact at a time for
+verification, then loads changed pairs for textual diffs. Capture still collects
+artifact text in memory, so this is not yet a streaming collector. Older inline
+snapshots must be recaptured before comparison with the new schema/normalization.
 
 Churn distinguishes added, removed, content-changed, and byte-identical rewritten
 files using raw hashes and nanosecond mtimes. Files rewritten while preserving
@@ -110,7 +119,10 @@ Normalization replaces configured absolute simulation and checkout roots with
 `${SIM_ROOT}` and `${TRICK_ROOT}`, including the mirrored paths beneath `build`.
 Both the configured spelling and the resolved path are recognized, including
 symlink aliases such as macOS's `/var` and `/private/var`. Filesystem containment
-checks continue to use resolved paths.
+checks continue to use resolved paths. Normalization version 2 also recognizes
+bare roots followed by punctuation such as `;`, `)`, or `,`, while preserving
+path-name suffixes such as `-other` and `.old`. Recapture older snapshots before
+comparing them with this normalization version.
 It preserves other paths, whitespace, comments, ordering, numeric offsets, units,
 symbol names, timestamps embedded in text, and XML content. It does not parse C++
 or interpret metadata. Root-derived SWIG hashes and other non-path differences

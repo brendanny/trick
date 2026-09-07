@@ -84,6 +84,8 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |
 | First C++17 LibTooling extraction target | Implemented as a standalone, main-file record slice; [scope and tests](../../trick_source/codegen/TrickCodeGen/README.md) |
 | Core structured type/declaration graph | Implemented for pointers/references/arrays/aliases and recursive/nested/referenced records; namespace/fallback identity and broader type kinds pending |
+| Review hardening | Named file roots, exact layout integers, scalar extents, complete member diagnostics, argument/normalization regressions, content-addressed baseline sidecars, and pinned Ruff CI implemented |
+| GCC 8.5/12 extractor host builds | Dedicated LLVM 17 / Rocky Linux 8 CI jobs; does not establish generated-code conformance |
 | GCC 8.5/12 layout and generated-operation probes | Pending |
 | Runtime/Python behavior, S_define, binding spikes | Pending |
 | Exact platform packages and ADR decisions | Package matrix pending; ICG-001 and ICG-002 accepted, eight initial ADRs pending |

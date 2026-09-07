@@ -8,6 +8,13 @@
 namespace trick::icg
 {
 
+    llvm::json::Value unsignedInteger(uint64_t value)
+    {
+        if (value > 9007199254740991ULL)
+            return std::to_string(value);
+        return value;
+    }
+
     std::string digest(llvm::StringRef bytes)
     {
         llvm::SHA256 hash;
@@ -87,7 +94,7 @@ namespace trick::icg
         for (const auto& entry : types)
             typeNodes.emplace_back(entry.second.json());
         return llvm::json::Object {
-            { "schema_version", 2                              },
+            { "schema_version", 3                              },
             { "document_kind",  "trick.icg.extracted-facts"    },
             { "provenance",     llvm::json::Object(provenance) },
             { "files",          nodes(files)                   },

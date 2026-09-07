@@ -21,7 +21,7 @@
       "status": "supported"
     },
     "base_layout": {
-      "evidence": "clang_Cursor_getOffsetOfField returned -1 for every base specifier while the field control query succeeded",
+      "evidence": "clang_Type_getOffsetOf(Diamond, left/root) returned -5 (InvalidFieldName) for ordinary/virtual inherited fields; direct-field type and cursor controls agreed, and Root.root returned 0. Base cursors also returned -1 from the field-only cursor API, as expected",
       "required": true,
       "status": "unsupported"
     },
@@ -64,7 +64,7 @@
   "decision": "libtooling",
   "frontend": {
     "api": "libclang-c",
-    "version": "clang version 17.0.6"
+    "version": "Ubuntu clang version 17.0.6 (++20240501091250+6009708b4367-1~exp1~20240501211359.8)"
   },
   "observations": {
     "abstract_records": 1,
@@ -87,7 +87,10 @@
     "dependent_bit_width": -1,
     "diagnostics_errors": 0,
     "diamond_bases": 2,
+    "diamond_inherited_left": -5,
+    "diamond_inherited_root": -5,
     "diamond_own_offset": 224,
+    "diamond_type_own_offset": 224,
     "fixed_bit_width": 3,
     "friend_declarations": 1,
     "implicit_special_constructors": 0,
@@ -96,6 +99,7 @@
     "partial_specializations": 1,
     "private_fields": 1,
     "raw_comments": 1,
+    "root_type_offset": 0,
     "virtual_base_specifiers": 2
   },
   "schema_version": 1

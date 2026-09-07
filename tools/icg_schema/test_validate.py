@@ -23,7 +23,8 @@ class ValidateTests(unittest.TestCase):
     def test_schema_rejects_unknown_fields_and_wrong_version(self):
         for mutation in (
             lambda value: value.update(schema_version=1),
-            lambda value: value.update(schema_version=3),
+            lambda value: value.update(schema_version=2),
+            lambda value: value.update(schema_version=4),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)
@@ -117,15 +118,45 @@ class ValidateTests(unittest.TestCase):
     def test_arrays_are_one_dimension_per_node(self):
         document = self.pointer_document()
         array = document["types"][-1]
-        array.update(kind="array", element_id="type:int", extents=[2, 3])
+        array.update(kind="array", element_id="type:int", extent=[2, 3])
         del array["pointee_id"]
         with self.assertRaises(ValidationError):
             ir.validate(self.schema, document)
-        array["extents"] = [2]
+        array["extent"] = 2
+        ir.validate(self.schema, document)
+        array["extent"] = None
         ir.validate(self.schema, document)
         array["qualifiers"]["const"] = True
         with self.assertRaisesRegex(ValueError, "array qualifiers"):
             ir.validate(self.schema, document)
+
+    def test_rooted_paths_are_relative_unique_and_mapped(self):
+        for value in ("/absolute.hh", "../escape.hh", "a/../b.hh", "a//b.hh"):
+            document = copy.deepcopy(self.fixture)
+            document["files"][0]["path"]["portable"] = value
+            with self.assertRaises((ValueError, ValidationError)):
+                ir.validate(self.schema, document)
+        document = copy.deepcopy(self.fixture)
+        document["files"][0]["path"]["root"] = "missing"
+        with self.assertRaisesRegex(ValueError, "dangling reference"):
+            ir.validate(self.schema, document)
+        document = copy.deepcopy(self.fixture)
+        duplicate = copy.deepcopy(document["files"][0])
+        duplicate["id"] = "file:duplicate"
+        document["files"].append(duplicate)
+        with self.assertRaisesRegex(ValueError, "duplicate rooted file path"):
+            ir.validate(self.schema, document)
+
+    def test_layout_quantities_use_exact_canonical_json_integers(self):
+        for value in (0, 9007199254740991, "9007199254740992", "18446744073709551615"):
+            document = copy.deepcopy(self.fixture)
+            document["declarations"][0]["size_bits"] = value
+            ir.validate(self.schema, document)
+        for value in (9007199254740992, "1", "0", "09007199254740992", -1):
+            document = copy.deepcopy(self.fixture)
+            document["declarations"][0]["size_bits"] = value
+            with self.assertRaises((ValueError, ValidationError)):
+                ir.validate(self.schema, document)
 
     def test_alias_underlying_type_must_match_canonical_target(self):
         document = self.pointer_document()
@@ -140,16 +171,14 @@ class ValidateTests(unittest.TestCase):
             underlying_type_id="type:int",
         )
         document["declarations"].append(alias)
-        document["types"].append(
-            {
-                "id": "type:alias",
-                "kind": "alias",
-                "spelling": "Alias",
-                "canonical_id": "type:int",
-                "declaration_id": "decl:alias",
-                "qualifiers": {"const": False, "volatile": False, "restrict": False},
-            }
-        )
+        document["types"].append({
+            "id": "type:alias",
+            "kind": "alias",
+            "spelling": "Alias",
+            "canonical_id": "type:int",
+            "declaration_id": "decl:alias",
+            "qualifiers": {"const": False, "volatile": False, "restrict": False},
+        })
         ir.validate(self.schema, document)
         alias["underlying_type_id"] = "type:pointer"
         with self.assertRaisesRegex(ValueError, "inconsistent alias target"):

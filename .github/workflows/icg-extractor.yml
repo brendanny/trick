@@ -28,7 +28,7 @@ jobs:
         os: [ubuntu-24.04, macos-14]
         python: ['3.11', '3.12']
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
@@ -73,3 +73,50 @@ jobs:
             build/icg-extract/structured.json
           if-no-files-found: error
           retention-days: 30
+
+  gcc-host:
+    name: LLVM 17 / GCC ${{ matrix.gcc }} / Rocky Linux 8
+    runs-on: ubuntu-24.04
+    container: rockylinux:8.10
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        gcc: ['8.5', '12']
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install LLVM 17 and host build dependencies
+        run: |
+          # The rolling llvm-toolset module now selects a newer LLVM. Require
+          # the retained 17.0.6 packages explicitly and bypass module filtering.
+          dnf -y --setopt=appstream.module_hotfixes=true install \
+            gcc gcc-c++ make cmake python3.11 python3.11-pip \
+            llvm-17.0.6 llvm-devel-17.0.6 llvm-static-17.0.6 \
+            clang-17.0.6 clang-devel-17.0.6 clang-tools-extra-17.0.6
+          if [ '${{ matrix.gcc }}' = 12 ]; then
+            dnf -y install gcc-toolset-12-gcc gcc-toolset-12-gcc-c++
+          fi
+          python3.11 -m pip install 'jsonschema>=4.18,<5'
+      - name: Verify compiler versions and build with warnings as errors
+        run: |
+          if [ '${{ matrix.gcc }}' = 12 ]; then
+            source /opt/rh/gcc-toolset-12/enable
+          fi
+          gcc --version
+          clang --version
+          case "$(gcc -dumpfullversion)" in
+            '${{ matrix.gcc }}'.*) ;;
+            *) echo 'Unexpected GCC version'; exit 1 ;;
+          esac
+          test "$(llvm-config --version)" = 17.0.6
+          cmake -S trick_source/codegen/TrickCodeGen -B build/icg-gcc \
+            -DLLVM_DIR="$(llvm-config --cmakedir)" \
+            -DCMAKE_C_COMPILER="$(command -v gcc)" \
+            -DCMAKE_CXX_COMPILER="$(command -v g++)" \
+            -DPython3_EXECUTABLE="$(command -v python3.11)" \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-Werror
+          cmake --build build/icg-gcc --parallel 2
+          ctest --test-dir build/icg-gcc --output-on-failure

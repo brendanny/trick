@@ -24,6 +24,9 @@ EXPECTED = {
     "dependent_bit_width": -1,
     "diagnostics_errors": 0,
     "diamond_bases": 2,
+    "diamond_inherited_left": -5,  # CXTypeLayoutError_InvalidFieldName
+    "diamond_inherited_root": -5,  # virtual base's inherited field
+    "root_type_offset": 0,
     "fixed_bit_width": 3,
     "friend_declarations": 1,
     "implicit_special_constructors": 0,
@@ -57,10 +60,15 @@ def evaluate(document: dict) -> dict:
             raise ValueError(
                 f"unexpected {name}: expected {expected!r}, got {actual!r}"
             )
-    if set(observations) != set(EXPECTED) | {"diamond_own_offset"}:
+    if set(observations) != set(EXPECTED) | {
+        "diamond_own_offset",
+        "diamond_type_own_offset",
+    }:
         raise ValueError("unexpected observation keys")
     if observations["diamond_own_offset"] < 0:
         raise ValueError("ordinary field-offset control query failed")
+    if observations["diamond_type_own_offset"] != observations["diamond_own_offset"]:
+        raise ValueError("type and cursor field-offset controls disagree")
 
     capabilities = {
         "abstract_record_detection": capability(
@@ -79,7 +87,7 @@ def evaluate(document: dict) -> dict:
         "base_layout": capability(
             "unsupported",
             True,
-            "clang_Cursor_getOffsetOfField returned -1 for every base specifier while the field control query succeeded",
+            "clang_Type_getOffsetOf(Diamond, left/root) returned -5 (InvalidFieldName) for ordinary/virtual inherited fields; direct-field type and cursor controls agreed, and Root.root returned 0. Base cursors also returned -1 from the field-only cursor API, as expected",
         ),
         "dependent_bitfield_width": capability(
             "negative-query-supported",
@@ -137,6 +145,7 @@ def stable_view(document: dict) -> dict:
     result = json.loads(json.dumps(document))
     result["frontend"].pop("version", None)
     result["observations"].pop("diamond_own_offset", None)
+    result["observations"].pop("diamond_type_own_offset", None)
     return result
 
 

@@ -46,12 +46,13 @@ namespace
     class Sources
     {
             Facts& facts;
-            std::string root;
+            std::map<std::string, std::string> roots;
+            std::set<std::string> unmapped;
 
         public:
-            Sources(Facts& facts, std::string root)
+            Sources(Facts& facts, std::map<std::string, std::string> roots)
                 : facts(facts)
-                , root(std::move(root))
+                , roots(std::move(roots))
             {
             }
 
@@ -64,11 +65,27 @@ namespace
                 std::string real    = realPath(spelled);
                 if (real.empty())
                     real = spelled;
-                std::string portable = real;
-                std::string prefix   = root.back() == '/' ? root : root + "/";
-                if (llvm::StringRef(real).starts_with(prefix))
-                    portable = real.substr(prefix.size());
-                std::string id = "file:" + digest(portable);
+                std::string portable;
+                std::string rootName;
+                size_t matched = 0;
+                for (const auto& root : roots)
+                {
+                    const auto prefix = root.second.back() == '/' ? root.second : root.second + "/";
+                    if (prefix.size() > matched && llvm::StringRef(real).starts_with(prefix))
+                    {
+                        rootName = root.first;
+                        portable = real.substr(prefix.size());
+                        matched  = prefix.size();
+                    }
+                }
+                if (rootName.empty())
+                {
+                    if (unmapped.insert(real).second)
+                        facts.diagnose("error", "ICG_UNMAPPED_FILE",
+                                       "No named path root contains " + spelled + "; configure --path-root NAME=DIR");
+                    return { };
+                }
+                std::string id = "file:" + digest(rootName + ":" + portable);
                 if (!facts.files.count(id))
                 {
                     bool invalid  = false;
@@ -78,11 +95,15 @@ namespace
                     facts.files.emplace(
                         id,
                         Object {
-                            { "id",             id                                                                            },
-                            { "path",           Object { { "spelled", spelled }, { "real", real }, { "portable", portable } } },
-                            { "classification", sm.isInSystemHeader(sm.getLocForStartOfFile(fid)) ? "system" : "user"         },
-                            { "digest",         digest(contents)                                                              },
-                            { "includes",       Array { }                                                                     }
+                            { "id",             id                                                                    },
+                            { "path",
+                             Object { { "spelled", spelled },
+                                       { "real", real },
+                                       { "root", rootName },
+                                       { "portable", portable } }                                                     },
+                            { "classification", sm.isInSystemHeader(sm.getLocForStartOfFile(fid)) ? "system" : "user" },
+                            { "digest",         digest(contents)                                                      },
+                            { "includes",       Array { }                                                             }
                     });
                 }
                 return id;
@@ -383,13 +404,15 @@ namespace
                 }
                 Array nested;
                 std::set<std::string> nestedIDs;
+                bool unsupportedMembers = false;
                 for (const auto* member : decl->decls())
                 {
                     if (member->isImplicit() || llvm::isa<clang::AccessSpecDecl, clang::StaticAssertDecl>(member))
                         continue;
                     if (llvm::isa<clang::CXXRecordDecl, clang::TypedefNameDecl>(member))
                     {
-                        auto id = request(llvm::cast<clang::NamedDecl>(member));
+                        auto id             = request(llvm::cast<clang::NamedDecl>(member));
+                        unsupportedMembers |= id.empty();
                         if (nestedIDs.insert(id).second)
                             nested.emplace_back(id);
                         continue;
@@ -399,16 +422,20 @@ namespace
                     {
                         unsupported(ctx, member,
                                     "Only named non-bitfield data members and nested records/aliases are supported");
-                        return;
+                        unsupportedMembers = true;
                     }
                 }
-                const auto& layout             = ctx.getASTRecordLayout(decl);
-                node["abstract"]               = decl->isAbstract();
-                node["pod"]                    = decl->isPOD();
-                node["standard_layout"]        = decl->isStandardLayout();
-                node["trivial"]                = decl->isTrivial();
-                node["size_bits"]              = layout.getSize().getQuantity() * ctx.getCharWidth();
-                node["alignment_bits"]         = layout.getAlignment().getQuantity() * ctx.getCharWidth();
+                if (unsupportedMembers)
+                    return;
+                const auto& layout      = ctx.getASTRecordLayout(decl);
+                node["abstract"]        = decl->isAbstract();
+                node["pod"]             = decl->isPOD();
+                node["standard_layout"] = decl->isStandardLayout();
+                node["trivial"]         = decl->isTrivial();
+                node["size_bits"] = trick::icg::unsignedInteger(static_cast<uint64_t>(layout.getSize().getQuantity())
+                                                                * ctx.getCharWidth());
+                node["alignment_bits"] = trick::icg::unsignedInteger(
+                    static_cast<uint64_t>(layout.getAlignment().getQuantity()) * ctx.getCharWidth());
                 node["bases"]                  = Array { };
                 node["nested_declaration_ids"] = std::move(nested);
                 node["capabilities"]           = Array {
@@ -428,7 +455,7 @@ namespace
                     data["mutable"]            = field->isMutable();
                     data["bitfield"]           = false;
                     data["bit_width"]          = nullptr;
-                    data["offset_bits"]        = layout.getFieldOffset(index++);
+                    data["offset_bits"]        = trick::icg::unsignedInteger(layout.getFieldOffset(index++));
                     fields.emplace_back(declarationID(field));
                     facts.declarations.emplace(declarationID(field), std::move(data));
                 }
@@ -524,9 +551,9 @@ namespace
             llvm::StringRef arg(args[i]);
             if (paired.count(args[i]))
             {
-                if (++i < args.size() && !args[i].empty())
+                if (++i < args.size() && !args[i].empty() && args[i][0] != '-')
                     continue;
-                facts.diagnose("error", "ICG_ARGUMENT_VALUE", "Missing value for " + arg.str());
+                facts.diagnose("error", "ICG_ARGUMENT_VALUE", "Expected a non-flag value for " + arg.str());
                 return false;
             }
             if (arg == "-std=c++17" || arg == "-m32" || arg == "-m64" || arg == "-fno-exceptions" || arg == "-fno-rtti"
@@ -549,7 +576,7 @@ namespace
             for (const auto& entry : facts.files)
                 files.emplace_back(Object(entry.second));
             llvm::errs() << serialize(Object {
-                { "schema_version", 1                        },
+                { "schema_version", 2                        },
                 { "document_kind",  "trick.icg.diagnostics"  },
                 { "files",          std::move(files)         },
                 { "diagnostics",    Array(facts.diagnostics) }
@@ -582,7 +609,10 @@ int main(int argc, const char** argv)
     llvm::SmallString<256> cwd;
     if (llvm::sys::fs::current_path(cwd))
         return 2;
-    std::string root     = cwd.str().str();
+    std::string root = cwd.str().str();
+    std::map<std::string, std::string> roots {
+        { "resource-dir", ICG_RESOURCE_DIR }
+    };
     bool jsonDiagnostics = false;
     bool separator       = false;
     std::vector<std::string> arguments;
@@ -597,11 +627,24 @@ int main(int argc, const char** argv)
             jsonDiagnostics = true;
         else if (arg == "--source-root" && i + 1 < argc)
             root = argv[++i];
+        else if (arg == "--path-root" && i + 1 < argc)
+        {
+            llvm::StringRef mapping(argv[++i]);
+            auto pair = mapping.split('=');
+            if (pair.first.empty() || pair.second.empty() || pair.first == "source"
+                || pair.first.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-") != llvm::StringRef::npos
+                || pair.first.front() < 'a' || pair.first.front() > 'z')
+                facts.diagnose("error", "ICG_PATH_ROOT", "Expected NAME=DIR; use --source-root for source");
+            else if (roots.count(pair.first.str()) && pair.first != "resource-dir")
+                facts.diagnose("error", "ICG_PATH_ROOT", "Duplicate named root: " + pair.first.str());
+            else
+                roots[pair.first.str()] = pair.second.str();
+        }
         else if (arg == "--help")
         {
-            llvm::outs()
-                << "Usage: trick-icg-extract [--source-root DIR] [--diagnostics-format=json] HEADER -- [CLANG FLAGS]\n"
-                   "C++17, one input, stdout facts; diagnostics on stderr. See TrickCodeGen/README.md.\n";
+            llvm::outs() << "Usage: trick-icg-extract [--source-root DIR] [--path-root NAME=DIR] "
+                            "[--diagnostics-format=json] HEADER -- [CLANG FLAGS]\n"
+                            "C++17, one input, stdout facts; diagnostics on stderr. See TrickCodeGen/README.md.\n";
             return 0;
         }
         else if (!arg.empty() && arg[0] != '-' && input.empty())
@@ -614,6 +657,16 @@ int main(int argc, const char** argv)
     root = realPath(root);
     if (root.empty() || !llvm::sys::fs::is_directory(root))
         facts.diagnose("error", "ICG_SOURCE_ROOT", "Source root must be an existing directory");
+    roots["source"] = root;
+    std::set<std::string> rootPaths;
+    for (auto& entry : roots)
+    {
+        entry.second = realPath(entry.second);
+        if (entry.second.empty() || !llvm::sys::fs::is_directory(entry.second))
+            facts.diagnose("error", "ICG_PATH_ROOT", "Named root must be an existing directory: " + entry.first);
+        else if (!rootPaths.insert(entry.second).second)
+            facts.diagnose("error", "ICG_PATH_ROOT", "Named roots must not map to the same directory: " + entry.first);
+    }
     if (!input.empty() && realPath(input).empty())
         facts.diagnose("error", "ICG_INPUT_READ", "Cannot resolve input: " + input);
     checkArguments(arguments, facts);
@@ -623,18 +676,19 @@ int main(int argc, const char** argv)
         return 2;
     }
 
-    Sources sources(facts, root);
+    Sources sources(facts, roots);
     Diagnostics diagnostics(facts, sources);
     Factory factory(facts, sources);
     std::vector<std::string> flags { "-x",
                                      "c++",
                                      "-std=c++17",
                                      "-resource-dir",
-                                     ICG_RESOURCE_DIR,
+                                     roots.at("resource-dir"),
                                      "-fparse-all-comments",
                                      "-fsyntax-only",
                                      "-fno-caret-diagnostics",
-                                     "-Werror=unknown-warning-option" };
+                                     "-Werror=unknown-warning-option",
+                                     "-Wno-pragma-once-outside-header" };
     flags.insert(flags.end(), arguments.begin(), arguments.end());
     clang::tooling::FixedCompilationDatabase database(cwd, flags);
     clang::tooling::ClangTool tool(database, { input });
@@ -662,8 +716,12 @@ int main(int argc, const char** argv)
     facts.provenance["frontend_version"]  = clang::getClangFullVersion();
     facts.provenance["language_standard"] = "c++17";
     facts.provenance["working_directory"] = cwd.str().str();
-    facts.provenance["environment"]       = std::move(environment);
-    int result                            = tool.run(&factory);
+    Object pathRoots;
+    for (const auto& entry : roots)
+        pathRoots[entry.first] = entry.second;
+    facts.provenance["path_roots"]  = std::move(pathRoots);
+    facts.provenance["environment"] = std::move(environment);
+    int result                      = tool.run(&factory);
     if (result && !facts.failed)
         facts.diagnose("error", "ICG_FRONTEND_FAILED", "Clang invocation did not complete");
     if (!facts.failed && !facts.provenance.getString("translation_unit"))

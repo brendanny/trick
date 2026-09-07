@@ -83,9 +83,9 @@ namespace trick::icg
             if (const auto* fixed = llvm::dyn_cast<clang::ConstantArrayType>(raw))
             {
                 const auto& size = fixed->getSize();
-                if (size.getActiveBits() > 63)
+                if (size.getActiveBits() > 64)
                 {
-                    unsupported(owner, "Array extent exceeds the supported JSON integer range");
+                    unsupported(owner, "Array extent exceeds the supported 64-bit range");
                     return { };
                 }
                 node.extent = size.getZExtValue();

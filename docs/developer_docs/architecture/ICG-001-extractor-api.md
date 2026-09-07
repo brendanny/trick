@@ -15,6 +15,11 @@ inside one C++17 extractor process regardless of the frontend API.
 The stable libclang C API was preferred if it could satisfy this contract without
 recovering semantics from type spellings. A focused LLVM 17.0.6 probe exercises
 the relevant API in [`tools/icg_capability`](../../../tools/icg_capability/README.md).
+This decision reverses that earlier preference for a `libclang.so` C API
+extractor. The compatibility floor is LLVM 17: the probe assesses capabilities
+available at that floor, and does not claim that later C APIs have identical
+limits. The checked-in plan's revision history records a floor change from LLVM
+14 to 17; no LLVM 20+ capability claim is implied by this evidence.
 
 ## Decision
 
@@ -33,7 +38,7 @@ on C API behavior elsewhere.
 |---|---|---|
 | Fields and immediate layout | Field offset query succeeded | C API sufficient for this fact |
 | Base discovery and virtuality | All four bases and both virtual bases were found | C API sufficient for identity/virtuality |
-| Base layout | The field-offset cursor API returned `-1` for every base cursor | Cannot reproduce inherited legacy offsets |
+| Base layout | `clang_Type_getOffsetOf(Diamond, "left")` and `(..., "root")` return `-5` (`InvalidFieldName`) for ordinary and virtual inherited fields; direct-field controls succeed | Cannot recover flattened inherited legacy offsets through named-field lookup |
 | Explicit special members | Deleted/defaulted default constructors were distinguished | C API sufficient when declarations exist |
 | Implicit special members | `ImplicitSpecial` exposed no constructor cursor | Cannot reproduce current constructibility logic |
 | Type/integral template arguments and partial specializations | Structurally exposed with exact integral value | C API sufficient for these cases |
@@ -46,13 +51,19 @@ pack elements are required by the owned type graph. Type-spelling parsing would
 violate the structured-semantics requirement. Moving immediately to runtime v2
 would couple the extractor rewrite to a separate runtime migration.
 
+The strengthened layout probe uses the type-based named-field API, with
+`Root.root == 0` and matching nonnegative type/cursor offsets for `Diamond.own`
+as controls. The original cursor query still returns `-1` for base cursors, as
+expected for a field-only API; that result alone is not the layout argument.
+
 ## Consequences
 
 - The adapter uses LLVM's C++ API and needs explicit adapters when a supported
   LLVM upgrade breaks source compatibility.
 - The owned IR and process boundary contain that source/API churn.
 - The extractor target must compile as C++17 with GCC 8.5 and the maintained
-  GCC 12 lane; this remains a separate blocking probe.
+  GCC 12 lane; both now have CI host-build and extractor-test jobs using Rocky
+  Linux 8 and LLVM 17. GCC layout/generated-operation conformance remains separate.
 - A later runtime metadata design may reduce the need for raw base offsets, but
   that does not reopen this decision unless the full required capability suite
   changes.

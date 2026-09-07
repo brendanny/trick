@@ -1,0 +1,6 @@
+# Shared by the existing style workflow and the ICG push workflow.
+required-version = "==0.16.6"
+preview = true
+
+[lint]
+select = ["I"]

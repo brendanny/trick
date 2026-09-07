@@ -8,6 +8,7 @@ class EvaluateTests(unittest.TestCase):
     def document(self):
         observations = dict(evaluate.EXPECTED)
         observations["diamond_own_offset"] = 224
+        observations["diamond_type_own_offset"] = 224
         return {
             "schema_version": 1,
             "frontend": {"api": "libclang-c", "version": "clang version 17.0.6"},
@@ -26,6 +27,8 @@ class EvaluateTests(unittest.TestCase):
         for mutation in (
             lambda value: value["observations"].update(base_specifiers=3),
             lambda value: value["observations"].update(diamond_own_offset=-1),
+            lambda value: value["observations"].update(diamond_type_own_offset=0),
+            lambda value: value["observations"].update(diamond_inherited_left=0),
             lambda value: value.update(schema_version=2),
             lambda value: value["frontend"].update(version="clang version 18.0.0"),
         ):

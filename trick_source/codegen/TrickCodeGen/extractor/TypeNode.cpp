@@ -1,11 +1,12 @@
 #include "TypeNode.hh"
 
+#include "Facts.hh"
+
 namespace trick::icg
 {
 
     llvm::json::Object TypeNode::json() const
     {
-        using llvm::json::Array;
         using llvm::json::Object;
         const char* name = "builtin";
         switch (kind)
@@ -51,7 +52,7 @@ namespace trick::icg
             break;
         case TypeKind::Array:
             result["element_id"] = childID;
-            result["extents"]    = extent ? Array { *extent } : Array { "incomplete" };
+            result["extent"]     = extent ? unsignedInteger(*extent) : llvm::json::Value(nullptr);
             break;
         case TypeKind::Builtin:
             break;

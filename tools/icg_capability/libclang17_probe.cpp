@@ -65,6 +65,10 @@ namespace
             std::vector<long long> base_offset_queries;
             int diamond_bases                   = 0;
             long long diamond_own_offset        = -1;
+            long long root_type_offset          = -1;
+            long long diamond_type_own_offset   = -1;
+            long long diamond_inherited_left    = 0;
+            long long diamond_inherited_root    = 0;
             int implicit_special_constructors   = 0;
             int deleted_default_constructors    = 0;
             int defaulted_default_constructors  = 0;
@@ -101,6 +105,15 @@ namespace
         if (parent.empty())
         {
             parent = spelling(lexical_parent);
+        }
+        if (kind == CXCursor_StructDecl && name == "Root")
+            observations.root_type_offset = clang_Type_getOffsetOf(clang_getCursorType(cursor), "root");
+        if (kind == CXCursor_StructDecl && name == "Diamond")
+        {
+            auto type                            = clang_getCursorType(cursor);
+            observations.diamond_type_own_offset = clang_Type_getOffsetOf(type, "own");
+            observations.diamond_inherited_left  = clang_Type_getOffsetOf(type, "left");
+            observations.diamond_inherited_root  = clang_Type_getOffsetOf(type, "root");
         }
 
         if (kind == CXCursor_CXXBaseSpecifier)
@@ -285,6 +298,10 @@ int main(int argc, char** argv)
               << "    \"diagnostics_errors\": " << observations.diagnostics_errors << ",\n"
               << "    \"diamond_bases\": " << observations.diamond_bases << ",\n"
               << "    \"diamond_own_offset\": " << observations.diamond_own_offset << ",\n"
+              << "    \"diamond_type_own_offset\": " << observations.diamond_type_own_offset << ",\n"
+              << "    \"diamond_inherited_left\": " << observations.diamond_inherited_left << ",\n"
+              << "    \"diamond_inherited_root\": " << observations.diamond_inherited_root << ",\n"
+              << "    \"root_type_offset\": " << observations.root_type_offset << ",\n"
               << "    \"fixed_bit_width\": " << observations.fixed_bit_width << ",\n"
               << "    \"friend_declarations\": " << observations.friend_declarations << ",\n"
               << "    \"implicit_special_constructors\": " << observations.implicit_special_constructors << ",\n"
