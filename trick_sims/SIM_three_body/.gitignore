@@ -1,0 +1,15 @@
+/build/
+/S_main*
+/Makefile
+/makefile
+/RUN_*/log_*
+/RUN_*/S_job_execution
+/RUN_*/input.py.orig
+/RUN_*/s_job_execution
+/RUN_*/send_hs
+/RUN_*/timeline*
+/RUN_*/frame_log*
+/RUN_*/sch_*
+/RUN_*/S_run_summary
+/RUN_*/S_memory_init
+/RUN_*/S_resource

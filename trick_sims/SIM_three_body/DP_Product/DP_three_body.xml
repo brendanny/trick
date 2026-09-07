@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE product PUBLIC "-//Tricklab//DTD Product V1.0//EN" "Product.dtd">
+<product version="1.0">
+    <title>Three-body dynamics</title>
+    <page>
+        <title>Trajectories and energy</title>
+        <plot grid="Yes">
+            <title>XY trajectories (normalized units in the supplied examples)</title>
+            <xaxis><label>X</label></xaxis>
+            <yaxis><label>Y</label></yaxis>
+            <curve>
+                <var>dyn.system.position[0][0]</var>
+                <var label="Body 0" line_color="#0072b2">dyn.system.position[0][1]</var>
+            </curve>
+            <curve>
+                <var>dyn.system.position[1][0]</var>
+                <var label="Body 1" line_color="#d55e00">dyn.system.position[1][1]</var>
+            </curve>
+            <curve>
+                <var>dyn.system.position[2][0]</var>
+                <var label="Body 2" line_color="#009e73">dyn.system.position[2][1]</var>
+            </curve>
+        </plot>
+        <plot grid="Yes">
+            <title>Total energy</title>
+            <xaxis><label>Time</label></xaxis>
+            <yaxis><label>Energy</label></yaxis>
+            <curve>
+                <var>sys.exec.out.time</var>
+                <var label="Kinetic + potential">dyn.system.total_energy</var>
+            </curve>
+        </plot>
+    </page>
+</product>

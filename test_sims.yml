@@ -35,6 +35,14 @@ SIM_satellite:
   path: trick_sims/SIM_satellite
 
 # Normal case compile and run sims
+SIM_three_body:
+  path: trick_sims/SIM_three_body
+  runs:
+    RUN_figure_eight/input.py:
+      returns: 0
+      analyze: "python3 trick_sims/SIM_three_body/tests/test_sim.py"
+    RUN_lagrange/input.py:
+      returns: 0
 SIM_demo_sdefine:
   path: test/SIM_demo_sdefine
   build_args: "-t"

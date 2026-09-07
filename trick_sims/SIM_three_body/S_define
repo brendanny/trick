@@ -1,0 +1,30 @@
+/************************** TRICK HEADER *************************
+PURPOSE:
+    (Integrate three mutually gravitating point masses in three dimensions.)
+LIBRARY DEPENDENCIES:
+    ((models/ThreeBody.cpp))
+*****************************************************************/
+#define TRICK_NO_MONTE_CARLO
+#define TRICK_NO_MASTERSLAVE
+#define TRICK_NO_INSTRUMENTATION
+#define TRICK_NO_REALTIMEINJECTOR
+#define TRICK_NO_ZEROCONF
+#include "sim_objects/default_trick_sys.sm"
+
+##include "models/ThreeBody.hh"
+
+class ThreeBodySimObject : public Trick::SimObject {
+    public:
+        ThreeBody system;
+
+        ThreeBodySimObject() {
+            ("default_data") system.default_data();
+            ("initialization") system.initialize();
+            ("derivative") system.derivative();
+            ("integration") trick_ret = system.integrate_state();
+            ("post_integration") system.diagnostics();
+        }
+};
+
+ThreeBodySimObject dyn;
+IntegLoop dyn_integloop(0.001) dyn;
