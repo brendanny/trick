@@ -305,7 +305,10 @@ different most-derived objects. This runs in the GCC 8.5/12 host lanes as well a
 Linux/macOS lanes. It is focused layout evidence, not completion of the general
 GCC generated-operation conformance gate. Private/protected casts are deliberately
 not attempted. The intentionally ambiguous `Mixed` fixture keeps
-`-Winaccessible-base` nonfatal; all other enabled compiler warnings are errors.
+`-Winaccessible-base` nonfatal after a compiler feature check. GCC 8 instead uses
+the older `-Wextra` category: only the native probe enables a diagnostic pragma
+scoped to that one fixture declaration. Other warnings remain errors; extraction
+does not enable this fixture exception.
 When invoking `tests/test_extract.py` directly, pass `--layout-compiler /path/to/c++`;
 omitting it explicitly skips this one test. The probe requires a native compiler,
 not a cross-compiled executable.

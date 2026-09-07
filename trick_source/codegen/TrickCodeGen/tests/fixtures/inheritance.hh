@@ -49,10 +49,19 @@ namespace inheritance
     {
             double extra[3];
     };
+#ifdef ICG_LAYOUT_LEGACY_BASE_WARNING
+// GCC 8 diagnoses ambiguous virtual bases under -Wextra. Only the native
+// probe enables this exception; extraction keeps its own visible diagnostics.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wextra"
+#endif
     struct Mixed : Left, VLeft
     {
             int own;
     };
+#ifdef ICG_LAYOUT_LEGACY_BASE_WARNING
+#pragma GCC diagnostic pop
+#endif
     struct NestedVirtual : virtual VLeft
     {
             short inner;

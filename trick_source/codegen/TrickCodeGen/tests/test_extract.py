@@ -1327,6 +1327,29 @@ class ExtractTests(unittest.TestCase):
         probe = self.root / "layout.cpp"
         probe.write_text("\n".join(statements))
         executable = self.root / "layout-probe"
+        warning_option = "-Wno-error=inaccessible-base"
+        warning_check = subprocess.run(
+            [
+                str(LAYOUT_COMPILER),
+                "-std=c++17",
+                "-Werror",
+                warning_option,
+                "-x",
+                "c++",
+                "-fsyntax-only",
+                "-",
+            ],
+            input="int probe;\n",
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        if warning_check.returncode:
+            self.assertIn("inaccessible-base", warning_check.stderr)
+            # GCC 8 has no dedicated option; the fixture narrowly scopes its
+            # legacy -Wextra exception to Mixed, not the whole translation unit.
+            warning_option = "-DICG_LAYOUT_LEGACY_BASE_WARNING"
         result = subprocess.run(
             [
                 str(LAYOUT_COMPILER),
@@ -1337,7 +1360,7 @@ class ExtractTests(unittest.TestCase):
                 "-Werror",
                 # Mixed intentionally has two Root subobjects. Individual cast
                 # paths are legal; preserve its expected ambiguity warning.
-                "-Wno-error=inaccessible-base",
+                warning_option,
                 str(probe),
                 "-o",
                 str(executable),
