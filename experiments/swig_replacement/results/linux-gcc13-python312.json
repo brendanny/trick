@@ -1,0 +1,1467 @@
+{
+  "base_commit": "c5ba06ea79a8a9ecc3fa4938fd45a77b1e7b9e43",
+  "platform": "Linux-6.18.35-x86_64-with-glibc2.39",
+  "python": "3.12.13",
+  "packages": {
+    "pybind11": "3.1.0",
+    "nanobind": "3.0.1",
+    "Cython": "3.3.0",
+    "cffi": "2.1.1",
+    "shiboken6": "6.11.2",
+    "shiboken6-generator": "6.11.2",
+    "cppyy": "3.5.0",
+    "CPyCppyy": "1.13.0",
+    "cppyy-cling": "6.32.8",
+    "cppyy-backend": "1.15.3"
+  },
+  "toolchain": {
+    "cxx": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0",
+    "flex": "flex 2.6.4",
+    "bison": "bison (GNU Bison) 3.8.2",
+    "cmake": "cmake version 4.4.3"
+  },
+  "build": {
+    "configure": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 1.7429950829973677,
+      "log": "logs/configure.log"
+    },
+    "fixture": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 11.61165797799913,
+      "log": "logs/fixture.log"
+    },
+    "pybind": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 11.911180394999974,
+      "log": "logs/pybind.log"
+    },
+    "nanobind": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 6.251624395998078,
+      "log": "logs/nanobind.log"
+    },
+    "cpython": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 1.4074672639981145,
+      "log": "logs/cpython.log"
+    },
+    "abi": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 1.1226838049988146,
+      "log": "logs/abi.log"
+    },
+    "cython": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 6.924004963002517,
+      "log": "logs/cython.log"
+    },
+    "nanobind_default_init": {
+      "status": "observed_limitation",
+      "exit_code": 1,
+      "seconds": 1.121084805999999,
+      "log": "logs/nanobind_default_init.log"
+    },
+    "shiboken_generate": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 0.2668596260045888,
+      "log": "logs/shiboken_generate.log"
+    },
+    "shiboken": {
+      "status": "pass",
+      "exit_code": 0,
+      "seconds": 9.201630973999272,
+      "log": "logs/shiboken.log"
+    }
+  },
+  "runs": [
+    {
+      "backend": "pybind",
+      "mode": "import",
+      "startup_seconds": 0.017949385997781064,
+      "checked_get_ns": 133.91850006883033,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.0035487269997247495
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 2.1469997591339052e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "pass",
+          "detail": "Python isinstance recognizes both C++ bases.",
+          "seconds": 1.3821001630276442e-05
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.00115403800009517
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0013947500046924688
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0013052089998382144
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 4.6387001930270344e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.6507998225279152e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0014190570000209846
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.0001029659979394637
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 7.268000626936555e-05
+        },
+        "live_vector": {
+          "status": "pass",
+          "detail": "Opaque/live vector property mutates C++ storage and retains Python-owned parent.",
+          "seconds": 0.0018581620024633594
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 6.161993951536715e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.08179144099995028,
+      "log": "logs/pybind-import.log"
+    },
+    {
+      "backend": "pybind",
+      "mode": "embed",
+      "startup_seconds": 0.006667761997960042,
+      "checked_get_ns": 153.44679995905608,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.0014263300035963766
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 1.2452997907530516e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "pass",
+          "detail": "Python isinstance recognizes both C++ bases.",
+          "seconds": 5.251000402495265e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0007828480011085048
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0007358779985224828
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0008843039977364242
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 3.903600008925423e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.6687998140696436e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0001699069980531931
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.00020165499881841242
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 9.117699664784595e-05
+        },
+        "live_vector": {
+          "status": "pass",
+          "detail": "Opaque/live vector property mutates C++ storage and retains Python-owned parent.",
+          "seconds": 0.0018362049959250726
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 5.855996278114617e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.08340538199990988,
+      "log": "logs/pybind-embed.log"
+    },
+    {
+      "backend": "nanobind",
+      "mode": "import",
+      "startup_seconds": 0.014768831999390386,
+      "checked_get_ns": 96.64090030128136,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.0016817029973026365
+        },
+        "secondary_base_cast": {
+          "status": "limitation",
+          "detail": "Observed: second-base implicit conversion rejected; Right has a nonzero C++ offset.",
+          "seconds": 3.6580000596586615e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "Observed: Model is not an instance of the registered secondary base Right.",
+          "seconds": 5.27279989910312e-05
+        },
+        "default_custom_allocator": {
+          "status": "limitation",
+          "detail": "Default nb::init does not compile with TRICK_MM_INTERFACE (separate compile probe); nb::new_ factory constructor passed registration/destruction checks here.",
+          "seconds": 0.014785951003432274
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0015532300021732226
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0024844529980327934
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 6.551800470333546e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.7806996766012162e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0005585979961324483
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.00016263799625448883
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 0.00021403300343081355
+        },
+        "live_vector": {
+          "status": "pass",
+          "detail": "Opaque/live vector property mutates C++ storage and retains Python-owned parent.",
+          "seconds": 0.0032682519959053025
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 7.657996320631355e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.09337196400156245,
+      "log": "logs/nanobind-import.log"
+    },
+    {
+      "backend": "nanobind",
+      "mode": "embed",
+      "startup_seconds": 0.010514770001464058,
+      "checked_get_ns": 260.96290021087043,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.00400112199713476
+        },
+        "secondary_base_cast": {
+          "status": "limitation",
+          "detail": "Observed: second-base implicit conversion rejected; Right has a nonzero C++ offset.",
+          "seconds": 3.9002996345516294e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "Observed: Model is not an instance of the registered secondary base Right.",
+          "seconds": 7.4699928518384695e-06
+        },
+        "default_custom_allocator": {
+          "status": "limitation",
+          "detail": "Default nb::init does not compile with TRICK_MM_INTERFACE (separate compile probe); nb::new_ factory constructor passed registration/destruction checks here.",
+          "seconds": 0.001755992001562845
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0008182450037566014
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0016207549997488968
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 5.215800047153607e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.3937999028712511e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.00038137700175866485
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.0007172730038291775
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 5.728100222768262e-05
+        },
+        "live_vector": {
+          "status": "pass",
+          "detail": "Opaque/live vector property mutates C++ storage and retains Python-owned parent.",
+          "seconds": 0.001711652999802027
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 5.087000317871571e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.08502164200035622,
+      "log": "logs/nanobind-embed.log"
+    },
+    {
+      "backend": "reflection",
+      "mode": "import",
+      "startup_seconds": 0.01108957000542432,
+      "checked_get_ns": 79.49670034577139,
+      "cases": {
+        "native_model": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 1.0589996236376464e-05
+        },
+        "secondary_base_cast": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 2.881999535020441e-06
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 1.1180018191225827e-06
+        },
+        "default_custom_allocator": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 1.2310047168284655e-06
+        },
+        "owned_factory": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 1.476997567806393e-06
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.002150889005861245
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 5.0394999561831355e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.5074998373165727e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0007953749955049716
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.00013252599455881864
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 6.605099770240486e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 4.068002454005182e-06
+        },
+        "reflection_syntax": {
+          "status": "pass",
+          "detail": "Property reads/writes resolve real ATTRIBUTES; callable uses representative typed thunk.",
+          "seconds": 5.63790017622523e-05
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.06293243200343568,
+      "log": "logs/reflection-import.log"
+    },
+    {
+      "backend": "reflection",
+      "mode": "embed",
+      "startup_seconds": 0.009203583002090454,
+      "checked_get_ns": 141.50959977996536,
+      "cases": {
+        "native_model": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 1.2183998478576541e-05
+        },
+        "secondary_base_cast": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 3.2320022000931203e-06
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 1.0570001904852688e-06
+        },
+        "default_custom_allocator": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 1.2880045687779784e-06
+        },
+        "owned_factory": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 6.141100311651826e-05
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0025126029941020533
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 6.72069945721887e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.7411999579053372e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.00020931800099788234
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.0011458009976195171
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 8.250300015788525e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "Generic records intentionally expose data and selected thunks; no native Python Model class.",
+          "seconds": 4.653003998100758e-06
+        },
+        "reflection_syntax": {
+          "status": "pass",
+          "detail": "Property reads/writes resolve real ATTRIBUTES; callable uses representative typed thunk.",
+          "seconds": 4.530199657892808e-05
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.10425224200298544,
+      "log": "logs/reflection-embed.log"
+    },
+    {
+      "backend": "cpython",
+      "mode": "import",
+      "startup_seconds": 0.009179622997180559,
+      "checked_get_ns": 74.69470001524314,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.001449845003662631
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 9.256100020138547e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "This adapter implements explicit base-pointer casts, not a Python multiple-inheritance hierarchy.",
+          "seconds": 4.980996891390532e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0009131289989454672
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0008682719999342225
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0008403449974139221
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 3.6382996768224984e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.4132994692772627e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0005469050011015497
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 6.839999696239829e-05
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 5.342600343283266e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "This adapter exposes vector methods only; a native live container property is not implemented.",
+          "seconds": 4.474000888876617e-06
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 1.181004336103797e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.0892085430023144,
+      "log": "logs/cpython-import.log"
+    },
+    {
+      "backend": "cpython",
+      "mode": "embed",
+      "startup_seconds": 0.007681060000322759,
+      "checked_get_ns": 81.91390006686561,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.0018089829973177984
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 9.513998520560563e-06
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "This adapter implements explicit base-pointer casts, not a Python multiple-inheritance hierarchy.",
+          "seconds": 6.038993888068944e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0008804780009086244
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.000771405000705272
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0008844159965519793
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 3.238600038457662e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.353900006506592e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0001886810059659183
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.0004081149963894859
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 5.74529985897243e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "This adapter exposes vector methods only; a native live container property is not implemented.",
+          "seconds": 4.770001396536827e-06
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 1.439002517145127e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.06941626300249482,
+      "log": "logs/cpython-embed.log"
+    },
+    {
+      "backend": "shiboken",
+      "mode": "import",
+      "startup_seconds": 0.09622647699870868,
+      "checked_get_ns": 227.21319983247668,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.004963929997757077
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 2.5330002245027572e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "pass",
+          "detail": "Python isinstance recognizes both C++ bases.",
+          "seconds": 5.889996828045696e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0023563129943795502
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0018409980038995855
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0022801969971624203
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 5.1669005188159645e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.359700399916619e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0004391249967738986
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 6.920599844306707e-05
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 5.149099888512865e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "This adapter exposes vector methods only; a native live container property is not implemented.",
+          "seconds": 4.94800042361021e-06
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 2.3880056687630713e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.2162172759999521,
+      "log": "logs/shiboken-import.log"
+    },
+    {
+      "backend": "shiboken",
+      "mode": "embed",
+      "startup_seconds": 0.09505778499442386,
+      "checked_get_ns": 222.5585005362518,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.005411372003436554
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 2.202500036219135e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "pass",
+          "detail": "Python isinstance recognizes both C++ bases.",
+          "seconds": 6.595997547265142e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0020223239989718422
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0033143769978778437
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.003250938003475312
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 5.2634000894613564e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.4843993994873017e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.00015897999401204288
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 7.62229974498041e-05
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 5.863900150870904e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "This adapter exposes vector methods only; a native live container property is not implemented.",
+          "seconds": 5.303998477756977e-06
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 2.444001438561827e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.20744359999662265,
+      "log": "logs/shiboken-embed.log"
+    },
+    {
+      "backend": "cppyy",
+      "mode": "import",
+      "startup_seconds": 0.5953739180040429,
+      "checked_get_ns": 90.98119990085252,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.08833948000392411
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 0.019106568994175177
+        },
+        "python_multiple_inheritance": {
+          "status": "pass",
+          "detail": "Python isinstance recognizes both C++ bases.",
+          "seconds": 2.8099006158299744e-05
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.03432567600248149
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.008040785003686324
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.060623466000834014
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 0.007366739999270067
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 7.526499393861741e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.022880287004227284
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.000441266005509533
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 0.01987745500082383
+        },
+        "live_vector": {
+          "status": "pass",
+          "detail": "Opaque/live vector property mutates C++ storage and retains Python-owned parent.",
+          "seconds": 0.03126740000152495
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 1.1014002666343004e-05
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.9535629379970487,
+      "log": "logs/cppyy-import.log"
+    },
+    {
+      "backend": "cppyy",
+      "mode": "embed",
+      "startup_seconds": 0.5381856849999167,
+      "checked_get_ns": 104.84059966984205,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.07397466999827884
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 0.014147489993774798
+        },
+        "python_multiple_inheritance": {
+          "status": "pass",
+          "detail": "Python isinstance recognizes both C++ bases.",
+          "seconds": 2.4066997866611928e-05
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0414434539998183
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.008583348993852269
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.08180171400454128
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 0.008107626999844797
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 7.284999446710572e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.02539536800031783
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.00010248600301565602
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 0.02190708199486835
+        },
+        "live_vector": {
+          "status": "pass",
+          "detail": "Opaque/live vector property mutates C++ storage and retains Python-owned parent.",
+          "seconds": 0.034548891002486926
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 1.1125994205940515e-05
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.9208864270040067,
+      "log": "logs/cppyy-embed.log"
+    },
+    {
+      "backend": "cython",
+      "mode": "import",
+      "startup_seconds": 0.007822627994755749,
+      "checked_get_ns": 42.85660033929162,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.001454691999242641
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 6.5209969761781394e-06
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "This adapter implements explicit base-pointer casts, not a Python multiple-inheritance hierarchy.",
+          "seconds": 4.638000973500311e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0008016700012376532
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0010169920060434379
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0009953850021702237
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 4.3940002797171474e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.4728000678587705e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.00019505999807734042
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 7.727200136287138e-05
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 6.84870028635487e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "This adapter exposes vector methods only; a native live container property is not implemented.",
+          "seconds": 4.4480038923211396e-06
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 1.3559983926825225e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.052588343001843896,
+      "log": "logs/cython-import.log"
+    },
+    {
+      "backend": "cython",
+      "mode": "embed",
+      "startup_seconds": 0.006447983003454283,
+      "checked_get_ns": 63.31599943223409,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.002379214005486574
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 8.525006705895066e-06
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "This adapter implements explicit base-pointer casts, not a Python multiple-inheritance hierarchy.",
+          "seconds": 5.793001037091017e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0008779230047366582
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.002139465999789536
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.001058408997778315
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 4.330299998400733e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 1.4885001291986555e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.00021453999943332747
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.0012389440016704611
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 8.882599649950862e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "This adapter exposes vector methods only; a native live container property is not implemented.",
+          "seconds": 5.456000508274883e-06
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 1.5289988368749619e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.06392281499574892,
+      "log": "logs/cython-embed.log"
+    },
+    {
+      "backend": "cffi",
+      "mode": "import",
+      "startup_seconds": 0.040210975996160414,
+      "checked_get_ns": 1043.5010997753125,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.003264407001552172
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 2.4171000404749066e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "This adapter implements explicit base-pointer casts, not a Python multiple-inheritance hierarchy.",
+          "seconds": 4.055000317748636e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0018550719978520647
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0021632780044456013
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0019414369962760247
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 6.819300324423239e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 2.300500636920333e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0002892479969887063
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 6.471199594670907e-05
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 6.180299533298239e-05
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "This adapter exposes vector methods only; a native live container property is not implemented.",
+          "seconds": 3.5199991543777287e-06
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 1.2870004866272211e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.12323873499553883,
+      "log": "logs/cffi-import.log"
+    },
+    {
+      "backend": "cffi",
+      "mode": "embed",
+      "startup_seconds": 0.04199164700548863,
+      "checked_get_ns": 1373.8984998781234,
+      "cases": {
+        "native_model": {
+          "status": "pass",
+          "detail": "Construct/mutate; both overloads; fixed array and vector methods; exception; one destructor.",
+          "seconds": 0.003239640995161608
+        },
+        "secondary_base_cast": {
+          "status": "pass",
+          "detail": "Both base-pointer calls return correct values across a nonzero secondary-base offset.",
+          "seconds": 2.6372996217105538e-05
+        },
+        "python_multiple_inheritance": {
+          "status": "limitation",
+          "detail": "This adapter implements explicit base-pointer casts, not a Python multiple-inheritance hierarchy.",
+          "seconds": 5.266003427095711e-06
+        },
+        "default_custom_allocator": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0018594809953356162
+        },
+        "owned_factory": {
+          "status": "pass",
+          "detail": "Real TRICK_MM_INTERFACE registered storage; Python ownership removed registration and destroyed exactly once.",
+          "seconds": 0.0022575029943254776
+        },
+        "borrowed_aliases": {
+          "status": "pass",
+          "detail": "Live aliases share actual MM storage; wrapper GC retains storage; bounds/deletion checked.",
+          "seconds": 0.0021585470021818765
+        },
+        "resize_invalidation": {
+          "status": "pass",
+          "detail": "Real MM resize preserves data; shared epoch rejects old handles; fresh handle sees new size.",
+          "seconds": 6.788500468246639e-05
+        },
+        "name_reuse_invalidation": {
+          "status": "pass",
+          "detail": "Allocation identity rejects stale aliases even when the name is reused.",
+          "seconds": 2.347999543417245e-05
+        },
+        "checkpoint_restore": {
+          "status": "pass",
+          "detail": "Actual ClassicCheckPointAgent serialized/restored C++ record and array; old handles rejected.",
+          "seconds": 0.0002792209998006001
+        },
+        "invalid_checkpoint": {
+          "status": "pass",
+          "detail": "Invalid checkpoint declaration propagates a Python exception through the adapter.",
+          "seconds": 0.00011237199942115694
+        },
+        "units": {
+          "status": "pass",
+          "detail": "UDUNITS scale, affine offset and incompatible-dimension exception.",
+          "seconds": 0.00014700800238642842
+        },
+        "live_vector": {
+          "status": "limitation",
+          "detail": "This adapter exposes vector methods only; a native live container property is not implemented.",
+          "seconds": 4.054003511555493e-06
+        },
+        "reflection_syntax": {
+          "status": "limitation",
+          "detail": "Generic attribute syntax is a separate architectural experiment; not added to this adapter.",
+          "seconds": 1.3879980542697012e-06
+        },
+        "final_lifetime_balance": {
+          "status": "pass",
+          "detail": {
+            "models": 0,
+            "allocated": 0,
+            "records": 0
+          }
+        }
+      },
+      "status": "pass",
+      "exit_code": 0,
+      "process_seconds": 0.12119520000123885,
+      "log": "logs/cffi-embed.log"
+    }
+  ],
+  "probes": [
+    {
+      "name": "nanobind_raw_ownership",
+      "status": "observed_limitation",
+      "evidence": {
+        "remaining_objects": 0,
+        "remaining_registrations": 1
+      }
+    }
+  ],
+  "artifact_bytes": {
+    "libpoc_abi.so": 27704,
+    "libpoc_fixture.so": 602184,
+    "poc_cpython.cpython-312-x86_64-linux-gnu.so": 30080,
+    "poc_cython.cpython-312-x86_64-linux-gnu.so": 159544,
+    "poc_embed": 22464,
+    "poc_nanobind.cpython-312-x86_64-linux-gnu.so": 168728,
+    "poc_pybind.cpython-312-x86_64-linux-gnu.so": 348624,
+    "poc_shiboken.cpython-312-x86_64-linux-gnu.so": 102032
+  }
+}

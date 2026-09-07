@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<typesystem package="poc_shiboken" exception-handling="auto-on">
+  <object-type name="POCLeft"/>
+  <object-type name="POCRight"/>
+  <rejection class="POCModel" field-name="samples"/>
+  <rejection class="POCModel" field-name="position"/>
+  <object-type name="POCModel" disable-wrapper="yes"/>
+  <object-type name="POCAllocated"/>
+  <value-type name="POCView"/>
+  <function signature="poc_initialize(const char*)">
+    <modify-function signature="poc_initialize(const char*)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_array(const char*,int)">
+    <modify-function signature="poc_array(const char*,int)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_managed(const char*,double)">
+    <modify-function signature="poc_managed(const char*,double)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_resize(const char*,int)">
+    <modify-function signature="poc_resize(const char*,int)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_erase(const char*)">
+    <modify-function signature="poc_erase(const char*)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_checkpoint()">
+    <modify-function signature="poc_checkpoint()" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_restore(const char*)">
+    <modify-function signature="poc_restore(const char*)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_convert(double,const char*,const char*)">
+    <modify-function signature="poc_convert(double,const char*,const char*)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_live_models()">
+    <modify-function signature="poc_live_models()" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_live_allocated()">
+    <modify-function signature="poc_live_allocated()" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_allocations()">
+    <modify-function signature="poc_allocations()" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_left(POCLeft*)">
+    <modify-function signature="poc_left(POCLeft*)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_right(POCRight*)">
+    <modify-function signature="poc_right(POCRight*)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_right_offset(POCModel*)">
+    <modify-function signature="poc_right_offset(POCModel*)" exception-handling="auto-on"/>
+  </function>
+  <function signature="poc_new_allocated(double)">
+    <modify-function signature="poc_new_allocated(double)" exception-handling="auto-on">
+      <modify-argument index="return"><define-ownership class="target" owner="target"/></modify-argument>
+    </modify-function>
+  </function>
+</typesystem>

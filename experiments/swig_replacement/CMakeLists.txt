@@ -1,0 +1,64 @@
+cmake_minimum_required(VERSION 3.20)
+project(trick_swig_replacement_poc LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development)
+find_package(FLEX REQUIRED)
+find_package(BISON REQUIRED)
+find_path(UDUNITS_INCLUDE udunits2.h REQUIRED)
+find_library(UDUNITS_LIBRARY udunits2 REQUIRED)
+get_filename_component(TRICK_ROOT ../.. ABSOLUTE)
+set(SERVICES ${TRICK_ROOT}/trick_source/sim_services)
+file(GLOB MM_SOURCES CONFIGURE_DEPENDS ${SERVICES}/MemoryManager/*.cpp ${SERVICES}/MemoryManager/*.c)
+set(PARSER_SOURCES)
+foreach(parser adef ref input)
+  if(parser STREQUAL input)
+    set(parser_dir ${SERVICES}/CheckPointAgent)
+  else()
+    set(parser_dir ${SERVICES}/MemoryManager)
+  endif()
+  BISON_TARGET(${parser} ${parser_dir}/${parser}_parser.y ${CMAKE_CURRENT_BINARY_DIR}/${parser}_parser.tab.cpp DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/${parser}_parser.tab.hpp)
+  FLEX_TARGET(${parser} ${parser_dir}/${parser}_parser.l ${CMAKE_CURRENT_BINARY_DIR}/${parser}_parser.lex.cpp)
+  ADD_FLEX_BISON_DEPENDENCY(${parser} ${parser})
+  list(APPEND PARSER_SOURCES ${BISON_${parser}_OUTPUTS} ${FLEX_${parser}_OUTPUTS})
+endforeach()
+add_library(poc_fixture SHARED src/fixture.cpp ${MM_SOURCES} ${PARSER_SOURCES}
+  ${SERVICES}/CheckPointAgent/ClassicCheckPointAgent.cpp
+  ${SERVICES}/CheckPointAgent/CheckPointAgent.cpp
+  ${SERVICES}/CheckPointAgent/ChkPtParseContext.cpp
+  ${SERVICES}/CheckPointAgent/PythonPrint.cpp
+  ${SERVICES}/UdUnits/UdUnits.cpp ${SERVICES}/UdUnits/map_trick_units_to_udunits.cpp
+  ${TRICK_ROOT}/trick_source/trick_utils/trick_adt/src/dllist.c)
+target_include_directories(poc_fixture PUBLIC include ${TRICK_ROOT}/include ${UDUNITS_INCLUDE} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(poc_fixture PUBLIC ${UDUNITS_LIBRARY} ${CMAKE_DL_LIBS} pthread)
+target_compile_definitions(poc_fixture PRIVATE TRICK_VER=1)
+target_link_options(poc_fixture PRIVATE -Wl,--no-undefined)
+
+execute_process(COMMAND ${Python_EXECUTABLE} -m pybind11 --cmakedir OUTPUT_VARIABLE PYBIND_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND ${Python_EXECUTABLE} -m nanobind --cmake_dir OUTPUT_VARIABLE NANO_DIR OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+find_package(pybind11 CONFIG REQUIRED PATHS ${PYBIND_DIR} NO_DEFAULT_PATH)
+find_package(nanobind CONFIG REQUIRED PATHS ${NANO_DIR} NO_DEFAULT_PATH)
+pybind11_add_module(poc_pybind src/pybind.cpp)
+nanobind_add_module(poc_nanobind src/nanobind.cpp)
+nanobind_add_module(poc_nanobind_default_init src/nanobind_default_init.cpp)
+set_target_properties(poc_nanobind_default_init PROPERTIES EXCLUDE_FROM_ALL TRUE)
+target_link_libraries(poc_nanobind_default_init PRIVATE poc_fixture)
+foreach(backend pybind nanobind)
+  target_link_libraries(poc_${backend} PRIVATE poc_fixture)
+endforeach()
+Python_add_library(poc_cpython MODULE WITH_SOABI src/cpython.cpp)
+target_link_libraries(poc_cpython PRIVATE poc_fixture)
+add_library(poc_abi SHARED src/abi.cpp)
+target_link_libraries(poc_abi PRIVATE poc_fixture)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cython.cpp
+  COMMAND ${Python_EXECUTABLE} -m cython --cplus -3 -o ${CMAKE_CURRENT_BINARY_DIR}/cython.cpp ${CMAKE_CURRENT_SOURCE_DIR}/python/poc_cython.pyx
+  DEPENDS python/poc_cython.pyx)
+Python_add_library(poc_cython MODULE WITH_SOABI ${CMAKE_CURRENT_BINARY_DIR}/cython.cpp)
+target_link_libraries(poc_cython PRIVATE poc_fixture)
+add_executable(poc_embed src/embed.cpp)
+target_link_libraries(poc_embed PRIVATE Python::Python pthread)
+target_link_options(poc_embed PRIVATE -Wl,--export-dynamic)
+
+# Shiboken is built independently so a generator failure cannot mask the other
+# experiments. build.py records it separately and continues the test matrix.
