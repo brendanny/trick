@@ -26,7 +26,8 @@ class ValidateTests(unittest.TestCase):
             lambda value: value.update(schema_version=2),
             lambda value: value.update(schema_version=3),
             lambda value: value.update(schema_version=4),
-            lambda value: value.update(schema_version=6),
+            lambda value: value.update(schema_version=5),
+            lambda value: value.update(schema_version=7),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)
@@ -153,6 +154,8 @@ class ValidateTests(unittest.TestCase):
         for value in (0, 9007199254740991, "9007199254740992", "18446744073709551615"):
             document = copy.deepcopy(self.fixture)
             document["declarations"][0]["size_bits"] = value
+            document["declarations"][0]["data_size_bits"] = value
+            document["declarations"][0]["non_virtual_size_bits"] = value
             ir.validate(self.schema, document)
         for value in (9007199254740992, "1", "0", "09007199254740992", -1):
             document = copy.deepcopy(self.fixture)
@@ -163,7 +166,17 @@ class ValidateTests(unittest.TestCase):
     def test_alias_underlying_type_must_match_canonical_target(self):
         document = self.pointer_document()
         alias = copy.deepcopy(document["declarations"][0])
-        for key in ("type_id", "complete", "field_ids", "nested_declaration_ids"):
+        for key in (
+            "type_id",
+            "complete",
+            "field_ids",
+            "nested_declaration_ids",
+            "bases",
+            "virtual_base_offsets",
+            "data_size_bits",
+            "non_virtual_size_bits",
+            "non_virtual_alignment_bits",
+        ):
             alias.pop(key)
         alias.update(
             id="decl:alias",
@@ -581,6 +594,187 @@ class ValidateTests(unittest.TestCase):
         document = copy.deepcopy(self.fixture)
         document["declarations"][0]["scoped"] = True
         with self.assertRaisesRegex(ValueError, "enum-only fields"):
+            ir.validate(self.schema, document)
+
+    def inheritance_document(self, virtual=False):
+        document = copy.deepcopy(self.fixture)
+        derived, field = document["declarations"]
+        base = copy.deepcopy(derived)
+        base.update(
+            id="decl:base",
+            canonical_declaration_id="decl:base",
+            name="Base",
+            qualified_name="Base",
+            usr="c:@S@Base",
+            type_id="type:base",
+            field_ids=[],
+        )
+        base_type = copy.deepcopy(document["types"][1])
+        base_type.update(
+            id="type:base",
+            canonical_id="type:base",
+            declaration_id="decl:base",
+            spelling="Base",
+        )
+        document["types"].append(base_type)
+        document["declarations"].append(base)
+        derived.update(
+            size_bits=64, data_size_bits=64, non_virtual_size_bits=32 if virtual else 64
+        )
+        field["offset_bits"] = 0 if virtual else 32
+        derived["bases"] = [
+            {
+                "declaration_id": "decl:base",
+                "type_id": "type:base",
+                "access": "public",
+                "written_access": "none",
+                "virtual": virtual,
+                "offset_bits": None if virtual else 0,
+                "source": copy.deepcopy(derived["source"]),
+            }
+        ]
+        if virtual:
+            derived["virtual_base_offsets"] = [
+                {"declaration_id": "decl:base", "offset_bits": 32}
+            ]
+        return document
+
+    def test_inheritance_types_and_targets_must_match(self):
+        ir.validate(self.schema, self.inheritance_document())
+        for change, message in (
+            ({"type_id": "type:int"}, "base type does not match"),
+            ({"declaration_id": "decl:sample.value"}, "complete non-union record"),
+        ):
+            document = self.inheritance_document()
+            document["declarations"][0]["bases"][0].update(change)
+            with self.assertRaisesRegex(ValueError, message):
+                ir.validate(self.schema, document)
+        document = self.inheritance_document()
+        document["declarations"][-1]["record_tag"] = "union"
+        with self.assertRaisesRegex(ValueError, "complete non-union record"):
+            ir.validate(self.schema, document)
+
+    def test_base_access_default_and_written_access_agree(self):
+        document = self.inheritance_document()
+        node = document["declarations"][0]
+        node["record_tag"] = "class"
+        with self.assertRaisesRegex(ValueError, "inconsistent base access"):
+            ir.validate(self.schema, document)
+        node["bases"][0]["access"] = "private"
+        ir.validate(self.schema, document)
+        node["bases"][0]["written_access"] = "public"
+        with self.assertRaisesRegex(ValueError, "inconsistent base access"):
+            ir.validate(self.schema, document)
+
+    def test_virtual_edges_and_complete_object_offsets_are_distinct(self):
+        ir.validate(self.schema, self.inheritance_document(virtual=True))
+        document = self.inheritance_document(virtual=True)
+        document["declarations"][0]["bases"][0]["offset_bits"] = 32
+        with self.assertRaisesRegex(ValueError, "virtual edge must not claim"):
+            ir.validate(self.schema, document)
+        for offset in (None, 65):
+            document = self.inheritance_document(virtual=True)
+            document["declarations"][0]["virtual_base_offsets"][0]["offset_bits"] = (
+                offset
+            )
+            with self.assertRaisesRegex(ValueError, "invalid complete-object offset"):
+                ir.validate(self.schema, document)
+        document = self.inheritance_document()
+        document["declarations"][0]["bases"][0]["offset_bits"] = None
+        with self.assertRaisesRegex(
+            ValueError, "nonvirtual base has an invalid offset"
+        ):
+            ir.validate(self.schema, document)
+
+    def test_duplicate_direct_bases_and_inheritance_cycles_are_rejected(self):
+        document = self.inheritance_document()
+        node = document["declarations"][0]
+        node["bases"].append(copy.deepcopy(node["bases"][0]))
+        with self.assertRaisesRegex(ValueError, "duplicate direct bases"):
+            ir.validate(self.schema, document)
+        document = self.inheritance_document()
+        node = document["declarations"][0]
+        node["bases"][0].update(declaration_id=node["id"], type_id=node["type_id"])
+        with self.assertRaisesRegex(ValueError, "inheritance cycle"):
+            ir.validate(self.schema, document)
+
+    def test_virtual_base_table_is_unique_and_matches_transitive_closure(self):
+        for virtual in (False, True):
+            document = self.inheritance_document(virtual=virtual)
+            node = document["declarations"][0]
+            node["virtual_base_offsets"] = (
+                [] if virtual else [{"declaration_id": "decl:base", "offset_bits": 32}]
+            )
+            with self.assertRaisesRegex(
+                ValueError, "inconsistent virtual base closure"
+            ):
+                ir.validate(self.schema, document)
+        document = self.inheritance_document(virtual=True)
+        table = document["declarations"][0]["virtual_base_offsets"]
+        table.append(copy.deepcopy(table[0]))
+        with self.assertRaisesRegex(ValueError, "unique and sorted"):
+            ir.validate(self.schema, document)
+        document = self.inheritance_document(virtual=True)
+        original, middle = document["declarations"][0], document["declarations"][-1]
+        deepest = copy.deepcopy(middle)
+        deepest.update(
+            id="decl:deep", canonical_declaration_id="decl:deep", type_id="type:deep"
+        )
+        deepest_type = copy.deepcopy(document["types"][-1])
+        deepest_type.update(
+            id="type:deep", canonical_id="type:deep", declaration_id="decl:deep"
+        )
+        document["declarations"].append(deepest)
+        document["types"].append(deepest_type)
+        middle["bases"] = [copy.deepcopy(original["bases"][0])]
+        middle["bases"][0].update(declaration_id="decl:deep", type_id="type:deep")
+        middle["virtual_base_offsets"] = [
+            {"declaration_id": "decl:deep", "offset_bits": 16}
+        ]
+        with self.assertRaisesRegex(ValueError, "inconsistent virtual base closure"):
+            ir.validate(self.schema, document)
+        original["virtual_base_offsets"].append({
+            "declaration_id": "decl:deep",
+            "offset_bits": 48,
+        })
+        ir.validate(self.schema, document)
+
+    def test_base_source_and_virtual_base_references_are_checked(self):
+        document = self.inheritance_document()
+        document["declarations"][0]["bases"][0]["source"]["spelling"]["file_id"] = (
+            "file:missing"
+        )
+        with self.assertRaisesRegex(ValueError, "dangling reference"):
+            ir.validate(self.schema, document)
+        document = self.inheritance_document(virtual=True)
+        document["declarations"][0]["virtual_base_offsets"][0]["declaration_id"] = (
+            "decl:missing"
+        )
+        with self.assertRaisesRegex(ValueError, "dangling reference"):
+            ir.validate(self.schema, document)
+
+    def test_record_subobject_layout_is_required_and_bounded(self):
+        for key in (
+            "data_size_bits",
+            "non_virtual_size_bits",
+            "non_virtual_alignment_bits",
+        ):
+            document = self.inheritance_document()
+            del document["declarations"][0][key]
+            with self.assertRaisesRegex(ValueError, "missing structural fields"):
+                ir.validate(self.schema, document)
+        for key, value in (
+            ("data_size_bits", 65),
+            ("non_virtual_size_bits", 65),
+            ("non_virtual_alignment_bits", 0),
+        ):
+            document = self.inheritance_document()
+            document["declarations"][0][key] = value
+            with self.assertRaisesRegex(ValueError, "inconsistent record layout sizes"):
+                ir.validate(self.schema, document)
+        document = self.inheritance_document()
+        document["declarations"][0]["complete"] = False
+        with self.assertRaisesRegex(ValueError, "incomplete record"):
             ir.validate(self.schema, document)
 
 

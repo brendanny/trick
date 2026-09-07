@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 5; the independent diagnostics envelope is v2.
+current facts schema is version 6; the independent diagnostics envelope is v2.
 
 The document contains frontend facts only:
 
@@ -179,3 +179,49 @@ implement accessor generation, inheritance, or callable extraction.
 
 Facts advance to v5; v1/v2/v3/v4 documents are rejected and the minimal fixture is
 migrated. The diagnostics envelope remains v2 because its shape is unchanged.
+
+## Inheritance and subobject layout: schema 6
+
+Extractor 0.6.0 adds non-template single, multiple, and virtual inheritance. A
+record's `bases` are direct, source-ordered edges: `declaration_id` identifies the
+canonical base record, while `type_id` retains a written typedef layer. Each edge
+records its base-specifier source range, virtualness, effective `access`, and
+`written_access`; `none` for the latter means the class/struct default was used.
+Base records enter the selected dependency closure and must be complete, non-union
+records. Unsupported members in that closure still reject the whole extraction.
+
+Nonvirtual `offset_bits` is relative to the owning record subobject. Virtual edges
+have null offsets because their target position depends on the most-derived type.
+Every record instead has a sorted, unique `virtual_base_offsets` table with the
+complete-object offsets of all its direct/indirect virtual bases. These positions
+apply only when this record is the most-derived object, never when embedded as a
+base subobject of another type. Virtual traversal must consult that most-derived
+table, not add an intermediate record's complete-object virtual offset.
+
+Shared virtual bases occur once in the table. Distinct nonvirtual subobjects of
+the same type remain distinct graph paths, even if a virtual copy also exists.
+Fields remain directly owned; inherited fields are not duplicated or assigned
+flattened identities. The schema does not encode hidden vptr/vbptr slots or grant
+permission for casts through inaccessible or ambiguous base paths.
+
+`data_size_bits`, `non_virtual_size_bits`, and `non_virtual_alignment_bits` retain
+Clang's record-layout quantities alongside complete-object size/alignment. Empty
+base optimization and reusable tail padding mean complete-object base sizes cannot
+be summed to validate member or subobject extents. Incomplete records have null
+layout quantities and empty base tables. All quantities retain exact v3 encoding.
+
+Validation checks canonical base types, default/written access, nonvirtual/virtual
+offset scope, complete non-union targets, duplicate direct bases, and inheritance
+cycles. A postorder graph traversal checks the exact transitive virtual-base set
+without enumerating every diamond path. Source/type declaration cycles remain
+independent of inheritance cycles.
+
+A native-compiler fixture probe compares actual size, alignment, and public
+base-path offsets, including repeated, shared, packed, empty, and tail-reusing
+subobjects. CTest runs it with the configured host compiler, including GCC 8.5/12
+CI lanes. This is focused evidence, not full GCC ABI/generated-operation parity.
+Explicit callables, templates, generated accessors, and legacy metadata flattening
+remain future work.
+
+Facts advance to v6; v1/v2/v3/v4/v5 documents are rejected and the minimal fixture
+is migrated. The diagnostics envelope remains v2.

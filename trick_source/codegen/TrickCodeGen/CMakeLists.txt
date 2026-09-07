@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(trick_icg_extract VERSION 0.5.0 LANGUAGES C CXX)
+project(trick_icg_extract VERSION 0.6.0 LANGUAGES C CXX)
 
 # Deliberately standalone: the legacy ICG remains the production build path.
 find_package(LLVM 17 REQUIRED CONFIG)
@@ -50,5 +50,6 @@ if(BUILD_TESTING)
     endforeach()
     add_test(NAME icg_extract_integration
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_extract.py"
-            --extractor "$<TARGET_FILE:trick-icg-extract>" ${ICG_TEST_ROOT_ARGS})
+            --extractor "$<TARGET_FILE:trick-icg-extract>"
+            --layout-compiler "${CMAKE_CXX_COMPILER}" ${ICG_TEST_ROOT_ARGS})
 endif()

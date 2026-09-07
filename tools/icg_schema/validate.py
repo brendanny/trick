@@ -47,6 +47,7 @@ def validate_graph(document: dict) -> None:
     quantities = [*types.values(), *declarations.values()]
     for node in declarations.values():
         quantities.extend(node.get("bases", []))
+        quantities.extend(node.get("virtual_base_offsets", []))
     for node in quantities:
         for field in (
             "extent",
@@ -54,6 +55,9 @@ def validate_graph(document: dict) -> None:
             "alignment_bits",
             "offset_bits",
             "bit_width",
+            "data_size_bits",
+            "non_virtual_size_bits",
+            "non_virtual_alignment_bits",
         ):
             value = node.get(field)
             if isinstance(value, str) and int(value) <= 9007199254740991:
@@ -117,6 +121,10 @@ def validate_graph(document: dict) -> None:
             require(base["declaration_id"], declarations, f"{context}.bases")
             require(base["type_id"], types, f"{context}.bases")
             source(base["source"], f"{context}.bases")
+        for base in node.get("virtual_base_offsets", []):
+            require(
+                base["declaration_id"], declarations, f"{context}.virtual_base_offsets"
+            )
         for parameter in node.get("parameters", []):
             require(parameter["type_id"], types, f"{context}.parameters")
         for annotation in node["annotations"]:
@@ -278,6 +286,16 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
         if kind != "namespace_alias" and "target_namespace_id" in node:
             raise ValueError(f"{node['id']} has a namespace-alias-only field")
         enum_fields = {"scoped", "underlying_fixed", "underlying_signed", "enumerators"}
+        record_layout_fields = {
+            "data_size_bits",
+            "non_virtual_size_bits",
+            "non_virtual_alignment_bits",
+        }
+        if (
+            kind != "record"
+            and (record_layout_fields | {"bases", "virtual_base_offsets"}) & node.keys()
+        ):
+            raise ValueError(f"{node['id']} has record-only layout fields")
         if kind != "enum" and enum_fields & node.keys():
             raise ValueError(f"{node['id']} has enum-only fields")
         if kind in {"record", "enum", "namespace"}:
@@ -392,7 +410,20 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                         f"{node['id']} enumerator is outside its underlying range"
                     )
         if kind == "record":
-            need(node, {"type_id", "complete", "field_ids", "nested_declaration_ids"})
+            need(
+                node,
+                {
+                    "type_id",
+                    "complete",
+                    "field_ids",
+                    "nested_declaration_ids",
+                    "bases",
+                    "virtual_base_offsets",
+                    "size_bits",
+                    "alignment_bits",
+                }
+                | record_layout_fields,
+            )
             record_type = types[node["type_id"]]
             if (
                 record_type["kind"] != "record"
@@ -404,10 +435,97 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                 or node["field_ids"]
                 or node.get("size_bits") is not None
                 or node.get("alignment_bits") is not None
+                or node["bases"]
+                or node["virtual_base_offsets"]
+                or any(node[key] is not None for key in record_layout_fields)
             ):
                 raise ValueError(
                     f"{node['id']} incomplete record claims a definition or layout"
                 )
+            if node["complete"]:
+                if not node["definition"] or any(
+                    node[key] is None
+                    for key in record_layout_fields | {"size_bits", "alignment_bits"}
+                ):
+                    raise ValueError(
+                        f"{node['id']} complete record requires definition and layout"
+                    )
+                if (
+                    int(node["data_size_bits"]) > int(node["size_bits"])
+                    or int(node["non_virtual_size_bits"]) > int(node["size_bits"])
+                    or int(node["alignment_bits"]) < 1
+                    or int(node["non_virtual_alignment_bits"]) < 1
+                ):
+                    raise ValueError(
+                        f"{node['id']} has inconsistent record layout sizes"
+                    )
+            if node.get("record_tag") == "union" and (
+                node["bases"] or node["virtual_base_offsets"]
+            ):
+                raise ValueError(f"{node['id']} union cannot have bases")
+            base_ids = [base["declaration_id"] for base in node["bases"]]
+            if len(base_ids) != len(set(base_ids)):
+                raise ValueError(f"{node['id']} has duplicate direct bases")
+            for base in node["bases"]:
+                target = declarations[base["declaration_id"]]
+                canonical = types[types[base["type_id"]]["canonical_id"]]
+                if (
+                    target["kind"] != "record"
+                    or not target.get("complete")
+                    or target.get("record_tag") == "union"
+                ):
+                    raise ValueError(
+                        f"{node['id']} base must be a complete non-union record"
+                    )
+                if (
+                    canonical["kind"] != "record"
+                    or canonical["declaration_id"] != target["id"]
+                    or any(canonical["qualifiers"].values())
+                ):
+                    raise ValueError(
+                        f"{node['id']} base type does not match its declaration"
+                    )
+                expected_access = base["written_access"]
+                if expected_access == "none":
+                    expected_access = (
+                        "private" if node.get("record_tag") == "class" else "public"
+                    )
+                if base["access"] != expected_access:
+                    raise ValueError(f"{node['id']} has inconsistent base access")
+                if base["virtual"]:
+                    if base["offset_bits"] is not None:
+                        raise ValueError(
+                            f"{node['id']} virtual edge must not claim a fixed offset"
+                        )
+                elif base["offset_bits"] is None or int(base["offset_bits"]) > int(
+                    node["size_bits"]
+                ):
+                    raise ValueError(
+                        f"{node['id']} nonvirtual base has an invalid offset"
+                    )
+            virtual_ids = [
+                base["declaration_id"] for base in node["virtual_base_offsets"]
+            ]
+            if virtual_ids != sorted(set(virtual_ids)):
+                raise ValueError(
+                    f"{node['id']} virtual base offsets must be unique and sorted"
+                )
+            for base in node["virtual_base_offsets"]:
+                target = declarations[base["declaration_id"]]
+                if (
+                    target["kind"] != "record"
+                    or not target.get("complete")
+                    or target.get("record_tag") == "union"
+                ):
+                    raise ValueError(
+                        f"{node['id']} virtual base must be a complete non-union record"
+                    )
+                if base["offset_bits"] is None or int(base["offset_bits"]) > int(
+                    node["size_bits"]
+                ):
+                    raise ValueError(
+                        f"{node['id']} virtual base has an invalid complete-object offset"
+                    )
             for field, expected in (
                 ("field_ids", {"field"}),
                 ("nested_declaration_ids", {"record", "alias", "enum", "callable"}),
@@ -508,6 +626,46 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                 "field_ids", []
             ):
                 raise ValueError(f"{node['id']} has inconsistent field ownership")
+
+    # Inheritance is acyclic even though record field/type dependencies may cycle.
+    # Validate the exact transitive virtual-base set in postorder, without
+    # enumerating exponentially many paths through repeated diamond inheritance.
+    records = {
+        key: node for key, node in declarations.items() if node["kind"] == "record"
+    }
+    virtual_sets = {}
+    for root_id in records:
+        active = set()
+        stack = [(root_id, False)]
+        while stack:
+            identifier, leaving = stack.pop()
+            if leaving:
+                active.remove(identifier)
+                node = records[identifier]
+                expected = set()
+                for base in node["bases"]:
+                    target = base["declaration_id"]
+                    expected.update(virtual_sets[target])
+                    if base["virtual"]:
+                        expected.add(target)
+                actual = {
+                    base["declaration_id"] for base in node["virtual_base_offsets"]
+                }
+                if actual != expected:
+                    raise ValueError(
+                        f"{identifier} has inconsistent virtual base closure"
+                    )
+                virtual_sets[identifier] = expected
+                continue
+            if identifier in active:
+                raise ValueError(f"inheritance cycle at {identifier}")
+            if identifier in virtual_sets:
+                continue
+            active.add(identifier)
+            stack.append((identifier, True))
+            stack.extend(
+                (base["declaration_id"], False) for base in records[identifier]["bases"]
+            )
 
     # Each context graph and namespace-alias chain must terminate. They are
     # independent of record/type dependency cycles, which are valid C++.

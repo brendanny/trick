@@ -24,6 +24,16 @@ VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
 EXTRACTOR: Path
 PATH_ROOTS: list[str] = []
+LAYOUT_COMPILER: Path | None = None
+
+
+def layout_compiler_path(value):
+    # Driver mode can depend on argv[0]: resolving clang++ to clang loses
+    # automatic C++ runtime linkage. Validate without dereferencing the name.
+    path = Path(value).absolute()
+    if not path.is_file() or not os.access(path, os.X_OK):
+        raise argparse.ArgumentTypeError(f"Compiler is not executable: {path}")
+    return path
 
 
 class ExtractTests(unittest.TestCase):
@@ -58,7 +68,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 5)
+        self.assertEqual(document["schema_version"], 6)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -254,7 +264,6 @@ class ExtractTests(unittest.TestCase):
     def test_unsupported_declarations_fail_closed(self):
         for source in (
             "struct Sample { void method(); };",
-            "struct Base {}; struct Sample: Base {};",
             "template<class T> struct Sample { T value; };",
             "namespace ns { void function(); }",
             "struct { int value; } anonymous;",
@@ -1097,6 +1106,256 @@ class ExtractTests(unittest.TestCase):
         self.assertFalse(nodes["model::Opaque"]["definition"])
         self.assertEqual(nodes["model::Packet::count"]["bit_width"], 5)
 
+    def inheritance_fixture(self, flags=()):
+        self.header.write_text((HERE / "fixtures/inheritance.hh").read_text())
+        return self.success(self.invoke(flags))
+
+    def test_direct_bases_preserve_order_alias_access_and_source(self):
+        document = self.inheritance_fixture(["--target=x86_64-unknown-linux-gnu"])
+        nodes = self.declarations(document)
+        derived = nodes["inheritance::Derived"]
+        self.assertEqual(
+            [b["declaration_id"] for b in derived["bases"]],
+            [nodes["inheritance::Root"]["id"], nodes["inheritance::Other"]["id"]],
+        )
+        self.assertEqual([b["offset_bits"] for b in derived["bases"]], [0, 64])
+        self.assertEqual([b["access"] for b in derived["bases"]], ["public", "public"])
+        self.assertEqual(
+            [b["written_access"] for b in derived["bases"]], ["none", "none"]
+        )
+        types = {t["id"]: t for t in document["types"]}
+        self.assertEqual(types[derived["bases"][0]["type_id"]]["kind"], "alias")
+        self.assertEqual(
+            derived["field_ids"], [nodes["inheritance::Derived::tail"]["id"]]
+        )
+        private = nodes["inheritance::Private"]["bases"][0]
+        protected = nodes["inheritance::Protected"]["bases"][0]
+        self.assertEqual(
+            (private["access"], private["written_access"]), ("private", "none")
+        )
+        self.assertEqual(
+            (protected["access"], protected["written_access"]),
+            ("protected", "protected"),
+        )
+        self.assertTrue(
+            all(
+                base["source"]["end"]["offset"] > base["source"]["spelling"]["offset"]
+                for base in derived["bases"]
+            )
+        )
+
+    def test_virtual_bases_use_complete_object_offsets_not_fixed_edges(self):
+        nodes = self.declarations(
+            self.inheritance_fixture(["--target=x86_64-unknown-linux-gnu"])
+        )
+        root_id = nodes["inheritance::Root"]["id"]
+        for name in ("VLeft", "VRight"):
+            edge = nodes[f"inheritance::{name}"]["bases"][0]
+            self.assertTrue(edge["virtual"])
+            self.assertIsNone(edge["offset_bits"])
+        for name in ("VLeft", "VRight", "Diamond", "Bigger"):
+            table = nodes[f"inheritance::{name}"]["virtual_base_offsets"]
+            self.assertEqual(len(table), 1)
+            self.assertEqual(table[0]["declaration_id"], root_id)
+            self.assertIsNotNone(table[0]["offset_bits"])
+        diamond = nodes["inheritance::Diamond"]
+        bigger = nodes["inheritance::Bigger"]
+        self.assertNotEqual(
+            diamond["virtual_base_offsets"][0]["offset_bits"],
+            bigger["virtual_base_offsets"][0]["offset_bits"],
+        )
+        self.assertLess(diamond["non_virtual_size_bits"], diamond["size_bits"])
+        nested = nodes["inheritance::NestedVirtual"]
+        self.assertEqual(
+            {v["declaration_id"] for v in nested["virtual_base_offsets"]},
+            {root_id, nodes["inheritance::VLeft"]["id"]},
+        )
+
+    def test_repeated_and_mixed_diamonds_preserve_distinct_paths(self):
+        nodes = self.declarations(self.inheritance_fixture())
+        repeated = nodes["inheritance::Repeated"]
+        self.assertEqual(repeated["virtual_base_offsets"], [])
+        self.assertEqual(len(repeated["bases"]), 2)
+        self.assertNotEqual(
+            repeated["bases"][0]["offset_bits"], repeated["bases"][1]["offset_bits"]
+        )
+        self.assertEqual(repeated["field_ids"], [])
+        mixed = nodes["inheritance::Mixed"]
+        self.assertEqual(len(mixed["bases"]), 2)
+        self.assertEqual(len(mixed["virtual_base_offsets"]), 1)
+        self.assertNotEqual(
+            mixed["bases"][0]["offset_bits"],
+            mixed["virtual_base_offsets"][0]["offset_bits"],
+        )
+
+    def test_empty_bases_packing_and_tail_padding_are_not_summed(self):
+        nodes = self.declarations(
+            self.inheritance_fixture(["--target=x86_64-unknown-linux-gnu"])
+        )
+        empty = nodes["inheritance::EmptyDerived"]
+        self.assertEqual(empty["bases"][0]["offset_bits"], 0)
+        self.assertEqual(nodes["inheritance::EmptyDerived::value"]["offset_bits"], 0)
+        self.assertEqual(empty["size_bits"], 32)
+        self.assertEqual(nodes["inheritance::PackedBase"]["size_bits"], 24)
+        self.assertEqual(nodes["inheritance::PackedChild::third"]["offset_bits"], 24)
+        self.assertLess(
+            nodes["inheritance::TailDerived::third"]["offset_bits"],
+            nodes["inheritance::TailBase"]["size_bits"],
+        )
+
+    def test_base_dependency_closure_selects_included_definitions_only(self):
+        (self.root / "base.hh").write_text(
+            "namespace N { struct Base { int value; }; struct Unused { void run(); }; }\n"
+        )
+        self.header.write_text(
+            '#include "base.hh"\nstruct Derived : N::Base { char own; };\n'
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertNotIn("N::Unused", nodes)
+        self.assertEqual(
+            nodes["Derived"]["bases"][0]["declaration_id"], nodes["N::Base"]["id"]
+        )
+        self.assertEqual(len(nodes["Derived"]["field_ids"]), 1)
+        self.assertEqual(nodes["N::Base"]["semantic_parent_id"], nodes["N"]["id"])
+
+    def test_forward_records_have_no_invented_base_layout(self):
+        self.header.write_text("struct Forward;\n")
+        node = self.declarations(self.success(self.invoke()))["Forward"]
+        self.assertEqual(node["bases"], [])
+        self.assertEqual(node["virtual_base_offsets"], [])
+        for key in (
+            "data_size_bits",
+            "non_virtual_size_bits",
+            "non_virtual_alignment_bits",
+        ):
+            self.assertIsNone(node[key])
+
+    def test_base_macros_anonymous_alias_and_relocation(self):
+        self.header.write_text(
+            "typedef struct { int value; } Base;\n#define BASE public Base\n"
+            "struct Derived : BASE { int own; };\n"
+        )
+        first_result = self.invoke()
+        first = self.success(first_result)
+        nodes = self.declarations(first)
+        self.assertTrue(nodes["Derived"]["bases"][0]["source"]["macro_expansion"])
+        self.assertEqual(first_result.stdout, self.invoke().stdout)
+        with tempfile.TemporaryDirectory(prefix="icg-bases-relocated-") as relocated:
+            shutil.copy2(self.header, Path(relocated) / self.header.name)
+            second = self.success(
+                self.invoke(cwd=relocated, options=["--source-root", relocated])
+            )
+            for key in ("declarations", "types"):
+                self.assertEqual(first[key], second[key])
+
+    def test_unsupported_base_members_and_dependent_bases_fail_closed(self):
+        for source in (
+            "struct Base { virtual void method(); }; struct Derived : Base {};",
+            "template<class T> struct Derived : T {};",
+            "template<class... T> struct Derived : T... {};",
+            "template<class T> struct Base {}; struct Derived : Base<int> {};",
+            "struct Forward; struct Derived : Forward {};",
+        ):
+            with self.subTest(source=source):
+                self.header.write_text(source)
+                self.failure(self.invoke())
+
+    def test_layout_compiler_preserves_driver_symlink_name(self):
+        driver = self.root / "clang++"
+        driver.symlink_to(EXTRACTOR)
+        self.assertEqual(layout_compiler_path(driver), driver.absolute())
+        self.assertNotEqual(layout_compiler_path(driver), driver.resolve())
+        for invalid in (self.root / "missing", self.header, self.root):
+            with (
+                self.subTest(path=invalid),
+                self.assertRaises(argparse.ArgumentTypeError),
+            ):
+                layout_compiler_path(invalid)
+
+    def test_host_compiler_inheritance_layout_matches_real_objects(self):
+        if LAYOUT_COMPILER is None:
+            self.skipTest(
+                "Pass --layout-compiler to compare native object layouts; CTest always supplies it"
+            )
+        document = self.inheritance_fixture()
+        records = {
+            n["id"]: n for n in document["declarations"] if n["kind"] == "record"
+        }
+        statements = [
+            '#include "record.hh"',
+            "#include <cstdio>",
+            "#include <cstdint>",
+            "#include <climits>",
+            "int main() {",
+        ]
+        checks = 0
+        for index, node in enumerate(records.values()):
+            name, variable = node["qualified_name"], f"object{index}"
+            statements.append(f"{name} {variable}{{}}; (void){variable};")
+            expressions = [
+                (f"sizeof({name}) * CHAR_BIT", node["size_bits"]),
+                (f"alignof({name}) * CHAR_BIT", node["alignment_bits"]),
+            ]
+            virtual = {
+                v["declaration_id"]: int(v["offset_bits"])
+                for v in node["virtual_base_offsets"]
+            }
+            # Walk distinct legal cast paths on real objects. A virtual edge
+            # resets to the most-derived table; never add a base's own vbase offset.
+            stack = [(node, f"&{variable}", 0)]
+            while stack:
+                owner, expression, offset = stack.pop()
+                for base in owner["bases"]:
+                    if base["access"] != "public":
+                        continue
+                    target = records[base["declaration_id"]]
+                    cast = f"static_cast<{target['qualified_name']}*>({expression})"
+                    expected = (
+                        virtual[target["id"]]
+                        if base["virtual"]
+                        else offset + int(base["offset_bits"])
+                    )
+                    distance = f"(reinterpret_cast<std::uintptr_t>({cast}) - reinterpret_cast<std::uintptr_t>(&{variable})) * CHAR_BIT"
+                    expressions.append((distance, expected))
+                    stack.append((target, cast, expected))
+            for expression, expected in expressions:
+                statements.append(
+                    f'if (({expression}) != {expected}) {{ std::printf("layout check {checks}: {name} failed\\n"); return 1; }}'
+                )
+                checks += 1
+        statements.append("return 0; }")
+        probe = self.root / "layout.cpp"
+        probe.write_text("\n".join(statements))
+        executable = self.root / "layout-probe"
+        result = subprocess.run(
+            [
+                str(LAYOUT_COMPILER),
+                "-std=c++17",
+                "-Wall",
+                "-Wextra",
+                "-Wpedantic",
+                "-Werror",
+                # Mixed intentionally has two Root subobjects. Individual cast
+                # paths are legal; preserve its expected ambiguity warning.
+                "-Wno-error=inaccessible-base",
+                str(probe),
+                "-o",
+                str(executable),
+            ],
+            text=True,
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr, end="")
+        result = subprocess.run(
+            [str(executable)], text=True, capture_output=True, timeout=30, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertGreater(checks, len(records) * 3)
+
     def test_real_resource_headers_survive_installation_relocation(self):
         self.header.write_text(
             "#include <stddef.h>\nstruct Sample { size_t value; };\n"
@@ -1205,7 +1464,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--extractor", required=True, type=Path)
     parser.add_argument("--path-root", action="append", default=[])
+    parser.add_argument("--layout-compiler", type=layout_compiler_path)
     args, remaining = parser.parse_known_args()
     EXTRACTOR = args.extractor.resolve(strict=True)
     PATH_ROOTS = args.path_root
+    LAYOUT_COMPILER = args.layout_compiler
     unittest.main(argv=[sys.argv[0], *remaining])

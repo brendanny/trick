@@ -10,7 +10,18 @@ incomplete-record layout, and direct type cycles. Each array node represents one
 dimension, with CVR qualification on its element. Recursive record references are
 valid; a pointer/alias graph cannot refer to itself without a record boundary.
 
-Facts schema version 5 adds enum type/declaration validation, exact decimal-string
+Facts schema version 6 validates source-ordered direct base edges, alias-preserving
+base types, effective/written access, complete non-union targets, and acyclic
+inheritance. Nonvirtual edges require fixed offsets; virtual edges must have null
+offsets. Each record's sorted, unique `virtual_base_offsets` table must match the
+exact transitive virtual-base set and describes only that record as a complete
+most-derived object. Record data/nonvirtual sizes and nonvirtual alignment are
+required, bounded frontend layout quantities; incomplete records claim none.
+Repeated nonvirtual paths are not flattened. The validator does not infer layout
+by adding complete-object base sizes, which would mishandle empty bases and reused
+tail padding.
+
+Version 5 added enum type/declaration validation, exact decimal-string
 enumerator values and annotations, complete-vs-defined opaque enum rules, and
 bitfield width/layout/non-addressability invariants. It validates integral
 underlying types, fixed builtin signedness (plain char/wchar_t remain target facts),
@@ -30,7 +41,7 @@ Named path roots, scalar `extent` (null for incomplete arrays), and exact layout
 integers retain the v3 representation. Numbers through
 `2^53-1` are numeric; larger quantities are canonical decimal strings. Path roots
 must exist in provenance, portable paths must be relative and canonical, and no
-two file nodes may represent the same root/path pair. Version 1/2/3/4 facts are
+two file nodes may represent the same root/path pair. Version 1/2/3/4/5 facts are
 rejected; the synthetic minimal fixture has been migrated. These checks are not
 complete semantic validation of all future schema kinds, Clang/GCC layout
 agreement, or legacy-printability policy. The independent diagnostics envelope

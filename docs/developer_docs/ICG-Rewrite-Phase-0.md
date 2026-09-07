@@ -85,15 +85,16 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | First C++17 LibTooling extraction target | Implemented as a standalone, main-file record slice; [scope and tests](../../trick_source/codegen/TrickCodeGen/README.md) |
 | Core structured type/declaration graph | Implemented for pointers/references/arrays/aliases and recursive/nested/referenced records, namespace contexts/aliases, and unnamed declaration identity/storage; broader type kinds pending |
 | Enum and bitfield facts | Scoped/unnamed/opaque enums, exact values and annotations, bitfield offsets/widths/padding and explicit non-addressability implemented; GCC conformance/accessors pending |
+| Inheritance and base-layout facts | Source-ordered direct bases, access/source evidence, alias-preserving types, complete-object virtual-base tables, and data/nonvirtual layout implemented; inherited fields remain graph-owned rather than flattened |
 | Review hardening | Named file roots, exact layout integers, scalar extents, complete member diagnostics, argument/normalization regressions, content-addressed baseline sidecars, and pinned Ruff CI implemented |
 | GCC 8.5/12 extractor host builds | Dedicated LLVM 17 / Rocky Linux 8 CI jobs; does not establish generated-code conformance |
-| GCC 8.5/12 layout and generated-operation probes | Pending |
+| GCC 8.5/12 layout and generated-operation probes | Focused native size/alignment/public base-path probe wired into host CI, including repeated/virtual diamonds, packing, empty bases, and tail-padding reuse; broader layout and generated-operation gates pending |
 | Runtime/Python behavior, S_define, binding spikes | Pending |
 | Exact platform packages and ADR decisions | Package matrix pending; ICG-001 and ICG-002 accepted, eight initial ADRs pending |
 
 The capability decision and first standalone extractor slice are implemented.
 The core structural model and namespace/anonymous declaration increment are also
-implemented, together with enum and bitfield facts. Next extend inheritance/base
-layout facts, while obtaining actual legacy
+implemented, together with enum, bitfield, and inheritance/base-layout facts.
+Next add callable/special-member facts, while obtaining actual legacy
 baseline evidence and closing the
 remaining Phase 0 gates. This does not authorize switching the production ICG.

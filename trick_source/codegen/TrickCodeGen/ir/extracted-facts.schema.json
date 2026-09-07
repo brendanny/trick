@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v5.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v6.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 5},
+    "schema_version": {"const": 6},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -259,14 +259,27 @@
     "base": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["declaration_id", "type_id", "access", "virtual", "offset_bits", "source"],
+      "required": ["declaration_id", "type_id", "access", "written_access", "virtual", "offset_bits", "source"],
       "properties": {
         "declaration_id": {"$ref": "#/$defs/id"},
         "type_id": {"$ref": "#/$defs/id"},
-        "access": {"enum": ["public", "protected", "private", "none"]},
+        "access": {"enum": ["public", "protected", "private"]},
+        "written_access": {"enum": ["public", "protected", "private", "none"]},
         "virtual": {"type": "boolean"},
-        "offset_bits": {"$ref": "#/$defs/optional_unsigned"},
+        "offset_bits": {
+          "$ref": "#/$defs/optional_unsigned",
+          "description": "Fixed nonvirtual base-subobject offset relative to its immediate owner. Always null for virtual bases, whose adjustment depends on the most-derived object."
+        },
         "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "virtual_base_offset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["declaration_id", "offset_bits"],
+      "properties": {
+        "declaration_id": {"$ref": "#/$defs/id"},
+        "offset_bits": {"$ref": "#/$defs/optional_unsigned"}
       }
     },
     "enumerator": {
@@ -346,6 +359,13 @@
         "size_bits": {"$ref": "#/$defs/optional_unsigned"},
         "alignment_bits": {"$ref": "#/$defs/optional_unsigned"},
         "bases": {"type": "array", "items": {"$ref": "#/$defs/base"}},
+        "virtual_base_offsets": {
+          "description": "All unique virtual bases (including indirect/shared bases), sorted by declaration_id, with non-null offsets in this record as a complete most-derived object. Never reuse these offsets when this record is itself a base subobject.",
+          "type": "array", "items": {"$ref": "#/$defs/virtual_base_offset"}
+        },
+        "data_size_bits": {"$ref": "#/$defs/optional_unsigned"},
+        "non_virtual_size_bits": {"$ref": "#/$defs/optional_unsigned"},
+        "non_virtual_alignment_bits": {"$ref": "#/$defs/optional_unsigned"},
         "field_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
         "nested_declaration_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
         "static": {"type": "boolean"},

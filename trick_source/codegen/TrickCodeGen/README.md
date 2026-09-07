@@ -70,7 +70,7 @@ applies. No code-generation options are silently stripped: other options, respon
 files, compiler plugins, alternate dialects, and extra source inputs are rejected.
 This is **not yet the GCC argument classifier** or a compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-5 facts document
+Successful extraction writes one deterministic, schema-version-6 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction
@@ -202,11 +202,36 @@ recursively expanding mutually referential record fields. Fallback overload and
 template identity are not implemented because those declaration kinds remain
 unsupported.
 
-Extractor 0.5.0 advances facts to schema 5 for enum values/completeness and bitfield
-layout/capability rules, retaining the v4 identity and context meanings.
-The synthetic minimal fixture is migrated; the reader rejects v1/v2/v3/v4 facts.
+Extractor 0.6.0 advances facts to schema 6 for inheritance and base-subobject
+layout, retaining the enum/bitfield, identity, and context meanings.
+The synthetic minimal fixture is migrated; the reader rejects v1/v2/v3/v4/v5 facts.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
 in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
+
+Non-template records support single, multiple, and virtual inheritance. `bases`
+contains only direct edges, in source order, with the canonical record declaration,
+the written type (including aliases), effective and written access, virtualness,
+and base-specifier source range. `written_access: "none"` distinguishes an omitted
+access keyword from an explicit one; effective access applies the class/struct
+default. Inherited fields are not copied into `field_ids`: following the base graph
+preserves the distinct paths to repeated nonvirtual subobjects.
+
+A nonvirtual edge has a fixed `offset_bits` relative to its owning record subobject.
+A virtual edge has `offset_bits: null`: its location depends on the most-derived
+object. Each complete record instead has a `virtual_base_offsets` table for all
+its unique direct/indirect virtual bases, sorted by declaration ID. These offsets
+are relative to **this record as a complete object**, not to this record when it
+is a base of another class. A consumer traversing virtual edges must use the
+most-derived record's table. A shared virtual base appears once; nonvirtual copies
+of the same type remain separate graph paths.
+
+Records also expose Clang's `data_size_bits`, `non_virtual_size_bits`, and
+`non_virtual_alignment_bits`, alongside complete-object size/alignment. These are
+frontend layout facts, not a recipe for summing `sizeof(base)` values: empty-base
+optimization and tail-padding reuse can overlap those complete-object extents.
+Incomplete records have null layout quantities and empty base tables. This slice
+does not expose hidden ABI slots, flatten legacy metadata, generate casts/accessors,
+or accept user-declared methods merely because virtual inheritance is supported.
 
 Physical input files, their bytes' SHA-256 digests, and resolved include directives
 are recorded through preprocessor callbacks. Forced includes are tracked as inputs
@@ -249,7 +274,7 @@ arguments, environment, frontend facts, physical inputs, and exact paths. It is
 not relocatable and does not capture all filesystem probes, volatile predefined
 macros, or every possible environment influence. No cache is created or reused.
 
-Inheritance, templates, methods, friends, variables, explicit
+Templates, methods (including methods in selected base records), friends, variables, explicit
 using declarations/directives, linkage contexts, and unsupported structural types
 in the selected declaration closure
 fail explicitly rather than producing apparently complete facts. Unsupported
@@ -259,7 +284,8 @@ validator checks required/kind-specific edges, self-canonical targets, canonical
 pointee/element consistency, alias targets, member ownership, incomplete layout,
 namespace ownership, context/namespace-alias cycles, anonymous storage, source
 identity propagation, enum value ranges/completeness, bitfield layout/addressability,
-and direct structural cycles. Record-reference cycles are
+base type/access/layout consistency, inheritance cycles, exact transitive virtual-base
+closure, and direct structural cycles. Record-reference cycles are
 valid; pointer/alias
 type cycles with no intervening record declaration are not. It still does not
 prove every invariant for not-yet-implemented schema kinds.
@@ -268,10 +294,23 @@ The checked-in `tests/fixtures/structured.hh` exercises aliases, recursive/heade
 records, arrays, and incomplete/reference types. `contexts.hh` adds reopened and
 inline namespaces, namespace aliases, unnamed records, anonymous union storage,
 and nested macro expansions. `enums-bitfields.hh` adds enum values/opaque types and
-bitfield storage/separators. CI captures these and the original `record.hh` output
-for inspection on Linux and macOS.
+bitfield storage/separators. `inheritance.hh` adds repeated/mixed/virtual diamonds,
+typedef bases, access defaults, packing, empty bases, and tail-padding reuse.
+CI captures these and the original `record.hh` output for inspection on Linux and macOS.
 
-Next extend inheritance/base-layout facts before callable extraction. Legacy
+CTest also passes the configured native C++ compiler to the integration runner.
+One test compiles and runs real fixture objects, comparing `sizeof`, `alignof`, and
+public base-path casts against extracted layout, including virtual offsets in
+different most-derived objects. This runs in the GCC 8.5/12 host lanes as well as
+Linux/macOS lanes. It is focused layout evidence, not completion of the general
+GCC generated-operation conformance gate. Private/protected casts are deliberately
+not attempted. The intentionally ambiguous `Mixed` fixture keeps
+`-Winaccessible-base` nonfatal; all other enabled compiler warnings are errors.
+When invoking `tests/test_extract.py` directly, pass `--layout-compiler /path/to/c++`;
+omitting it explicitly skips this one test. The probe requires a native compiler,
+not a cross-compiled executable.
+
+Next add callable/special-member facts. Legacy
 differential baselines and the remaining Phase 0 gates still need
 completion before any production switch.
 

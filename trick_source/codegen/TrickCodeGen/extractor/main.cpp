@@ -488,10 +488,10 @@ namespace
 
             void record(clang::ASTContext& ctx, const clang::CXXRecordDecl* decl)
             {
-                if (decl->isDependentType() || (decl->isCompleteDefinition() && decl->getNumBases() != 0)
-                    || decl->getDescribedClassTemplate() || llvm::isa<clang::ClassTemplateSpecializationDecl>(decl))
+                if (decl->isDependentType() || decl->getDescribedClassTemplate()
+                    || llvm::isa<clang::ClassTemplateSpecializationDecl>(decl))
                 {
-                    unsupported(ctx, decl, "Only non-template records without bases are supported");
+                    unsupported(ctx, decl, "Only non-template records are supported");
                     return;
                 }
                 auto node                      = common(ctx, decl, "record");
@@ -501,13 +501,17 @@ namespace
                 node["definition"]             = decl->isCompleteDefinition();
                 node["complete"]               = decl->isCompleteDefinition();
                 node["bases"]                  = Array { };
+                node["virtual_base_offsets"]   = Array { };
                 node["field_ids"]              = Array { };
                 node["nested_declaration_ids"] = Array { };
                 if (!decl->isCompleteDefinition())
                 {
-                    node["size_bits"]      = nullptr;
-                    node["alignment_bits"] = nullptr;
-                    node["capabilities"]   = Array {
+                    node["size_bits"]                  = nullptr;
+                    node["alignment_bits"]             = nullptr;
+                    node["data_size_bits"]             = nullptr;
+                    node["non_virtual_size_bits"]      = nullptr;
+                    node["non_virtual_alignment_bits"] = nullptr;
+                    node["capabilities"]               = Array {
                         Object { { "name", "frontend-record-layout" },
                                 { "status", "unknown" },
                                 { "reason_code", "INCOMPLETE_TYPE" } }
@@ -566,7 +570,58 @@ namespace
                                                                 * ctx.getCharWidth());
                 node["alignment_bits"] = trick::icg::unsignedInteger(
                     static_cast<uint64_t>(layout.getAlignment().getQuantity()) * ctx.getCharWidth());
-                node["bases"]                  = Array { };
+                node["data_size_bits"] = trick::icg::unsignedInteger(
+                    static_cast<uint64_t>(layout.getDataSize().getQuantity()) * ctx.getCharWidth());
+                node["non_virtual_size_bits"] = trick::icg::unsignedInteger(
+                    static_cast<uint64_t>(layout.getNonVirtualSize().getQuantity()) * ctx.getCharWidth());
+                node["non_virtual_alignment_bits"] = trick::icg::unsignedInteger(
+                    static_cast<uint64_t>(layout.getNonVirtualAlignment().getQuantity()) * ctx.getCharWidth());
+                Array bases;
+                for (const auto& base : decl->bases())
+                {
+                    const auto* target = base.getType()->getAsCXXRecordDecl();
+                    auto location = sources.source(ctx.getSourceManager(), base.getSourceRange(), &ctx.getLangOpts());
+                    if (!target || !target->getDefinition() || base.isPackExpansion() || location.kind() == Value::Null)
+                    {
+                        unsupported(ctx, decl, "Base requires a concrete record definition and physical source");
+                        continue;
+                    }
+                    // A virtual base has no fixed offset relative to an arbitrary
+                    // base subobject. Its complete-object position lives below.
+                    Value offset = nullptr;
+                    if (!base.isVirtual())
+                        offset = trick::icg::unsignedInteger(
+                            static_cast<uint64_t>(layout.getBaseClassOffset(target).getQuantity())
+                            * ctx.getCharWidth());
+                    bases.emplace_back(Object {
+                        { "declaration_id", request(target) },
+                        { "type_id", types->get(base.getType(), decl) },
+                        { "access", access(base.getAccessSpecifier()) },
+                        { "written_access", access(base.getAccessSpecifierAsWritten()) },
+                        { "virtual", base.isVirtual() },
+                        { "offset_bits", std::move(offset) },
+                        { "source", std::move(location) }
+                    });
+                }
+                node["bases"] = std::move(bases);
+                // All virtual bases, including indirect/shared diamond bases,
+                // appear once. Map order is stable, unlike AST pointer order.
+                std::map<std::string, Value> virtualOffsets;
+                for (const auto& base : decl->vbases())
+                {
+                    const auto* target = base.getType()->getAsCXXRecordDecl();
+                    virtualOffsets.emplace(request(target),
+                                           trick::icg::unsignedInteger(
+                                               static_cast<uint64_t>(layout.getVBaseClassOffset(target).getQuantity())
+                                               * ctx.getCharWidth()));
+                }
+                Array virtualBases;
+                for (auto& entry : virtualOffsets)
+                    virtualBases.emplace_back(Object {
+                        { "declaration_id", entry.first             },
+                        { "offset_bits",    std::move(entry.second) }
+                    });
+                node["virtual_base_offsets"]   = std::move(virtualBases);
                 node["nested_declaration_ids"] = std::move(nested);
                 node["capabilities"]           = Array {
                     Object { { "name", "frontend-record-layout" },

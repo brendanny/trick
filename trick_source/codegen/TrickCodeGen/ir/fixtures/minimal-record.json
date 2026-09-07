@@ -1,8 +1,8 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "document_kind": "trick.icg.extracted-facts",
   "provenance": {
-    "extractor_version": "0.5.0-synthetic-fixture",
+    "extractor_version": "0.6.0-synthetic-fixture",
     "frontend_api": "libtooling",
     "frontend_version": "17.0.6",
     "translation_unit": "file:fixture",
@@ -74,6 +74,10 @@
       "size_bits": 32,
       "alignment_bits": 32,
       "bases": [],
+      "virtual_base_offsets": [],
+      "data_size_bits": 32,
+      "non_virtual_size_bits": 32,
+      "non_virtual_alignment_bits": 32,
       "field_ids": ["decl:sample.value"],
       "nested_declaration_ids": [],
       "annotations": [],
