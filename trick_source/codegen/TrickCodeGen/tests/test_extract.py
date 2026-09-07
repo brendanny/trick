@@ -68,7 +68,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 8)
+        self.assertEqual(document["schema_version"], 9)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -309,7 +309,7 @@ class ExtractTests(unittest.TestCase):
     def test_unsupported_declarations_fail_closed(self):
         for source in (
             "struct Sample { template<class T> void method(T); };",
-            "template<class T> struct Sample { T value; };",
+            "template<class T> using Sample = T;",
             "namespace ns { int variable; }",
             "struct { int value; } anonymous;",
         ):
@@ -1253,8 +1253,8 @@ class ExtractTests(unittest.TestCase):
             "struct Bits { unsigned zero:0; };",
             "struct Bits { unsigned negative:-1; };",
             "struct Bits { float invalid:2; };",
-            "template<int N> struct Bits { unsigned value:N; };",
-            "template<class T> struct Model { enum class E : T { A }; };",
+            "template<int N> struct Bits { unsigned value:N; }; struct Bad { Bits<-1> bits; };",
+            "template<class T> struct Model { enum class E : T { A }; }; struct Bad { Model<float> model; };",
         ):
             with self.subTest(source=source):
                 self.header.write_text(source)
@@ -1727,9 +1727,9 @@ class ExtractTests(unittest.TestCase):
     def test_unsupported_base_members_and_dependent_bases_fail_closed(self):
         for source in (
             "struct Base { template<class T> void method(T); }; struct Derived : Base {};",
-            "template<class T> struct Derived : T {};",
-            "template<class... T> struct Derived : T... {};",
-            "template<class T> struct Base {}; struct Derived : Base<int> {};",
+            "template<class T> struct Derived : T {}; struct Bad : Derived<int> {};",
+            "template<class... T> struct Derived : T... {}; struct Bad : Derived<int, float> {};",
+            "template<class T> struct Base { static int value; }; struct Derived : Base<int> {};",
             "struct Forward; struct Derived : Forward {};",
         ):
             with self.subTest(source=source):
@@ -1954,6 +1954,368 @@ class ExtractTests(unittest.TestCase):
         env = dict(os.environ, CPATH=str(self.root))
         document = self.success(self.invoke(env=env))
         self.assertEqual(document["provenance"]["environment"]["CPATH"], str(self.root))
+
+    def template_fixture(self):
+        self.header.write_text((HERE / "fixtures/templates.hh").read_text())
+        return self.success(self.invoke())
+
+    def test_class_template_fixture_preserves_arguments_defaults_and_packs(self):
+        document = self.template_fixture()
+        nodes = self.declarations(document)
+        array = nodes["templates::Array<int, 3>"]
+        primary = nodes["templates::Array"]
+        self.assertEqual(array["primary_template_id"], primary["id"])
+        self.assertEqual(array["template_arguments"][1]["value"], "3")
+        self.assertEqual(primary["template_parameters"][1]["default_spelling"], "3")
+        self.assertEqual(
+            nodes["templates::Pack<>"]["template_arguments"],
+            [{"kind": "pack", "elements": []}],
+        )
+        self.assertEqual(
+            len(
+                nodes["templates::Pack<int, const double *>"]["template_arguments"][0][
+                    "elements"
+                ]
+            ),
+            2,
+        )
+        self.assertEqual(
+            [
+                a["value"]
+                for a in nodes["templates::Numbers<-2, 0, 7>"]["template_arguments"][0][
+                    "elements"
+                ]
+            ],
+            ["-2", "0", "7"],
+        )
+        self.assertEqual(
+            nodes["templates::Null<nullptr>"]["template_arguments"][0]["kind"],
+            "null_pointer",
+        )
+        by_id = {n["id"]: n for n in document["declarations"]}
+        for pattern in (n for n in by_id.values() if n["kind"] == "class_template"):
+            self.assertNotIn("size_bits", pattern)
+            self.assertEqual(
+                pattern["capabilities"][0]["reason_code"], "DEPENDENT_TEMPLATE_PATTERN"
+            )
+        for field in (n for n in by_id.values() if n["kind"] == "field"):
+            parent = by_id[field["semantic_parent_id"]]
+            self.assertTrue(
+                field["qualified_name"].startswith(parent["qualified_name"] + "::")
+            )
+
+    def test_partial_specialization_retains_primary_and_deduced_arguments(self):
+        document = self.template_fixture()
+        nodes = self.declarations(document)
+        partial = nodes["templates::Choice<int *>"]
+        by_id = {n["id"]: n for n in document["declarations"]}
+        types = {n["id"]: n for n in document["types"]}
+        selected = by_id[partial["instantiation_pattern_id"]]
+        self.assertEqual(selected["template_kind"], "partial_specialization")
+        self.assertEqual(
+            selected["primary_template_id"], partial["primary_template_id"]
+        )
+        self.assertEqual(
+            types[partial["template_arguments"][0]["type_id"]]["kind"], "pointer"
+        )
+        self.assertEqual(
+            types[partial["instantiation_arguments"][0]["type_id"]]["spelling"], "int"
+        )
+        explicit = nodes["templates::Choice<bool>"]
+        self.assertEqual(explicit["specialization_kind"], "explicit_specialization")
+        self.assertIsNone(explicit["instantiation_pattern_id"])
+        self.assertIsNone(explicit["instantiation_arguments"])
+
+    def test_explicit_instantiations_and_uninstantiated_pointer_are_distinct(self):
+        nodes = self.declarations(self.template_fixture())
+        for name, kind in (
+            ("templates::Array<short, 2>", "explicit_instantiation_declaration"),
+            ("templates::Array<long, 4>", "explicit_instantiation_definition"),
+        ):
+            self.assertEqual(nodes[name]["specialization_kind"], kind)
+            self.assertIsNotNone(nodes[name]["point_of_instantiation"])
+        opaque = nodes["templates::Opaque<int>"]
+        self.assertEqual(opaque["specialization_kind"], "undeclared")
+        self.assertFalse(opaque["complete"])
+        self.assertIsNone(opaque["size_bits"])
+        self.assertIsNone(opaque["instantiation_pattern_id"])
+
+    def test_recursive_partial_packs_and_dependent_bases_instantiate_concretely(self):
+        self.header.write_text(
+            "template<class... T> struct Tuple {};\n"
+            "template<class T, class... Rest> struct Tuple<T, Rest...> { T first; Tuple<Rest...> rest; };\n"
+            "struct A { int a; }; struct B { double b; };\n"
+            "template<class... Bases> struct Derived : virtual Bases... {};\n"
+            "struct Model { Tuple<int, double> tuple; Derived<A, B> bases; };\n"
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertIn("Tuple<int, double>::first", nodes)
+        self.assertIn("Tuple<double>::first", nodes)
+        self.assertTrue(nodes["Tuple<>"]["complete"])
+        derived = nodes["Derived<A, B>"]
+        self.assertEqual(len(derived["bases"]), 2)
+        self.assertTrue(
+            all(b["virtual"] and b["offset_bits"] is None for b in derived["bases"])
+        )
+        self.assertEqual(len(derived["virtual_base_offsets"]), 2)
+
+    def test_template_parameter_defaults_redeclarations_and_template_template_packs(
+        self,
+    ):
+        self.header.write_text(
+            "template<class T> struct Box { T value; };\n"
+            "template<class T=int, int N=2, template<class> class C=Box> struct Settings;\n"
+            "template<class T, int N, template<class> class C> struct Settings { C<T> value; T array[N]; };\n"
+            "template<template<class> class... C> struct Templates {};\n"
+            "struct Model { Settings<> settings; Templates<Box, Box> templates; };\n"
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        params = nodes["Settings"]["template_parameters"]
+        self.assertEqual([p["kind"] for p in params], ["type", "non_type", "template"])
+        self.assertEqual([p["default_spelling"] for p in params], ["int", "2", "Box"])
+        self.assertTrue(
+            all(p["default_source"]["spelling"]["line"] == 2 for p in params)
+        )
+        pack = next(
+            n
+            for n in nodes.values()
+            if n.get("specialization_kind") and n["name"] == "Templates"
+        )
+        self.assertEqual(
+            [a["kind"] for a in pack["template_arguments"][0]["elements"]],
+            ["template", "template"],
+        )
+
+    def test_template_integrals_keep_signedness_enum_bool_and_full_width(self):
+        self.header.write_text(
+            "enum class Flag : unsigned char { High=255 };\n"
+            "template<Flag F, bool B, unsigned long long N, long long S> struct Values {};\n"
+            "struct Model { Values<Flag::High, true, 18446744073709551615ULL, (-9223372036854775807LL-1)> values; };\n"
+        )
+        document = self.success(self.invoke())
+        record = next(
+            n for n in document["declarations"] if n.get("specialization_kind")
+        )
+        args = record["template_arguments"]
+        self.assertEqual(
+            [a["value"] for a in args],
+            ["255", "1", "18446744073709551615", "-9223372036854775808"],
+        )
+        self.assertEqual([a["signed"] for a in args], [False, False, False, True])
+
+    def test_template_instantiated_anonymous_members_have_distinct_relocatable_ids(
+        self,
+    ):
+        self.header.write_text(
+            "#define INNER struct { T value; } inner;\n"
+            "namespace { template<class T> struct Box { INNER T method(T) const; }; }\n"
+            "struct Model { Box<int> first; Box<double> second; };\n"
+        )
+        first = self.success(self.invoke())
+        records = [
+            n
+            for n in first["declarations"]
+            if n["kind"] == "record" and n.get("anonymous")
+        ]
+        self.assertEqual(len(records), 2)
+        self.assertNotEqual(records[0]["id"], records[1]["id"])
+        self.assertNotEqual(records[0]["field_ids"], records[1]["field_ids"])
+        self.assertEqual(self.invoke().stdout, self.invoke().stdout)
+        with tempfile.TemporaryDirectory(
+            prefix="icg-template-relocation-"
+        ) as relocated:
+            shutil.copy2(self.header, Path(relocated) / self.header.name)
+            second = self.success(
+                self.invoke(cwd=relocated, options=["--source-root", relocated])
+            )
+        self.assertEqual(
+            first["provenance"]["graph_digest"], second["provenance"]["graph_digest"]
+        )
+
+    def test_template_aliases_canonicalize_arguments_without_duplicate_instances(self):
+        self.header.write_text(
+            "template<class T> struct Box { T value; }; using Int = int;\n"
+            "struct Model { Box<Int> a; Box<int> b; Box<const int> c; };\n"
+        )
+        document = self.success(self.invoke())
+        records = [n for n in document["declarations"] if n.get("specialization_kind")]
+        self.assertEqual(len(records), 2)
+        nodes = self.declarations(document)
+        self.assertEqual(nodes["Model::a"]["type_id"], nodes["Model::b"]["type_id"])
+        self.assertNotEqual(nodes["Model::a"]["type_id"], nodes["Model::c"]["type_id"])
+
+    def test_nested_class_templates_and_instantiated_member_contexts(self):
+        self.header.write_text(
+            "struct Owner { template<class T> struct Box { T value; }; };\n"
+            "template<class T> struct Outer { template<class U> struct Inner { T first; U second; }; };\n"
+            "struct Model { Owner::Box<int> a; Outer<int>::Inner<double> b; };\n"
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertIn(
+            nodes["Owner::Box"]["id"], nodes["Owner"]["nested_declaration_ids"]
+        )
+        self.assertIn("Outer<int>::Inner<double>::first", nodes)
+        self.assertIn("Outer<int>::Inner<double>::second", nodes)
+
+    def test_header_template_dependency_closure_and_explicit_instantiation(self):
+        (self.root / "types.hh").write_text(
+            "template<class T> struct Box { T value; }; template<class T> struct Unused { static int bad; };\n"
+        )
+        self.header.write_text(
+            '#include "types.hh"\nextern template struct Box<int>;\n'
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertIn("Box<int>", nodes)
+        self.assertNotIn("Unused", nodes)
+
+    def test_unsupported_template_arguments_and_instantiated_members_fail_closed(self):
+        for source in (
+            "template<class T> using Alias = T; struct Model { Alias<int> value; };",
+            "template<class T> struct Box { static int value; }; struct Model { Box<int> value; };",
+            "template<class T> struct Box { template<class U> void method(U); }; struct Model { Box<int> value; };",
+            "template<class T> struct Box {}; struct Model { Box<int(*)(int)> value; };",
+            "template<class T> struct Box { void f(T value=T()); }; struct Model { Box<int> value; };",
+        ):
+            with self.subTest(source=source):
+                self.header.write_text(source)
+                self.failure(self.invoke())
+
+    def test_template_patterns_classify_dependent_bodies_without_instantiating_them(
+        self,
+    ):
+        self.header.write_text(
+            "template<class T> struct Pattern { typename T::type value; template<class U> void method(U); };\n"
+        )
+        document = self.success(self.invoke())
+        self.assertEqual(document["types"], [])
+        self.assertEqual(len(document["declarations"]), 1)
+        node = document["declarations"][0]
+        self.assertEqual(node["kind"], "class_template")
+        self.assertEqual(
+            node["capabilities"],
+            [
+                {
+                    "name": "template-pattern",
+                    "status": "unknown",
+                    "reason_code": "DEPENDENT_TEMPLATE_PATTERN",
+                }
+            ],
+        )
+        self.assertNotIn("field_ids", node)
+        self.assertNotIn("size_bits", node)
+
+    def test_template_explicit_specialization_redeclarations_and_special_members(self):
+        self.header.write_text(
+            "template<class T> struct Box { Box() = default; ~Box() = default; T value; };\n"
+            "template<> struct Box<int>; template<> struct Box<int> { int explicit_value; };\n"
+            "struct Model { Box<double> implicit; Box<int> explicit_value; };\n"
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertEqual(
+            len([n for n in document["declarations"] if n.get("specialization_kind")]),
+            2,
+        )
+        explicit = nodes["Box<int>"]
+        self.assertEqual(explicit["specialization_kind"], "explicit_specialization")
+        self.assertTrue(explicit["complete"])
+        record = nodes["Box<double>"]
+        methods = [
+            n for n in document["declarations"] if n["id"] in record["callable_ids"]
+        ]
+        self.assertEqual(
+            {m["callable_kind"] for m in methods}, {"constructor", "destructor"}
+        )
+        self.assertTrue(all(m["defaulted"] for m in methods))
+
+    def test_template_dependent_out_of_line_member_context_fails_closed(self):
+        self.header.write_text(
+            "template<class T> struct Outer { template<class U> struct Inner; };\n"
+            "template<class T> template<class U> struct Outer<T>::Inner<U*> { U* value; };\n"
+        )
+        report = self.failure(self.invoke())
+        self.assertTrue(
+            any(
+                "Dependent record contexts" in d["message"]
+                for d in report["diagnostics"]
+            )
+        )
+
+    def test_template_auto_integral_and_nullptr_arguments_are_concrete(self):
+        self.header.write_text(
+            "template<auto Value> struct Constant {};\n"
+            "struct Model { Constant<3> integer; Constant<nullptr> null_value; };\n"
+        )
+        document = self.success(self.invoke())
+        arguments = [
+            n["template_arguments"][0]
+            for n in document["declarations"]
+            if n.get("specialization_kind")
+        ]
+        self.assertEqual({a["kind"] for a in arguments}, {"integral", "null_pointer"})
+
+    def test_template_pattern_preserves_comments_and_record_annotations(self):
+        self.header.write_text(
+            "/** pattern documentation */\n"
+            'template<class T> struct [[clang::annotate("pattern-tag")]] Box { T value; };\n'
+        )
+        node = self.declarations(self.success(self.invoke()))["Box"]
+        self.assertEqual(
+            {a["syntax"] for a in node["annotations"]}, {"comment", "clang-annotate"}
+        )
+        self.assertTrue(any(a["payload"] == "pattern-tag" for a in node["annotations"]))
+        self.assertEqual(len(node["annotations"]), 2)
+
+    def test_native_template_layout_matches_instantiated_facts(self):
+        if LAYOUT_COMPILER is None:
+            self.skipTest("Pass --layout-compiler for native template layout probes")
+        document = self.template_fixture()
+        checks = ['#include "record.hh"', "#include <cstddef>"]
+        nodes = {n["id"]: n for n in document["declarations"]}
+        for node in nodes.values():
+            if node["kind"] != "record" or not node["complete"]:
+                continue
+            name = node["qualified_name"]
+            checks.append(
+                f'static_assert(sizeof({name})*8 == {node["size_bits"]}, "size");'
+            )
+            checks.append(
+                f'static_assert(alignof({name})*8 == {node["alignment_bits"]}, "alignment");'
+            )
+            if node["standard_layout"]:
+                for identifier in node["field_ids"]:
+                    field = nodes[identifier]
+                    if not field["bitfield"]:
+                        # Aliases avoid commas inside the offsetof macro's type argument.
+                        alias = "Record" + str(len(checks))
+                        checks.extend([
+                            f"using {alias} = {name};",
+                            f'static_assert(offsetof({alias}, {field["name"]})*8 == {field["offset_bits"]}, "offset");',
+                        ])
+        source = self.root / "template-layout.cpp"
+        source.write_text("\n".join(checks) + "\n")
+        result = subprocess.run(
+            [
+                str(LAYOUT_COMPILER),
+                "-std=c++17",
+                "-Wall",
+                "-Wextra",
+                "-Wpedantic",
+                "-Werror",
+                "-c",
+                str(source),
+                "-o",
+                str(self.root / "template-layout.o"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertGreater(len(checks), 30)
 
     def test_human_diagnostics_stay_on_stderr(self):
         self.header.write_text("#error deliberate\n")

@@ -88,8 +88,9 @@ Clang's human warning/error-count summaries. Fix-it edits are not yet extracted.
 
 ## Implemented facts and deliberate limits
 
-This slice selects records, enums, type aliases, namespaces, and namespace aliases **in
-the main file**, including declarations inside namespace blocks. It closes their
+This slice selects records, class templates, enums, type aliases, callables,
+namespaces, and namespace aliases **in the main file**, including declarations
+inside namespace blocks. It closes their
 type and context dependencies across included headers. Semantic and lexical parent
 links distinguish out-of-line record definitions from their owning scope.
 Unreferenced included siblings are not selected; a referenced unsupported
@@ -201,7 +202,8 @@ declarations and definitions share one node. A worklist closes dependencies with
 recursively expanding mutually referential record fields. Non-template overloads
 have distinct identities, including constructors, conversions, and operators whose
 semantic names are not Clang identifiers. They use USRs in named contexts and the
-same physical source anchors in source-identified contexts. Templates remain unsupported.
+same physical source anchors in source-identified contexts. Concrete class-template
+specializations add canonical argument identity as described below.
 Translation-unit-local functions use source identity plus the translation-unit
 file ID, so internal symbols are not merged merely because their USRs share a
 header basename. Their IDs still survive relocation of unchanged named roots.
@@ -211,7 +213,9 @@ declaration state, retaining the inheritance, enum/bitfield, identity, and conte
 Extractor 0.8.0 advances facts to schema 8 for review hardening: versioned,
 extractor-owned source-identity kind tags, consistent anonymous display names,
 capability prerequisites, and a verified normalized graph fingerprint.
-The synthetic minimal fixture is migrated; the reader rejects versions 1 through 7.
+Extractor 0.9.0 advances facts to schema 9 for class-template signatures and
+concrete specializations. The synthetic minimal fixture is migrated; the reader
+rejects versions 1 through 8.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
 in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
 
@@ -223,7 +227,8 @@ display names use consistent semantic context components, including associated
 typedef names for unnamed tags. Two unnamed siblings can still share a display
 name; consumers must follow parent/type IDs rather than match name prefixes.
 
-Non-template records support single, multiple, and virtual inheritance. `bases`
+Concrete records, including instantiated class templates, support single, multiple,
+and virtual inheritance. `bases`
 contains only direct edges, in source order, with the canonical record declaration,
 the written type (including aliases), effective and written access, virtualness,
 and base-specifier source range. `written_access: "none"` distinguishes an omitted
@@ -288,6 +293,49 @@ signatures or use-site constructibility/access decisions. A suppressed move can
 still permit copying an rvalue; a nondeleted private constructor is not publicly
 constructible; a deleted implicit member can still have a triviality flag. No
 allocation/destruction/binding capability is inferred from these flags alone.
+
+Class-template primary and partial patterns now have `class_template` nodes.
+They retain parameter kind, name, pack boundary, depth/index, source, nested
+template-template signatures, and default spelling/source evidence, including
+inherited defaults. Non-type parameters retain declared type spelling and whether
+that type is dependent. Comments and class annotations are retained together.
+A partial pattern links its primary and has descriptive `pattern_spelling`.
+These are **signature metadata**, not a dependent type/body graph: every pattern
+states `template-pattern: unknown / DEPENDENT_TEMPLATE_PATTERN` and carries no
+fields, callable list, or layout. No dependent body is traversed or validated by
+this slice, and a pattern definition does not promise that an arbitrary
+instantiation is valid or extractable.
+
+Concrete instances remain `record` declarations and structural record types.
+Their `specialization_kind` distinguishes uninstantiated references, implicit
+instantiation, explicit specialization, and explicit instantiation declarations
+and definitions. They link the primary and canonical `template_arguments`,
+including defaults. An instantiated record additionally links the selected
+primary/partial pattern and its deduced `instantiation_arguments`; an explicit
+specialization has neither. A valid `point_of_instantiation` retains physical
+source evidence. Pointer-only references can remain incomplete; extraction does
+not force all possible instantiations. Selected instances reuse field, bitfield,
+base, callable, and special-member extraction and its fail-closed checks.
+
+Arguments are typed objects for canonical types, exact integral values, null
+pointers, primary class-template references, and packs. Each pack occupies one
+parameter slot with an ordered `elements` array, including empty packs. No type
+string is split to recover arguments. Integral values are canonical decimal
+strings with Clang's bit width and signedness, including enum and `auto` arguments.
+Defaults and alias spellings do not create duplicate instances. Specialization
+source identity includes its primary ID and canonical arguments, propagating to
+instantiated members whose physical source locations are shared by many instances.
+Owned identity tags extend version 1 to class-template kinds; previous supported
+kinds retain their recipe. Display names include arguments but remain nonunique.
+
+Function/alias templates, declaration-valued and member/function-pointer
+arguments, dependent expressions/expansions as concrete arguments, dependent
+pattern bodies/types, and uninstantiated method defaults remain outside this
+increment. Encountering one in a selected concrete graph fails without publishing
+facts. Pattern spellings/defaults are evidence, not backend code-generation input.
+The validator checks argument shape, references, canonicality, pack/parameter
+binding, integer range/signedness, specialization state, ownership, and dependent
+pattern capabilities; it does not redo C++ template deduction or overload resolution.
 
 Physical input files, their bytes' SHA-256 digests, and resolved include directives
 are recorded through preprocessor callbacks. Forced includes are tracked as inputs
@@ -369,7 +417,9 @@ and nested macro expansions. `enums-bitfields.hh` adds enum values/opaque types 
 bitfield storage/separators. `inheritance.hh` adds repeated/mixed/virtual diamonds,
 typedef bases, access defaults, packing, empty bases, and tail-padding reuse.
 `callables.hh` adds overloads, redeclarations, parameter decay, defaults, virtual
-methods, access, deletion/defaulting, and implicit special members. CI captures
+methods, access, deletion/defaulting, and implicit special members. `templates.hh`
+adds primary/partial/explicit specializations, defaults, packs, template-template
+arguments, null pointers, explicit instantiations, and incomplete references. CI captures
 these and the original `record.hh` output for inspection on Linux and macOS.
 
 CTest also passes the configured native C++ compiler to the integration runner.
@@ -384,15 +434,18 @@ the older `-Wextra` category: only the native probe enables a diagnostic pragma
 scoped to that one fixture declaration. Other warnings remain errors; extraction
 does not enable this fixture exception.
 When invoking `tests/test_extract.py` directly, pass `--layout-compiler /path/to/c++`;
-omitting it explicitly skips the two native probe tests. The probes require a native compiler,
+omitting it explicitly skips the three native probe tests. The probes require a native compiler,
 not a cross-compiled executable.
 
 A second native probe compiles standard type-trait assertions against the focused
 special-member facts and exercises the suppressed-move/copy fallback and private
-constructor distinctions above. Both probes run in all six extractor CI lanes,
+constructor distinctions above. These probes run in all six extractor CI lanes,
 including GCC 8.5/12. They do not establish general generated-operation parity.
 
-Next extend template/specialization facts and remaining declaration kinds. Legacy
+A third native probe compiles size/alignment and standard-layout field-offset
+assertions against concrete template instances. It runs in those same lanes.
+
+Next extend dependent template modeling and remaining declaration kinds. Legacy
 differential baselines and the remaining Phase 0 gates still need
 completion before any production switch.
 

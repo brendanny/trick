@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v8.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v9.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 8},
+    "schema_version": {"const": 9},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -170,25 +170,22 @@
     "template_argument": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "spelling"],
+      "required": ["kind"],
       "properties": {
         "kind": {
           "enum": [
             "type",
             "integral",
-            "declaration",
             "null_pointer",
             "template",
-            "template_expansion",
-            "expression",
             "pack"
           ]
         },
-        "spelling": {"type": "string"},
         "type_id": {"$ref": "#/$defs/id"},
         "declaration_id": {"$ref": "#/$defs/id"},
-        "signed_value": {"type": "string", "pattern": "^-?[0-9]+$"},
-        "unsigned_value": {"type": "string", "pattern": "^[0-9]+$"},
+        "value": {"type": "string", "pattern": "^(0|-?[1-9][0-9]*)$"},
+        "bit_width": {"type": "integer", "minimum": 1, "maximum": 128},
+        "signed": {"type": "boolean"},
         "elements": {
           "type": "array",
           "items": {"$ref": "#/$defs/template_argument"}
@@ -240,6 +237,23 @@
           "type": "array",
           "items": {"$ref": "#/$defs/template_argument"}
         }
+      }
+    },
+    "template_parameter": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "name", "depth", "index", "pack", "source", "parameters", "type_spelling", "type_dependent", "default_spelling", "default_source"],
+      "properties": {
+        "kind": {"enum": ["type", "non_type", "template"]},
+        "name": {"type": "string"},
+        "depth": {"type": "integer", "minimum": 0},
+        "index": {"type": "integer", "minimum": 0},
+        "pack": {"type": "boolean"},
+        "source": {"$ref": "#/$defs/source"},
+        "parameters": {"type": "array", "items": {"$ref": "#/$defs/template_parameter"}},
+        "type_spelling": {"type": ["string", "null"]},
+        "type_dependent": {"type": ["boolean", "null"]},
+        "default_spelling": {"type": ["string", "null"]},
+        "default_source": {"anyOf": [{"$ref": "#/$defs/source"}, {"type": "null"}]}
       }
     },
     "annotation": {
@@ -347,6 +361,19 @@
     "declaration": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "class_template"}}},
+          "then": {"required": ["template_kind", "template_parameters", "primary_template_id", "pattern_spelling", "record_tag"]}
+        },
+        {
+          "if": {"required": ["specialization_kind"]},
+          "then": {
+            "required": ["primary_template_id", "template_arguments", "instantiation_pattern_id", "instantiation_arguments", "point_of_instantiation"],
+            "properties": {"kind": {"const": "record"}, "primary_template_id": {"$ref": "#/$defs/id"}}
+          }
+        }
+      ],
       "required": [
         "id",
         "kind",
@@ -363,7 +390,7 @@
       ],
       "properties": {
         "id": {"$ref": "#/$defs/id"},
-        "kind": {"enum": ["namespace", "namespace_alias", "record", "field", "enum", "callable", "variable", "alias", "friend"]},
+        "kind": {"enum": ["namespace", "namespace_alias", "record", "field", "enum", "callable", "variable", "alias", "friend", "class_template"]},
         "name": {"type": "string"},
         "qualified_name": {"type": "string"},
         "usr": {"type": ["string", "null"]},
@@ -386,6 +413,15 @@
         "semantic_parent_id": {"$ref": "#/$defs/id"},
         "lexical_parent_id": {"$ref": "#/$defs/id"},
         "canonical_declaration_id": {"$ref": "#/$defs/id"},
+        "template_kind": {"enum": ["primary", "partial_specialization"]},
+        "template_parameters": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/template_parameter"}},
+        "primary_template_id": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+        "pattern_spelling": {"type": ["string", "null"]},
+        "specialization_kind": {"enum": ["undeclared", "implicit_instantiation", "explicit_specialization", "explicit_instantiation_declaration", "explicit_instantiation_definition"]},
+        "template_arguments": {"type": "array", "items": {"$ref": "#/$defs/template_argument"}},
+        "instantiation_pattern_id": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+        "instantiation_arguments": {"type": ["array", "null"], "items": {"$ref": "#/$defs/template_argument"}},
+        "point_of_instantiation": {"anyOf": [{"$ref": "#/$defs/source"}, {"type": "null"}]},
         "type_id": {"$ref": "#/$defs/id"},
         "record_tag": {"enum": ["class", "struct", "union"]},
         "complete": {"type": "boolean"},

@@ -66,6 +66,13 @@ def validate_capabilities(node: dict) -> None:
             raise ValueError(f"{node['id']} record-layout capability requires a record")
         if entry["name"] == "field-address" and node["kind"] != "field":
             raise ValueError(f"{node['id']} field-address capability requires a field")
+        if (
+            entry["name"] == "template-pattern"
+            or entry["reason_code"] == "DEPENDENT_TEMPLATE_PATTERN"
+        ) and (node["kind"] != "class_template" or entry["name"] != "template-pattern"):
+            raise ValueError(
+                f"{node['id']} dependent-pattern capability requires a class template"
+            )
     if node["kind"] == "record":
         expected = (
             ("supported", "SUPPORTED")
@@ -171,6 +178,28 @@ def validate_graph(document: dict) -> None:
     for node in declarations.values():
         context = node["id"]
         source(node["source"], context)
+        for key in ("primary_template_id", "instantiation_pattern_id"):
+            if node.get(key) is not None:
+                require(node[key], declarations, f"{context}.{key}")
+        if node.get("point_of_instantiation") is not None:
+            source(node["point_of_instantiation"], context)
+        template_parameters = list(node.get("template_parameters", []))
+        while template_parameters:
+            parameter = template_parameters.pop()
+            source(parameter["source"], context)
+            if parameter["default_source"] is not None:
+                source(parameter["default_source"], context)
+            template_parameters.extend(parameter["parameters"])
+        arguments = list(node.get("template_arguments", [])) + list(
+            node.get("instantiation_arguments") or []
+        )
+        while arguments:
+            argument = arguments.pop()
+            if "type_id" in argument:
+                require(argument["type_id"], types, context)
+            if "declaration_id" in argument:
+                require(argument["declaration_id"], declarations, context)
+            arguments.extend(argument.get("elements", []))
         for field in declaration_links:
             if field in node:
                 require(node[field], declarations, f"{context}.{field}")
@@ -235,6 +264,7 @@ def validate_graph(document: dict) -> None:
                 source(annotation["source"], f"{node['id']}.enumerators.annotations")
 
     validate_structure(types, declarations)
+    validate_templates(types, declarations)
     for node in declarations.values():
         validate_capabilities(node)
 
@@ -365,6 +395,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             "namespace",
             "namespace_alias",
             "callable",
+            "class_template",
         }:
             if node.get("canonical_declaration_id") != node["id"]:
                 raise ValueError(f"{node['id']} is not a canonical declaration")
@@ -389,7 +420,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                 raise ValueError(f"{node['id']} has inconsistent namespace ownership")
             if (
                 parent["kind"] == "record"
-                and kind in {"record", "enum", "alias"}
+                and kind in {"record", "enum", "alias", "class_template"}
                 and node["id"] not in parent.get("nested_declaration_ids", [])
             ):
                 raise ValueError(
@@ -870,7 +901,10 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                     )
             for field, expected in (
                 ("field_ids", {"field"}),
-                ("nested_declaration_ids", {"record", "alias", "enum"}),
+                (
+                    "nested_declaration_ids",
+                    {"record", "alias", "enum", "class_template"},
+                ),
                 ("callable_ids", {"callable"}),
             ):
                 ids = node[field]
@@ -1130,6 +1164,303 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                     declarations[node["declaration_id"]]["underlying_type_id"]
                 )
             stack.extend((child, False) for child in children)
+
+
+def validate_templates(types: dict, declarations: dict) -> None:
+    pattern_fields = {"template_kind", "template_parameters", "pattern_spelling"}
+    instance_fields = {
+        "specialization_kind",
+        "template_arguments",
+        "instantiation_pattern_id",
+        "instantiation_arguments",
+        "point_of_instantiation",
+    }
+    common_fields = {
+        "id",
+        "kind",
+        "name",
+        "qualified_name",
+        "usr",
+        "identity_kind",
+        "source",
+        "access",
+        "origin",
+        "definition",
+        "annotations",
+        "capabilities",
+        "semantic_parent_id",
+        "lexical_parent_id",
+        "canonical_declaration_id",
+    }
+
+    def parameters(values, parent_depth=None):
+        depths = {p["depth"] for p in values}
+        if len(depths) != 1 or (
+            parent_depth is not None and depths != {parent_depth + 1}
+        ):
+            raise ValueError("template parameter depth is inconsistent")
+        for index, parameter in enumerate(values):
+            if parameter["index"] != index:
+                raise ValueError("template parameter indices must follow source order")
+            if parameter["kind"] == "template":
+                parameters(parameter["parameters"], parameter["depth"])
+            elif parameter["parameters"]:
+                raise ValueError("only template parameters may have nested parameters")
+            if parameter["kind"] == "non_type":
+                if (
+                    not parameter["type_spelling"]
+                    or parameter["type_dependent"] is None
+                ):
+                    raise ValueError(
+                        "non-type parameter requires declared type evidence"
+                    )
+            elif (
+                parameter["type_spelling"] is not None
+                or parameter["type_dependent"] is not None
+            ):
+                raise ValueError("only non-type parameters have declared type evidence")
+            if (parameter["default_source"] is None) != (
+                parameter["default_spelling"] is None
+            ):
+                raise ValueError("template parameter default evidence must be paired")
+            if parameter["pack"] and parameter["default_source"] is not None:
+                raise ValueError("template parameter pack cannot have a default")
+
+    def argument(value):
+        shapes = {
+            "type": {"type_id"},
+            "integral": {"type_id", "value", "signed", "bit_width"},
+            "null_pointer": {"type_id"},
+            "template": {"declaration_id"},
+            "pack": {"elements"},
+        }
+        if value.keys() != shapes[value["kind"]] | {"kind"}:
+            raise ValueError("template argument has missing or inapplicable fields")
+        kind = value["kind"]
+        if kind == "pack":
+            for element in value["elements"]:
+                if element["kind"] == "pack":
+                    raise ValueError(
+                        "concrete template packs cannot contain nested packs"
+                    )
+                argument(element)
+            return
+        if kind == "template":
+            target = declarations[value["declaration_id"]]
+            if (
+                target["kind"] != "class_template"
+                or target["template_kind"] != "primary"
+            ):
+                raise ValueError(
+                    "template argument target must be a primary class template"
+                )
+            return
+        target = types[value["type_id"]]
+        if target["canonical_id"] != target["id"]:
+            raise ValueError("semantic template arguments require canonical types")
+        if kind == "integral":
+            number, width = int(value["value"]), value["bit_width"]
+            fits = (
+                (number if number >= 0 else ~number).bit_length() < width
+                if value["signed"]
+                else number >= 0 and number.bit_length() <= width
+            )
+            if not fits:
+                raise ValueError(
+                    "template integral argument is outside its recorded range"
+                )
+            if target["kind"] == "enum":
+                enumeration = declarations[target["declaration_id"]]
+                if (
+                    enumeration["underlying_signed"] != value["signed"]
+                    or int(enumeration["size_bits"]) != width
+                ):
+                    raise ValueError(
+                        "template integral argument disagrees with enum underlying type"
+                    )
+            elif target["kind"] == "builtin":
+                name = target["spelling"]
+                signed = name in {
+                    "signed char",
+                    "short",
+                    "int",
+                    "long",
+                    "long long",
+                    "__int128",
+                }
+                unsigned = name.startswith("unsigned ") or name in {
+                    "bool",
+                    "char16_t",
+                    "char32_t",
+                }
+                if (
+                    not (signed or unsigned or name in {"char", "wchar_t"})
+                    or (signed and not value["signed"])
+                    or (unsigned and value["signed"])
+                ):
+                    raise ValueError(
+                        "template integral argument requires consistent integral type"
+                    )
+                if name == "bool" and (width != 1 or number not in (0, 1)):
+                    raise ValueError(
+                        "template boolean argument must be a one-bit value"
+                    )
+            else:
+                raise ValueError("template integral argument requires an integral type")
+        if (
+            kind == "null_pointer"
+            and target["kind"] != "pointer"
+            and not (
+                target["kind"] == "builtin" and target["spelling"] == "std::nullptr_t"
+            )
+        ):
+            raise ValueError("null template argument requires pointer or nullptr type")
+
+    def binding(arguments, signature):
+        if len(arguments) != len(signature):
+            raise ValueError(
+                "template argument count must match parameter slots including packs"
+            )
+        for value, parameter in zip(arguments, signature):
+            argument(value)
+            if (value["kind"] == "pack") != parameter["pack"]:
+                raise ValueError(
+                    "template argument pack boundary disagrees with parameter"
+                )
+            for item in value["elements"] if parameter["pack"] else [value]:
+                expected = {
+                    "type": {"type"},
+                    "non_type": {"integral", "null_pointer"},
+                    "template": {"template"},
+                }[parameter["kind"]]
+                if item["kind"] not in expected:
+                    raise ValueError("template argument kind disagrees with parameter")
+
+    for node in declarations.values():
+        pattern = node["kind"] == "class_template"
+        instance = "specialization_kind" in node
+        if pattern:
+            if (
+                not pattern_fields | {"primary_template_id", "record_tag"}
+                <= node.keys()
+            ):
+                raise ValueError("class template is missing pattern metadata")
+            if node.keys() - (
+                common_fields | pattern_fields | {"primary_template_id", "record_tag"}
+            ):
+                raise ValueError(
+                    "dependent template pattern must not claim instantiated facts"
+                )
+            parameters(node["template_parameters"])
+            if node["template_kind"] == "primary":
+                if (
+                    node["primary_template_id"] is not None
+                    or node["pattern_spelling"] is not None
+                ):
+                    raise ValueError(
+                        "primary template cannot claim a partial-specialization target"
+                    )
+            elif not node["primary_template_id"] or not node["pattern_spelling"]:
+                raise ValueError(
+                    "partial specialization requires its primary and pattern spelling"
+                )
+            expected = {
+                "name": "template-pattern",
+                "status": "unknown",
+                "reason_code": "DEPENDENT_TEMPLATE_PATTERN",
+            }
+            if node["capabilities"] != [expected]:
+                raise ValueError(
+                    "class template must explicitly classify its dependent pattern"
+                )
+        elif pattern_fields & node.keys():
+            raise ValueError(
+                "template pattern metadata belongs only to class templates"
+            )
+        if instance:
+            if (
+                node["kind"] != "record"
+                or not instance_fields | {"primary_template_id"} <= node.keys()
+            ):
+                raise ValueError(
+                    "class specialization requires record facts and complete metadata"
+                )
+            if node["identity_kind"] != "source":
+                raise ValueError(
+                    "class specialization requires argument-discriminated source identity"
+                )
+            primary = declarations[node["primary_template_id"]]
+            if (
+                primary["kind"] != "class_template"
+                or primary["template_kind"] != "primary"
+            ):
+                raise ValueError(
+                    "class specialization requires a primary class template"
+                )
+            binding(node["template_arguments"], primary["template_parameters"])
+            instantiated = node["specialization_kind"] in {
+                "implicit_instantiation",
+                "explicit_instantiation_declaration",
+                "explicit_instantiation_definition",
+            }
+            if instantiated != (
+                node["instantiation_pattern_id"] is not None
+                and node["instantiation_arguments"] is not None
+            ):
+                raise ValueError(
+                    "instantiated class requires its selected pattern and deduced arguments"
+                )
+            if not instantiated and (
+                node["instantiation_pattern_id"] is not None
+                or node["instantiation_arguments"] is not None
+            ):
+                raise ValueError(
+                    "uninstantiated or explicit specialization cannot claim a selected pattern"
+                )
+            if node["specialization_kind"] == "undeclared" and node["complete"]:
+                raise ValueError(
+                    "uninstantiated specialization cannot claim a complete layout"
+                )
+            if instantiated:
+                selected = declarations[node["instantiation_pattern_id"]]
+                if selected["kind"] != "class_template" or (
+                    selected["id"] != primary["id"]
+                    and selected["primary_template_id"] != primary["id"]
+                ):
+                    raise ValueError(
+                        "instantiation pattern must belong to the same primary template"
+                    )
+                binding(
+                    node["instantiation_arguments"], selected["template_parameters"]
+                )
+                if (
+                    selected["id"] == primary["id"]
+                    and node["template_arguments"] != node["instantiation_arguments"]
+                ):
+                    raise ValueError(
+                        "primary instantiation arguments must match specialization arguments"
+                    )
+        elif instance_fields & node.keys():
+            raise ValueError("specialization metadata requires a specialization kind")
+        if node.get("primary_template_id") is not None:
+            primary = declarations[node["primary_template_id"]]
+            if (
+                not (pattern or instance)
+                or primary["kind"] != "class_template"
+                or primary["template_kind"] != "primary"
+                or primary["id"] == node["id"]
+            ):
+                raise ValueError("invalid primary template relationship")
+            if primary["name"] != node["name"] or primary.get(
+                "semantic_parent_id"
+            ) != node.get("semantic_parent_id"):
+                raise ValueError(
+                    "template primary and specialization must share name and semantic context"
+                )
+        elif not pattern and "primary_template_id" in node:
+            raise ValueError(
+                "ordinary declaration cannot carry primary template metadata"
+            )
 
 
 def validate(schema: dict, document: dict) -> None:

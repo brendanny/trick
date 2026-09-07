@@ -25,6 +25,295 @@ class ValidateTests(unittest.TestCase):
         value["provenance"]["graph_digest"] = ir.graph_digest(value)
         ir.validate(schema, value)
 
+    def template_document(self, argument_kind="type", pack=False):
+        document = copy.deepcopy(self.fixture)
+        record, field = document["declarations"]
+        pattern = {
+            key: copy.deepcopy(record[key])
+            for key in (
+                "name",
+                "qualified_name",
+                "source",
+                "access",
+                "origin",
+                "definition",
+                "annotations",
+                "record_tag",
+            )
+        }
+        parameter = {
+            "kind": "non_type" if argument_kind == "integral" else "type",
+            "name": "T",
+            "pack": pack,
+            "depth": 0,
+            "index": 0,
+            "source": copy.deepcopy(record["source"]),
+            "parameters": [],
+            "type_spelling": "int" if argument_kind == "integral" else None,
+            "type_dependent": False if argument_kind == "integral" else None,
+            "default_spelling": None,
+            "default_source": None,
+        }
+        pattern.update(
+            id="decl:template",
+            canonical_declaration_id="decl:template",
+            kind="class_template",
+            usr="c:@ST>1#T@Sample",
+            identity_kind="usr",
+            template_kind="primary",
+            primary_template_id=None,
+            pattern_spelling=None,
+            template_parameters=[parameter],
+            capabilities=[
+                {
+                    "name": "template-pattern",
+                    "status": "unknown",
+                    "reason_code": "DEPENDENT_TEMPLATE_PATTERN",
+                }
+            ],
+        )
+        argument = {"kind": argument_kind, "type_id": "type:int"}
+        if argument_kind == "integral":
+            argument.update(value="3", signed=True, bit_width=32)
+        if pack:
+            argument = {"kind": "pack", "elements": [argument]}
+        record.update(
+            identity_kind="source",
+            specialization_kind="implicit_instantiation",
+            primary_template_id=pattern["id"],
+            template_arguments=[argument],
+            instantiation_pattern_id=pattern["id"],
+            instantiation_arguments=[copy.deepcopy(argument)],
+            point_of_instantiation=copy.deepcopy(record["source"]),
+        )
+        field["identity_kind"] = "source"
+        document["declarations"].append(pattern)
+        return document
+
+    def test_template_primary_instantiation_and_pack_are_valid(self):
+        for kind in ("type", "integral"):
+            for pack in (False, True):
+                with self.subTest(kind=kind, pack=pack):
+                    self.validate(self.schema, self.template_document(kind, pack))
+        document = self.template_document(pack=True)
+        for key in ("template_arguments", "instantiation_arguments"):
+            document["declarations"][0][key][0]["elements"] = []
+        self.validate(self.schema, document)
+
+    def test_template_primary_and_selected_pattern_references_are_checked(self):
+        for key in ("primary_template_id", "instantiation_pattern_id"):
+            document = self.template_document()
+            document["declarations"][0][key] = "decl:missing"
+            with self.assertRaisesRegex(ValueError, "dangling reference"):
+                self.validate(self.schema, document)
+            document["declarations"][0][key] = "decl:sample.value"
+            with self.assertRaisesRegex(
+                ValueError, "primary class template|same primary"
+            ):
+                self.validate(self.schema, document)
+        document = self.template_document()
+        document["declarations"][2]["name"] = "Different"
+        with self.assertRaisesRegex(ValueError, "share name and semantic context"):
+            self.validate(self.schema, document)
+
+    def test_template_partial_selection_checks_deduced_arguments_and_primary(self):
+        document = self.template_document()
+        partial = copy.deepcopy(document["declarations"][2])
+        partial.update(
+            id="decl:partial",
+            canonical_declaration_id="decl:partial",
+            template_kind="partial_specialization",
+            primary_template_id="decl:template",
+            pattern_spelling="Sample<T*>",
+        )
+        document["declarations"].append(partial)
+        document["declarations"][0]["instantiation_pattern_id"] = partial["id"]
+        self.validate(self.schema, document)
+        partial["primary_template_id"] = "decl:partial"
+        with self.assertRaisesRegex(ValueError, "same primary|invalid primary"):
+            self.validate(self.schema, document)
+        partial["primary_template_id"] = "decl:template"
+        partial["template_parameters"][0].update(
+            kind="non_type", type_spelling="int", type_dependent=False
+        )
+        with self.assertRaisesRegex(ValueError, "kind disagrees"):
+            self.validate(self.schema, document)
+
+    def test_template_argument_shape_reference_and_kind_are_checked(self):
+        for change, message in (
+            ({"type_id": "type:missing"}, "dangling reference"),
+            ({"value": "1"}, "inapplicable fields"),
+            ({"kind": "integral"}, "missing or inapplicable fields"),
+            ({"kind": "null_pointer", "type_id": "type:sample"}, "requires pointer"),
+        ):
+            document = self.template_document()
+            document["declarations"][0]["template_arguments"][0].update(change)
+            with (
+                self.subTest(change=change),
+                self.assertRaisesRegex(ValueError, message),
+            ):
+                self.validate(self.schema, document)
+        document = self.template_document("integral")
+        document["declarations"][2]["template_parameters"][0].update(
+            kind="type", type_spelling=None, type_dependent=None
+        )
+        with self.assertRaisesRegex(ValueError, "kind disagrees"):
+            self.validate(self.schema, document)
+
+    def test_template_arity_and_pack_boundaries_are_checked(self):
+        for arguments, message in (
+            ([], "argument count"),
+            ([{"kind": "pack", "elements": []}], "pack boundary"),
+        ):
+            document = self.template_document()
+            document["declarations"][0]["template_arguments"] = arguments
+            with self.assertRaisesRegex(ValueError, message):
+                self.validate(self.schema, document)
+        document = self.template_document(pack=True)
+        document["declarations"][0]["template_arguments"][0]["elements"] = [
+            {"kind": "pack", "elements": []}
+        ]
+        with self.assertRaisesRegex(ValueError, "nested packs"):
+            self.validate(self.schema, document)
+
+    def test_template_integer_range_signedness_and_type_are_checked(self):
+        for change, message in (
+            ({"value": "2147483648"}, "recorded range"),
+            ({"value": "-2147483649"}, "recorded range"),
+            ({"signed": False}, "consistent integral type"),
+            ({"type_id": "type:sample"}, "requires an integral type"),
+        ):
+            document = self.template_document("integral")
+            document["declarations"][0]["template_arguments"][0].update(change)
+            with (
+                self.subTest(change=change),
+                self.assertRaisesRegex(ValueError, message),
+            ):
+                self.validate(self.schema, document)
+        for value in ("-0", "+1", "01", 3):
+            document = self.template_document("integral")
+            document["declarations"][0]["template_arguments"][0]["value"] = value
+            with self.subTest(value=value), self.assertRaises(ValidationError):
+                self.validate(self.schema, document)
+
+    def test_template_primary_instantiation_arguments_must_agree(self):
+        document = self.template_document("integral")
+        document["declarations"][0]["instantiation_arguments"][0]["value"] = "4"
+        with self.assertRaisesRegex(ValueError, "arguments must match"):
+            self.validate(self.schema, document)
+
+    def test_template_parameter_signature_evidence_is_checked(self):
+        for change, message in (
+            ({"index": 1}, "indices"),
+            ({"parameters": [{}]}, None),
+            ({"type_spelling": "int"}, "only non-type"),
+            ({"default_spelling": "int"}, "must be paired"),
+        ):
+            document = self.template_document()
+            document["declarations"][2]["template_parameters"][0].update(change)
+            with self.subTest(change=change):
+                if message:
+                    with self.assertRaisesRegex(ValueError, message):
+                        self.validate(self.schema, document)
+                else:
+                    with self.assertRaises(ValidationError):
+                        self.validate(self.schema, document)
+        document = self.template_document(pack=True)
+        parameter = document["declarations"][2]["template_parameters"][0]
+        parameter.update(
+            default_spelling="int", default_source=copy.deepcopy(parameter["source"])
+        )
+        with self.assertRaisesRegex(ValueError, "pack cannot have a default"):
+            self.validate(self.schema, document)
+        document = self.template_document()
+        parameter = document["declarations"][2]["template_parameters"][0]
+        parameter["source"]["spelling"]["file_id"] = "file:missing"
+        with self.assertRaisesRegex(ValueError, "dangling reference"):
+            self.validate(self.schema, document)
+
+    def test_template_template_targets_and_nested_parameter_depth_are_checked(self):
+        document = self.template_document()
+        record, _, pattern = document["declarations"]
+        parameter = pattern["template_parameters"][0]
+        nested = copy.deepcopy(parameter)
+        nested["depth"] = 1
+        parameter.update(kind="template", parameters=[nested])
+        for key in ("template_arguments", "instantiation_arguments"):
+            record[key] = [{"kind": "template", "declaration_id": pattern["id"]}]
+        self.validate(self.schema, document)
+        nested["depth"] = 0
+        with self.assertRaisesRegex(ValueError, "depth is inconsistent"):
+            self.validate(self.schema, document)
+        nested["depth"] = 1
+        record["template_arguments"][0]["declaration_id"] = record["id"]
+        with self.assertRaisesRegex(ValueError, "target must be a primary"):
+            self.validate(self.schema, document)
+
+    def test_template_semantic_arguments_reject_noncanonical_aliases(self):
+        document = self.template_document()
+        types = {n["id"]: n for n in document["types"]}
+        declarations = {n["id"]: n for n in document["declarations"]}
+        types["type:alias"] = {
+            "id": "type:alias",
+            "canonical_id": "type:int",
+            "kind": "alias",
+        }
+        declarations["decl:sample"]["template_arguments"][0]["type_id"] = "type:alias"
+        with self.assertRaisesRegex(ValueError, "require canonical types"):
+            ir.validate_templates(types, declarations)
+
+    def test_template_pattern_cannot_claim_instantiated_layout_or_capabilities(self):
+        for change, message in (
+            ({"size_bits": 32}, "must not claim instantiated facts"),
+            ({"capabilities": []}, "classify its dependent pattern"),
+            ({"primary_template_id": "decl:template"}, "cannot claim a partial"),
+        ):
+            document = self.template_document()
+            document["declarations"][2].update(change)
+            with (
+                self.subTest(change=change),
+                self.assertRaisesRegex(ValueError, message),
+            ):
+                self.validate(self.schema, document)
+        document = self.template_document()
+        document["declarations"][0]["capabilities"].append(
+            copy.deepcopy(document["declarations"][2]["capabilities"][0])
+        )
+        with self.assertRaisesRegex(ValueError, "requires a class template"):
+            self.validate(self.schema, document)
+
+    def test_template_specialization_state_and_identity_are_checked(self):
+        for change, message in (
+            ({"identity_kind": "usr"}, "source identity"),
+            (
+                {"instantiation_pattern_id": None},
+                "selected pattern and deduced arguments",
+            ),
+            ({"specialization_kind": "explicit_specialization"}, "selected pattern"),
+            (
+                {
+                    "specialization_kind": "undeclared",
+                    "instantiation_pattern_id": None,
+                    "instantiation_arguments": None,
+                },
+                "cannot claim a complete layout",
+            ),
+        ):
+            document = self.template_document()
+            document["declarations"][0].update(change)
+            with (
+                self.subTest(change=change),
+                self.assertRaisesRegex(ValueError, message),
+            ):
+                self.validate(self.schema, document)
+        document = self.template_document()
+        document["declarations"][0].update(
+            specialization_kind="explicit_specialization",
+            instantiation_pattern_id=None,
+            instantiation_arguments=None,
+        )
+        self.validate(self.schema, document)
+
     def test_minimal_record_is_valid(self):
         ir.validate(self.schema, self.fixture)
 
@@ -180,7 +469,8 @@ class ValidateTests(unittest.TestCase):
             lambda value: value.update(schema_version=5),
             lambda value: value.update(schema_version=6),
             lambda value: value.update(schema_version=7),
-            lambda value: value.update(schema_version=9),
+            lambda value: value.update(schema_version=8),
+            lambda value: value.update(schema_version=10),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)

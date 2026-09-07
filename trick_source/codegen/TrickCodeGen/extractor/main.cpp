@@ -1,6 +1,7 @@
 #include "Config.hh"
 #include "DeclarationIdentity.hh"
 #include "Facts.hh"
+#include "TemplateFacts.hh"
 #include "TypeGraph.hh"
 
 #include "clang/AST/ASTConsumer.h"
@@ -54,6 +55,8 @@ namespace
             // Preserve constructors, operators, and conversion names under the
             // same printing policy without asking Clang to print their context.
             decl->getDeclName().print(out, policy);
+            if (const auto* specialization = llvm::dyn_cast<clang::ClassTemplateSpecializationDecl>(decl))
+                clang::printTemplateArgumentList(out, specialization->getTemplateArgs().asArray(), policy);
         }
         else if (llvm::isa<clang::NamespaceDecl>(decl))
             name = "(anonymous namespace)";
@@ -323,6 +326,7 @@ namespace
             clang::ASTContext* context = nullptr;
             std::unique_ptr<trick::icg::TypeGraph> types;
             std::unique_ptr<trick::icg::DeclarationIdentity> identities;
+            std::unique_ptr<trick::icg::TemplateFacts> templates;
             std::vector<const clang::NamedDecl*> pending;
             std::set<std::string> queued;
 
@@ -333,6 +337,12 @@ namespace
                 if (parent->isTranslationUnit())
                     return { };
                 const auto* decl = clang::Decl::castFromDeclContext(parent);
+                if (const auto* record = llvm::dyn_cast<clang::CXXRecordDecl>(decl);
+                    record && record->isDependentType())
+                {
+                    unsupported(*context, decl, "Dependent record contexts require template-body modeling");
+                    return { };
+                }
                 if (llvm::isa<clang::CXXRecordDecl, clang::NamespaceDecl>(decl))
                     return request(llvm::cast<clang::NamedDecl>(decl));
                 unsupported(*context, decl, "Only namespace and record declaration contexts are supported");
@@ -353,7 +363,16 @@ namespace
                     return { };
                 }
                 if (const auto* record = llvm::dyn_cast<clang::CXXRecordDecl>(decl))
+                {
+                    if (const auto* pattern = record->getDescribedClassTemplate())
+                        return request(pattern);
                     decl = record->getDefinition() ? record->getDefinition() : record->getCanonicalDecl();
+                }
+                else if (const auto* pattern = llvm::dyn_cast<clang::ClassTemplateDecl>(decl))
+                {
+                    const auto* definition = pattern->getTemplatedDecl()->getDefinition();
+                    decl = definition ? definition->getDescribedClassTemplate() : pattern->getMostRecentDecl();
+                }
                 else if (const auto* enumeration = llvm::dyn_cast<clang::EnumDecl>(decl))
                     decl
                         = enumeration->getDefinition() ? enumeration->getDefinition() : enumeration->getCanonicalDecl();
@@ -501,16 +520,119 @@ namespace
                         continue;
                     if (const auto* ns = llvm::dyn_cast<clang::NamespaceDecl>(decl))
                         selectMainFile(ctx, ns);
+                    // Explicit instantiation directives may live only in the
+                    // primary template's specialization set, not scope->decls().
+                    // The primary itself may come from an included header.
+                    if (const auto* pattern = llvm::dyn_cast<clang::ClassTemplateDecl>(decl))
+                        for (const auto* instance : pattern->specializations())
+                            if (clang::isTemplateExplicitInstantiationOrSpecialization(
+                                    instance->getSpecializationKind())
+                                && sm.isWrittenInMainFile(sm.getExpansionLoc(instance->getPointOfInstantiation())))
+                                request(instance);
                     if (!sm.isWrittenInMainFile(sm.getExpansionLoc(decl->getLocation())))
                         continue;
                     if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl, clang::NamespaceDecl,
-                                  clang::NamespaceAliasDecl, clang::FunctionDecl>(decl))
+                                  clang::NamespaceAliasDecl, clang::FunctionDecl, clang::ClassTemplateDecl>(decl))
                         request(llvm::cast<clang::NamedDecl>(decl));
                     else if (!llvm::isa<clang::EmptyDecl, clang::StaticAssertDecl>(decl))
-                        unsupported(
-                            ctx, decl,
-                            "Only records, enums, aliases, callables, and namespaces are extracted in this slice");
+                        unsupported(ctx, decl,
+                                    "Only records, class templates, enums, aliases, callables, and namespaces are "
+                                    "extracted in this slice");
                 }
+            }
+
+            void classTemplate(clang::ASTContext& ctx, const clang::NamedDecl* decl)
+            {
+                const auto* primary = llvm::dyn_cast<clang::ClassTemplateDecl>(decl);
+                const auto* partial = llvm::dyn_cast<clang::ClassTemplatePartialSpecializationDecl>(decl);
+                const auto* pattern = primary ? primary->getTemplatedDecl() : partial;
+                auto node           = common(ctx, decl, "class_template");
+                // Clang attaches class attributes to the templated record and
+                // documentation to the template declaration. Retain both once.
+                if (primary)
+                {
+                    auto* combined = node.getArray("annotations");
+                    for (auto& annotation : annotations(ctx, pattern))
+                        if (std::find(combined->begin(), combined->end(), annotation) == combined->end())
+                            combined->emplace_back(std::move(annotation));
+                }
+                node["template_kind"]       = primary ? "primary" : "partial_specialization";
+                node["record_tag"]          = pattern->isUnion() ? "union" : (pattern->isClass() ? "class" : "struct");
+                node["definition"]          = pattern->isCompleteDefinition();
+                node["template_parameters"] = templates->parameters(primary ? primary->getTemplateParameters()
+                                                                            : partial->getTemplateParameters());
+                node["primary_template_id"] = nullptr;
+                node["pattern_spelling"]    = nullptr;
+                if (partial)
+                {
+                    auto id = request(partial->getSpecializedTemplate());
+                    if (id.empty())
+                        return;
+                    node["primary_template_id"] = std::move(id);
+                    node["pattern_spelling"]    = node.getString("qualified_name")->str();
+                }
+                node["capabilities"] = Array {
+                    Object { { "name", "template-pattern" },
+                            { "status", "unknown" },
+                            { "reason_code", "DEPENDENT_TEMPLATE_PATTERN" } }
+                };
+                publish(decl, std::move(node));
+            }
+
+            Value specializationIdentity(const clang::ClassTemplateSpecializationDecl* decl)
+            {
+                auto primary   = request(decl->getSpecializedTemplate());
+                auto arguments = templates->arguments(decl->getTemplateArgs(), decl);
+                if (primary.empty() || facts.failed)
+                    return nullptr;
+                return Object {
+                    { "primary_template_id", std::move(primary)   },
+                    { "arguments",           std::move(arguments) }
+                };
+            }
+
+            void specializationFacts(Object& node, const clang::ClassTemplateSpecializationDecl* decl)
+            {
+                const char* kind = "undeclared";
+                switch (decl->getSpecializationKind())
+                {
+                case clang::TSK_Undeclared:
+                    break;
+                case clang::TSK_ImplicitInstantiation:
+                    kind = "implicit_instantiation";
+                    break;
+                case clang::TSK_ExplicitSpecialization:
+                    kind = "explicit_specialization";
+                    break;
+                case clang::TSK_ExplicitInstantiationDeclaration:
+                    kind = "explicit_instantiation_declaration";
+                    break;
+                case clang::TSK_ExplicitInstantiationDefinition:
+                    kind = "explicit_instantiation_definition";
+                    break;
+                }
+                node["specialization_kind"] = kind;
+                auto primary                = request(decl->getSpecializedTemplate());
+                if (primary.empty())
+                    return;
+                node["primary_template_id"]      = std::move(primary);
+                node["template_arguments"]       = templates->arguments(decl->getTemplateArgs(), decl);
+                node["instantiation_pattern_id"] = nullptr;
+                node["instantiation_arguments"]  = nullptr;
+                if (auto from = decl->getInstantiatedFrom(); !from.isNull())
+                {
+                    const clang::NamedDecl* pattern = from.dyn_cast<clang::ClassTemplateDecl*>();
+                    if (!pattern)
+                        pattern = from.get<clang::ClassTemplatePartialSpecializationDecl*>();
+                    auto id = request(pattern);
+                    if (!id.empty())
+                        node["instantiation_pattern_id"] = std::move(id);
+                    node["instantiation_arguments"] = templates->arguments(decl->getTemplateInstantiationArgs(), decl);
+                }
+                const auto point               = decl->getPointOfInstantiation();
+                node["point_of_instantiation"] = point.isValid()
+                    ? sources.source(context->getSourceManager(), clang::SourceRange(point), &context->getLangOpts())
+                    : Value(nullptr);
             }
 
             void alias(clang::ASTContext& ctx, const clang::TypedefNameDecl* decl)
@@ -657,8 +779,11 @@ namespace
 
             void callable(clang::ASTContext& ctx, const clang::FunctionDecl* decl)
             {
-                const auto* proto = decl->getType()->getAs<clang::FunctionProtoType>();
-                if (decl->isImplicit() || decl->getTemplatedKind() != clang::FunctionDecl::TK_NonTemplate
+                const auto* proto         = decl->getType()->getAs<clang::FunctionProtoType>();
+                const bool concreteMember = llvm::isa<clang::CXXMethodDecl>(decl)
+                    && decl->getTemplatedKind() == clang::FunctionDecl::TK_MemberSpecialization;
+                if (decl->isImplicit()
+                    || (decl->getTemplatedKind() != clang::FunctionDecl::TK_NonTemplate && !concreteMember)
                     || decl->isDependentContext() || !proto || proto->getCallConv() != clang::CC_C
                     || proto->getMethodQuals().hasRestrict() || proto->getMethodQuals().hasNonFastQualifiers()
                     || proto->getHasRegParm() || proto->hasExtParameterInfos() || proto->getCmseNSCallAttr())
@@ -799,13 +924,14 @@ namespace
 
             void record(clang::ASTContext& ctx, const clang::CXXRecordDecl* decl)
             {
-                if (decl->isDependentType() || decl->getDescribedClassTemplate()
-                    || llvm::isa<clang::ClassTemplateSpecializationDecl>(decl))
+                if (decl->isDependentType() || decl->getDescribedClassTemplate())
                 {
                     unsupported(ctx, decl, "Only non-template records are supported");
                     return;
                 }
-                auto node                      = common(ctx, decl, "record");
+                auto node = common(ctx, decl, "record");
+                if (const auto* specialization = llvm::dyn_cast<clang::ClassTemplateSpecializationDecl>(decl))
+                    specializationFacts(node, specialization);
                 node["type_id"]                = types->get(ctx.getRecordType(decl), decl);
                 node["record_tag"]             = decl->isUnion() ? "union" : (decl->isClass() ? "class" : "struct");
                 node["anonymous"]              = decl->getIdentifier() == nullptr;
@@ -853,7 +979,8 @@ namespace
                             callables.emplace_back(id);
                         continue;
                     }
-                    if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl>(member))
+                    if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl,
+                                  clang::ClassTemplateDecl>(member))
                     {
                         auto id             = request(llvm::cast<clang::NamedDecl>(member));
                         unsupportedMembers |= id.empty();
@@ -1011,7 +1138,9 @@ namespace
                 context                              = &ctx;
                 facts.provenance["translation_unit"] = sources.file(sm, sm.getMainFileID());
                 identities                           = std::make_unique<trick::icg::DeclarationIdentity>(
-                    facts, ctx, [this, &sm](clang::SourceLocation location) { return sources.point(sm, location); });
+                    facts, ctx, [this, &sm](clang::SourceLocation location) { return sources.point(sm, location); },
+                    [this](const clang::ClassTemplateSpecializationDecl* decl)
+                    { return specializationIdentity(decl); });
                 types = std::make_unique<trick::icg::TypeGraph>(
                     facts, ctx, [this](const clang::NamedDecl* decl) { return request(decl); },
                     [this, &ctx](const clang::Decl* decl, const std::string& message)
@@ -1020,12 +1149,21 @@ namespace
                             "error", "ICG_UNSUPPORTED_TYPE", message,
                             sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts()));
                     });
+                templates = std::make_unique<trick::icg::TemplateFacts>(
+                    ctx, *types, [this](const clang::NamedDecl* decl) { return request(decl); },
+                    [this, &ctx](clang::SourceRange range)
+                    { return sources.source(ctx.getSourceManager(), range, &ctx.getLangOpts()); },
+                    [this, &ctx](const clang::Decl* decl, const std::string& message)
+                    { unsupported(ctx, decl, message); });
                 facts.provenance["target_triple"] = ctx.getTargetInfo().getTriple().str();
                 selectMainFile(ctx, ctx.getTranslationUnitDecl());
                 // A worklist closes record/alias references without recursively
                 // expanding self-referential records during type interning.
                 for (size_t index = 0; index < pending.size(); ++index)
-                    if (const auto* value = llvm::dyn_cast<clang::CXXRecordDecl>(pending[index]))
+                    if (llvm::isa<clang::ClassTemplateDecl, clang::ClassTemplatePartialSpecializationDecl>(
+                            pending[index]))
+                        classTemplate(ctx, pending[index]);
+                    else if (const auto* value = llvm::dyn_cast<clang::CXXRecordDecl>(pending[index]))
                         record(ctx, value);
                     else if (const auto* value = llvm::dyn_cast<clang::EnumDecl>(pending[index]))
                         enumeration(ctx, value);
@@ -1043,8 +1181,18 @@ namespace
                 // declarations in a referenced header. Node maps order these IDs.
                 for (const auto& entry : facts.declarations)
                     if (auto parent = entry.second.getString("semantic_parent_id"))
+                    {
                         if (auto* members = facts.declarations.at(parent->str()).getArray("declaration_ids"))
                             members->emplace_back(entry.first);
+                        // Implicit member-template specializations need not occur
+                        // in their enclosing record's decls(). Preserve lexical
+                        // member order, then append the selected instances by ID.
+                        if (entry.second.getString("specialization_kind"))
+                            if (auto* members = facts.declarations.at(parent->str()).getArray("nested_declaration_ids"))
+                                if (std::none_of(members->begin(), members->end(), [&entry](const auto& value)
+                                                 { return value.getAsString() == entry.first; }))
+                                    members->emplace_back(entry.first);
+                    }
             }
     };
 

@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 8; the independent diagnostics envelope is v2.
+current facts schema is version 9; the independent diagnostics envelope is v2.
 
 The document contains frontend facts only:
 
@@ -355,3 +355,102 @@ inputs have been captured. There is no unconditional cross-lane equality gate.
 Facts advance to v8; versions 1 through 7 are rejected. The synthetic fixture is
 migrated and includes a real graph fingerprint, while its input/file evidence
 digests remain explicitly synthetic. The diagnostics envelope remains v2.
+
+
+## Class-template signatures and concrete specializations: schema 9
+
+Extractor 0.9.0 adds `class_template` declarations for primary templates and
+partial-specialization patterns. `template_kind` distinguishes `primary` and
+`partial_specialization`; `record_tag` and `definition` describe the pattern.
+Each source-ordered `template_parameters` entry contains:
+
+- `kind` (`type`, `non_type`, or `template`), name, pack flag, depth/index, and source;
+- nested `parameters` for template-template parameters, empty otherwise;
+- `type_spelling` and `type_dependent` for non-type parameters, null otherwise;
+- paired `default_spelling` and `default_source`, null when absent, including
+  inherited defaults when Clang exposes them on the selected declaration.
+
+The selected definition (or most recent forward declaration) supplies signature
+metadata. Full template redeclaration history is not retained. Raw comments on the
+template declaration and annotations on its templated record are retained once.
+Partial patterns link `primary_template_id` and descriptive `pattern_spelling`;
+primary patterns have null values for both. Pattern parameter/default spellings
+are diagnostic evidence, not structured dependent types or backend source.
+
+Every pattern carries exactly `template-pattern: unknown /
+DEPENDENT_TEMPLATE_PATTERN`. Dependent bodies are deliberately not traversed and
+patterns have no record type, fields, callables, traits, or layout. A definition
+flag does not mean its body was modeled or that any requested instantiation is
+valid. A future dependent graph must introduce a reviewed schema extension.
+
+Concrete class-template specializations remain ordinary structural record types
+and `record` declarations with additional fields:
+
+| Field | Meaning |
+|---|---|
+| `specialization_kind` | `undeclared`, `implicit_instantiation`, `explicit_specialization`, `explicit_instantiation_declaration`, or `explicit_instantiation_definition` |
+| `primary_template_id` | Primary class-template declaration |
+| `template_arguments` | Canonical semantic arguments to the primary, including defaults and pack slots |
+| `instantiation_pattern_id` | Selected primary or partial pattern for an instantiation; null for explicit specializations or uninstantiated references |
+| `instantiation_arguments` | Deduced arguments bound to the selected pattern's parameters; null with no selected pattern |
+| `point_of_instantiation` | Physical source evidence when Clang provides a valid point, otherwise null |
+
+Instantiation arguments for a primary equal its specialization arguments. A
+partial can have a different parameter list and deduced arguments; both lists
+are retained, rather than assuming primary arguments describe the partial's
+binding. The validator checks relationships and parameter slot/kind agreement;
+it does not reimplement deduction or prove that a partial pattern matches.
+Pointer-only references can remain `undeclared` and incomplete. No eager Sema
+instantiation of every class or method is requested. Explicit directives in the
+main file are selected even when the primary comes from a dependency header.
+Referenced headers contribute only the selected dependency closure.
+
+Argument nodes use these exclusive shapes:
+
+| Kind | Additional fields |
+|---|---|
+| `type` | canonical `type_id` |
+| `integral` | canonical `type_id`, decimal-string `value`, `bit_width` (1–128), `signed` |
+| `null_pointer` | canonical pointer or `std::nullptr_t` `type_id` |
+| `template` | `declaration_id` of a primary class template |
+| `pack` | ordered `elements` of the preceding concrete argument kinds |
+
+A pack is one signature slot, including when empty; concrete nested packs are not
+part of this contract. Arguments come from Clang's semantic API, never splitting
+display strings. Integral values include enum, bool, and deduced `auto` arguments
+and preserve the exact post-conversion value. Validation checks recorded range,
+known builtin signedness, enum width/signedness, and bool's one-bit range. It does
+not infer all target builtin widths or compare spelled non-type parameter types
+to deduced argument types. Alias sugar canonicalizes in arguments; ordinary
+field/alias facts retain their existing structural alias representation.
+
+Owned source-identity version 1 is extended with `class-template`,
+`class-template-partial`, and `class-template-specialization` kind tags. Concrete
+specializations always use source identity, adding a `specialization` object
+containing `primary_template_id` and canonical `arguments` to the existing hash
+input. This distinguishes instantiated members sharing pattern source locations;
+source identity propagates to them. Existing supported declaration kinds retain
+their identity recipe. Frontend USRs are still retained as evidence, and IDs are
+not promised stable across revisions or LLVM versions. Display names include
+semantic template arguments, without becoming identity keys.
+
+Concrete instances reuse record/base/bitfield/callable/special-member extraction.
+Nested selected instances omitted from Clang's lexical member iterator are
+appended by ID after source-ordered `nested_declaration_ids`. Existing explicit
+members are not duplicated. Function/alias templates, declaration-valued and
+function/member-pointer arguments, dependent expression/expansion arguments,
+uninstantiated method defaults, and dependent pattern bodies/types remain outside
+this slice. Encountering unsupported facts in a selected concrete graph fails
+without publishing a partial document.
+
+The `templates.hh` fixture and native size/alignment/standard-layout offset probe
+run with the existing six extractor CI lanes, including GCC 8.5/12. Regression
+coverage includes partial deduction, empty and recursive packs, defaults,
+explicit specialization/instantiation, nested and anonymous instance identity,
+relocation, and validator mutations. This is focused frontend/layout evidence,
+not legacy emission or general generated-operation conformance.
+
+Facts advance to v9 and versions 1 through 8 are rejected. The synthetic fixture
+is migrated. Identity and graph-digest recipe versions remain 1; the graph digest
+already includes the facts schema version and all new graph facts. Diagnostics
+remain v2. Production ICG integration and remaining Phase 0 gates are unchanged.

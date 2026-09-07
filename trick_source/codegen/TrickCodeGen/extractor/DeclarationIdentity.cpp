@@ -2,6 +2,7 @@
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Index/USRGeneration.h"
 
@@ -19,6 +20,12 @@ namespace trick::icg
             return "namespace-alias";
         case clang::Decl::CXXRecord:
             return "record";
+        case clang::Decl::ClassTemplate:
+            return "class-template";
+        case clang::Decl::ClassTemplatePartialSpecialization:
+            return "class-template-partial";
+        case clang::Decl::ClassTemplateSpecialization:
+            return "class-template-specialization";
         case clang::Decl::Enum:
             return "enum";
         case clang::Decl::Typedef:
@@ -42,11 +49,13 @@ namespace trick::icg
         }
     }
 
-    DeclarationIdentity::DeclarationIdentity(Facts& facts, clang::ASTContext& context,
-                                             std::function<llvm::json::Value(clang::SourceLocation)> point)
+    DeclarationIdentity::DeclarationIdentity(
+        Facts& facts, clang::ASTContext& context, std::function<llvm::json::Value(clang::SourceLocation)> point,
+        std::function<llvm::json::Value(const clang::ClassTemplateSpecializationDecl*)> specialization)
         : facts(facts)
         , context(context)
         , point(std::move(point))
+        , specialization(std::move(specialization))
     {
     }
 
@@ -99,8 +108,14 @@ namespace trick::icg
             value.usr = rawUSR.str().str();
         // Constructors, conversions, and operators have semantic names without
         // IdentifierInfo. Their USRs still distinguish overload signatures.
-        value.fromSource = (!decl->getIdentifier() && !llvm::isa<clang::FunctionDecl>(decl)) || value.usr.empty();
-        const bool translationUnitLocal = llvm::isa<clang::FunctionDecl>(decl)
+        value.fromSource     = (!decl->getIdentifier() && !llvm::isa<clang::FunctionDecl>(decl)) || value.usr.empty();
+        const auto* instance = llvm::dyn_cast<clang::ClassTemplateSpecializationDecl>(decl);
+        if (llvm::isa<clang::ClassTemplatePartialSpecializationDecl>(decl))
+            instance = nullptr;
+        // Instantiated members share their pattern's physical locations. Include
+        // canonical semantic arguments before source identity propagates to them.
+        value.fromSource                |= instance != nullptr;
+        const bool translationUnitLocal  = llvm::isa<clang::FunctionDecl>(decl)
             && (decl->getLinkageInternal() == clang::InternalLinkage
                 || decl->getLinkageInternal() == clang::UniqueExternalLinkage);
         value.fromSource |= translationUnitLocal;
@@ -142,6 +157,13 @@ namespace trick::icg
                     identity["translation_unit"] = facts.provenance.getString("translation_unit")->str();
                 if (translationUnitLocal)
                     identity["translation_unit"] = facts.provenance.getString("translation_unit")->str();
+                if (instance)
+                {
+                    auto key = specialization(instance);
+                    if (key.kind() == llvm::json::Value::Null)
+                        return identities.emplace(decl, std::move(value)).first->second;
+                    identity["specialization"] = std::move(key);
+                }
                 value.id = "decl:" + digest("source:" + serialize(std::move(identity)));
             }
         }

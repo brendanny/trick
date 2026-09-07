@@ -10,7 +10,7 @@ incomplete-record layout, and direct type cycles. Each array node represents one
 dimension, with CVR qualification on its element. Recursive record references are
 valid; a pointer/alias graph cannot refer to itself without a record boundary.
 
-Facts schema version 8 validates the normalized `graph_digest` independently of
+Facts schema version 9 retains validation of the normalized `graph_digest` independently of
 the extractor. `graph_digest_version` and `identity_version` are required and
 currently 1; older facts versions and unknown fingerprint/identity versions fail.
 The projection retains all graph facts except file `path.spelled`/`path.real`,
@@ -23,6 +23,22 @@ bitfields must state that unsupported capability. Record-layout capabilities
 must agree with completeness (`supported / SUPPORTED` or
 `unknown / INCOMPLETE_TYPE`). Capability names must be unique and these known
 capabilities may not be placed on the wrong declaration kind.
+
+Version 9 adds class-template signatures and concrete specialization validation.
+Primary and partial pattern nodes must explicitly classify their dependent bodies
+as `unknown / DEPENDENT_TEMPLATE_PATTERN`, with no instantiated fields/layout.
+Parameter depths/indices, nested signatures, and default/source evidence are
+checked. Concrete record instances link a primary and canonical argument slots;
+packs retain an array within one slot, including empty packs. Type, integral,
+null-pointer, and class-template arguments have exclusive shapes. Integral decimal
+strings are checked against their recorded width/signedness and known integral
+or enum type facts. Selected primary/partial patterns and deduced arguments must
+agree with specialization state and parameter kinds. Primary instantiation
+arguments must match the specialization's arguments. Source identity is required
+for instances and propagates to members. Template ownership is bidirectional,
+including nested specializations absent from Clang's lexical member iterator.
+These checks do not repeat C++ deduction, prove a partial pattern matches its
+arguments, or establish validity of a dependent body or a generated operation.
 
 Version 7 added explicit non-template callable validation: ownership,
 kind-specific flags and return types, adjusted/original parameter relationships,
@@ -68,7 +84,7 @@ Named path roots, scalar `extent` (null for incomplete arrays), and exact layout
 integers retain the v3 representation. Numbers through
 `2^53-1` are numeric; larger quantities are canonical decimal strings. Path roots
 must exist in provenance, portable paths must be relative and canonical, and no
-two file nodes may represent the same root/path pair. Version 1/2/3/4/5/6 facts are
+two file nodes may represent the same root/path pair. Version 1 through 8 facts are
 rejected; the synthetic minimal fixture has been migrated. These checks are not
 complete semantic validation of all future schema kinds, Clang/GCC layout
 agreement, or legacy-printability policy. The independent diagnostics envelope

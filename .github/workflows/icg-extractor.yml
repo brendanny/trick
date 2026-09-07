@@ -56,7 +56,7 @@ jobs:
         run: ctest --test-dir build/icg-extract --output-on-failure
       - name: Capture and validate facts fixtures
         run: |
-          for fixture in record structured contexts enums-bitfields inheritance callables; do
+          for fixture in record structured contexts enums-bitfields inheritance callables templates; do
             build/icg-extract/trick-icg-extract \
               "trick_source/codegen/TrickCodeGen/tests/fixtures/$fixture.hh" -- \
               > "build/icg-extract/$fixture.json"
@@ -75,6 +75,7 @@ jobs:
             build/icg-extract/enums-bitfields.json
             build/icg-extract/inheritance.json
             build/icg-extract/callables.json
+            build/icg-extract/templates.json
           if-no-files-found: error
           retention-days: 30
 

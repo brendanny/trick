@@ -1,8 +1,8 @@
 {
-  "schema_version": 8,
+  "schema_version": 9,
   "document_kind": "trick.icg.extracted-facts",
   "provenance": {
-    "extractor_version": "0.8.0-synthetic-fixture",
+    "extractor_version": "0.9.0-synthetic-fixture",
     "frontend_api": "libtooling",
     "frontend_version": "17.0.6",
     "translation_unit": "file:fixture",
@@ -14,7 +14,7 @@
     "input_digest": "0000000000000000000000000000000000000000000000000000000000000000",
     "identity_version": 1,
     "graph_digest_version": 1,
-    "graph_digest": "8ce685e07aff43bfe7f802e53f4f21635e3875c9bce239970efd2d19742a50bd",
+    "graph_digest": "0cf5fecfc60f068a89f6e056cf453c111ce4ccd831ef3108a33c5c4be2003317",
     "environment": {}
   },
   "files": [

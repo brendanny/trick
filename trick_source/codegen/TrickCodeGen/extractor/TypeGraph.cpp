@@ -24,12 +24,28 @@ namespace trick::icg
 
         // Tag keywords and redundant parentheses are syntax, not graph layers.
         const auto* raw = value.getTypePtr();
+        if (value->isDependentType())
+        {
+            unsupported(owner, "Dependent types require template-pattern modeling, not concrete type facts");
+            return { };
+        }
         if (const auto* elaborated = llvm::dyn_cast<clang::ElaboratedType>(raw))
             return get(context.getQualifiedType(elaborated->getNamedType(), value.getLocalQualifiers()), owner);
         if (const auto* paren = llvm::dyn_cast<clang::ParenType>(raw))
             return get(context.getQualifiedType(paren->getInnerType(), value.getLocalQualifiers()), owner);
         if (const auto* adjusted = llvm::dyn_cast<clang::AdjustedType>(raw))
             return get(context.getQualifiedType(adjusted->getAdjustedType(), value.getLocalQualifiers()), owner);
+        if (const auto* substitution = llvm::dyn_cast<clang::SubstTemplateTypeParmType>(raw))
+            return get(context.getQualifiedType(substitution->getReplacementType(), value.getLocalQualifiers()), owner);
+        if (const auto* specialization = llvm::dyn_cast<clang::TemplateSpecializationType>(raw))
+        {
+            if (!specialization->isTypeAlias())
+                if (const auto* record = value->getAsCXXRecordDecl())
+                    return get(context.getQualifiedType(context.getRecordType(record), value.getLocalQualifiers()),
+                               owner);
+            unsupported(owner, "Alias-template type uses are not yet represented");
+            return { };
+        }
 
         TypeNode node;
         auto policy                    = context.getPrintingPolicy();
