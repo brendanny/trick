@@ -628,7 +628,9 @@ class ExtractTests(unittest.TestCase):
         document = self.success(self.invoke())
         nodes = {n["id"]: n for n in document["declarations"]}
         types = {t["id"]: t for t in document["types"]}
-        alias = self.declarations(document)["Point"]
+        # Clang may display both the typedef and its unnamed record as Point.
+        # Display names are not unique graph keys.
+        alias = next(n for n in nodes.values() if n["kind"] == "alias")
         record = nodes[types[alias["underlying_type_id"]]["declaration_id"]]
         self.assertTrue(record["anonymous"])
         self.assertEqual(record["name"], "")
@@ -711,6 +713,39 @@ class ExtractTests(unittest.TestCase):
             records[0]["source"]["spelling"]["file_id"],
             records[1]["source"]["spelling"]["file_id"],
         )
+
+    def test_repeated_macro_arguments_preserve_substitution_identity(self):
+        for macros, use in (
+            ("#define TWO(TYPE) TYPE a; TYPE b;\n", "TWO(struct { int value; })"),
+            (
+                "#define INNER(TYPE, NAME) TYPE NAME;\n"
+                "#define TWO(TYPE) INNER(TYPE, a) INNER(TYPE, b)\n",
+                "TWO(struct { int value; })",
+            ),
+            (
+                "#define ANON struct { int value; }\n"
+                "#define TWO(TYPE) TYPE a; TYPE b;\n",
+                "TWO(ANON)",
+            ),
+        ):
+            with self.subTest(macros=macros):
+                self.header.write_text(macros + f"struct Outer {{ {use} }};\n")
+                first = self.invoke()
+                document = self.success(first)
+                records = [n for n in document["declarations"] if n.get("anonymous")]
+                self.assertEqual(len(records), 2)
+                self.assertNotEqual(records[0]["id"], records[1]["id"])
+                self.assertNotEqual(records[0]["field_ids"], records[1]["field_ids"])
+                self.assertEqual(first.stdout, self.invoke().stdout)
+                with tempfile.TemporaryDirectory(
+                    prefix="icg-macro-relocated-"
+                ) as relocated:
+                    shutil.copy2(self.header, Path(relocated) / self.header.name)
+                    second = self.success(
+                        self.invoke(cwd=relocated, options=["--source-root", relocated])
+                    )
+                    for key in ("declarations", "types"):
+                        self.assertEqual(document[key], second[key])
 
     def test_anonymous_namespace_is_unique_per_translation_unit(self):
         (self.root / "types.hh").write_text(

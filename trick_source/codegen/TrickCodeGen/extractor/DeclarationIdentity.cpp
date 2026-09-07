@@ -15,26 +15,40 @@ namespace trick::icg
     {
     }
 
-    llvm::json::Value DeclarationIdentity::anchor(clang::SourceLocation location)
+    std::string DeclarationIdentity::anchor(clang::SourceLocation location)
     {
-        auto& sm = context.getSourceManager();
-        llvm::json::Array frames;
-        // The complete caller chain distinguishes two uses of an anonymous-record
-        // macro inside one outer expansion, even when their final source ranges
-        // and ultimate spelling locations coincide.
-        while (location.isMacroID())
+        // Raw encodings are only local memoization keys. Hash both origin edges:
+        // a macro argument's caller follows its spelling and would otherwise
+        // lose the distinct parameter substitution sites in the macro body.
+        auto known = anchors.find(location.getRawEncoding());
+        if (known != anchors.end())
+            return known->second;
+        auto& sm                 = context.getSourceManager();
+        llvm::json::Value origin = nullptr;
+        if (location.isMacroID())
         {
-            auto spelling = point(sm.getSpellingLoc(location));
-            if (spelling.kind() == llvm::json::Value::Null)
-                return nullptr;
-            frames.emplace_back(std::move(spelling));
-            location = sm.getImmediateMacroCallerLoc(location);
+            auto range    = sm.getImmediateExpansionRange(location);
+            auto spelling = anchor(sm.getImmediateSpellingLoc(location));
+            auto begin    = anchor(range.getBegin());
+            auto end      = anchor(range.getEnd());
+            if (spelling.empty() || begin.empty() || end.empty())
+                return { };
+            origin = llvm::json::Object {
+                { "spelling",        spelling                         },
+                { "expansion_begin", begin                            },
+                { "expansion_end",   end                              },
+                { "argument",        sm.isMacroArgExpansion(location) }
+            };
         }
-        auto physical = point(location);
-        if (physical.kind() == llvm::json::Value::Null)
-            return nullptr;
-        frames.emplace_back(std::move(physical));
-        return frames;
+        else
+            origin = point(location);
+        if (origin.kind() == llvm::json::Value::Null)
+            return { };
+        // Memoized digests keep shared spelling/expansion subgraphs linear in
+        // size instead of recursively duplicating the same origin tree in JSON.
+        auto id = digest(serialize(origin));
+        anchors.emplace(location.getRawEncoding(), id);
+        return id;
     }
 
     const DeclarationID& DeclarationIdentity::get(const clang::NamedDecl* decl)
@@ -68,7 +82,7 @@ namespace trick::icg
         if (value.fromSource)
         {
             auto location = anchor(decl->getLocation());
-            if (location.kind() == llvm::json::Value::Null)
+            if (location.empty())
                 facts.diagnose("error", "ICG_IDENTITY_SOURCE",
                                "Cannot form a physical source identity for " + decl->getNameAsString());
             else

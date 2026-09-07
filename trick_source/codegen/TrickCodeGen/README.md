@@ -157,9 +157,11 @@ spelling is retained. Per-use spelling is not modeled by this structural node.
 Named declaration IDs normally hash Clang USRs. Unnamed declarations, declarations
 without USRs, and descendants of a source-identified context instead hash the
 declaration kind, semantic parent ID, name, and rooted physical source anchor.
-The anchor includes the complete macro caller chain, distinguishing repeated uses
-inside one outer expansion. Anonymous namespaces also include the translation-unit
-file ID so header-local entities are not merged across different translation units.
+The anchor includes the complete spelling and expansion chains, distinguishing
+repeated uses and macro argument substitution sites inside one outer expansion.
+Shared origin subgraphs are memoized and hashed. Anonymous namespaces also include
+the translation-unit file ID so header-local entities are not merged across
+different translation units.
 `identity_kind` records `usr` or `source`; `usr` retains frontend evidence when
 available and is null otherwise. Distinct canonical declarations that collide
 produce `ICG_IDENTITY_COLLISION`; missing physical fallback locations produce

@@ -114,8 +114,10 @@ parent links remain distinct for out-of-line definitions.
 
 Declarations state `identity_kind` (`usr` or `source`) separately from retained
 nullable USR evidence. A source anchor contains rooted file/offset locations for
-the declaration and its complete macro caller chain. Intermediate callers prevent
-collisions when one macro expands the same unnamed-record macro multiple times.
+the declaration and its complete spelling and expansion chains. Intermediate
+expansions and argument substitution sites prevent collisions when one macro uses
+the same unnamed-record macro or type argument multiple times. Shared origin
+subgraphs are memoized and hashed without emitting raw Clang location encodings.
 Anonymous namespaces additionally salt their identity with the translation-unit
 file ID; source identity propagates to descendants. Canonical AST pointers are
 only local memoization/collision-check keys and never enter emitted identity.

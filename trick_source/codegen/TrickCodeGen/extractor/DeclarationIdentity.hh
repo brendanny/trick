@@ -30,8 +30,9 @@ namespace trick::icg
             std::function<llvm::json::Value(clang::SourceLocation)> point;
             std::map<const clang::Decl*, DeclarationID> identities;
             std::map<std::string, const clang::Decl*> owners;
+            std::map<unsigned, std::string> anchors;
 
-            llvm::json::Value anchor(clang::SourceLocation location);
+            std::string anchor(clang::SourceLocation location);
 
         public:
             DeclarationIdentity(Facts& facts, clang::ASTContext& context,
