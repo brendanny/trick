@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture a configured SIM_test_templates build and actual Python/runtime behavior."""
+"""Capture configured simulation builds and actual Python/runtime behavior."""
 
 from __future__ import annotations
 
@@ -7,16 +7,39 @@ import argparse
 import contextlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 import baseline as b
 
 HERE = Path(__file__).resolve().parent
-CASE = "templates"
-DIRECTORY = "test/SIM_test_templates"
+RUNTIME_INPUTS = {
+    "templates": ("templates.py",),
+    "io": ("io.py", "io.restore_input"),
+}
+
+
+def validate_io_logs(text: str) -> None:
+    # Only the deliberate permission failures may pass this negative probe.
+    # Check message multiplicity too: extra/missing failures are regressions.
+    expected = json.loads((HERE / "runtime/io.expected-diagnostics.json").read_text())
+    messages = []
+    for line in re.sub(r"\x1b\[[0-9;]*m", "", text).splitlines():
+        match = re.search(
+            r"Checkpoint Agent (?:ERROR|WARNING):.*|ERROR:.*|Cannot assign to .*"
+            r"|reference attributes not found .*",
+            line,
+        )
+        if match:
+            messages.append(match.group().strip())
+    if Counter(messages) != Counter(expected):
+        raise b.BaselineError(
+            "I/O diagnostics differ from the expected permission failures"
+        )
 
 
 def require_fresh_simulation(sim: Path) -> None:
@@ -40,20 +63,19 @@ def executable(sim: Path) -> Path:
     return binary
 
 
-def validate_runtime(output: Path, expected_path: Path) -> dict:
+def validate_runtime(
+    output: Path, expected_path: Path, case_id: str = "templates"
+) -> dict:
     # Legacy read_checkpoint logs a parser failure but can still return zero.
-    for name in ("stdout.log", "stderr.log"):
-        log = b.contained(output, name).read_bytes()
-        if any(
-            marker in log
-            for marker in (
-                b"Checkpoint restore failed.",
-                b"Traceback (most recent call last):",
-            )
-        ):
-            raise b.BaselineError(
-                "runtime log contains a Python or checkpoint restore error"
-            )
+    logs = "\n".join(
+        b.contained(output, name).read_text() for name in ("stdout.log", "stderr.log")
+    )
+    if "Traceback (most recent call last):" in logs:
+        raise b.BaselineError("runtime log contains a Python error")
+    if case_id == "io":
+        validate_io_logs(logs)
+    elif "Checkpoint restore failed." in logs or "Checkpoint Agent ERROR:" in logs:
+        raise b.BaselineError("runtime log contains a checkpoint restore error")
     actual_path = b.contained(output, "observations.json")
     actual = json.loads(actual_path.read_text())
     expected = json.loads(expected_path.read_text())
@@ -64,15 +86,37 @@ def validate_runtime(output: Path, expected_path: Path) -> dict:
     checkpoint = b.contained(output, "icg_model_checkpoint")
     raw = checkpoint.read_bytes()
     text = raw.decode("utf-8")
-    for marker in (
-        "tso.tobj.TTT_var_scalar_builtins.aa",
-        "tso.tobj.TTT_var_array_builtins.aa",
-        "tso.tobj.TTT_var_enum.aa",
-        "tso.tobj.TTT_var_template_parameters.aa.t",
-    ):
-        if marker not in text:
-            raise b.BaselineError(f"checkpoint is missing {marker}")
-    if "clear_all_vars();" in text:
+    if case_id == "io":
+        assignments = re.findall(
+            r"(?m)^\s*(/\* OUTPUT-ONLY: )?(test_io\.d\d+)\s*=\s*([^;]+);(\*/)?\s*$",
+            text,
+        )
+        expected_assignments = {
+            (i < 8, f"test_io.d{i}"): expected["before_checkpoint"][i]
+            for i in (4, 5, 6, 7, 12, 13, 14, 15)
+        }
+        if (
+            len(assignments) != len(expected_assignments)
+            or any(bool(start) != bool(end) for start, _, _, end in assignments)
+            or {
+                (bool(start), name): float(value)
+                for start, name, value, _ in assignments
+            }
+            != expected_assignments
+        ):
+            raise b.BaselineError(
+                "checkpoint assignments violate the I/O output contract"
+            )
+    else:
+        for marker in (
+            "tso.tobj.TTT_var_scalar_builtins.aa",
+            "tso.tobj.TTT_var_array_builtins.aa",
+            "tso.tobj.TTT_var_enum.aa",
+            "tso.tobj.TTT_var_template_parameters.aa.t",
+        ):
+            if marker not in text:
+                raise b.BaselineError(f"checkpoint is missing {marker}")
+    if re.search(r"\bclear_all_vars\s*\(", text):
         raise b.BaselineError(
             "object-only checkpoint unexpectedly clears all allocations"
         )
@@ -83,16 +127,25 @@ def validate_runtime(output: Path, expected_path: Path) -> dict:
     }
 
 
-def runtime(sim: Path, output: Path, env: dict, timeout: str, seconds: int) -> dict:
+def runtime(
+    sim: Path,
+    output: Path,
+    env: dict,
+    timeout: str,
+    seconds: int,
+    case_id: str = "templates",
+) -> dict:
     output.mkdir(parents=True, exist_ok=False)
     binary = executable(sim)
     env = dict(env, ICG_BASELINE_RESULTS=str(output))
+    if case_id == "io":
+        env["ICG_BASELINE_RESTORE_INPUT"] = str(HERE / "runtime/io.restore_input")
     command = [
         timeout,
         "--kill-after=10s",
         f"{seconds}s",
         str(binary),
-        str(HERE / "runtime/templates.py"),
+        str(HERE / f"runtime/{case_id}.py"),
         "-O",
         str(output),
     ]
@@ -103,7 +156,7 @@ def runtime(sim: Path, output: Path, env: dict, timeout: str, seconds: int) -> d
         if report["measurement"]["returncode"] != 0:
             raise b.BaselineError("simulation command failed or timed out")
         report.update(
-            validate_runtime(output, HERE / "runtime/templates.expected.json")
+            validate_runtime(output, HERE / f"runtime/{case_id}.expected.json", case_id)
         )
         report["status"] = "success"
     except (b.BaselineError, OSError, ValueError) as exc:
@@ -123,9 +176,10 @@ def capture(args: argparse.Namespace) -> int:
     if timeout is None:
         raise b.BaselineError("GNU timeout is required")
     root = args.root.resolve()
-    sim = b.contained(root, DIRECTORY)
     manifest = b.load_manifest(HERE / "corpus.json", root)
-    case = next(case for case in manifest["cases"] if case["id"] == CASE)
+    case_id = args.case
+    case = next(case for case in manifest["cases"] if case["id"] == case_id)
+    sim = b.contained(root, case["directory"])
     require_fresh_simulation(sim)
     config = root / "share/trick/makefiles/config_user.mk"
     icg = root / "bin/trick-ICG"
@@ -139,20 +193,35 @@ def capture(args: argparse.Namespace) -> int:
     report = {
         "schema_version": 1,
         "scope": "configured-simulation",
-        "case": CASE,
+        "case": case_id,
         "status": "incomplete",
         "provenance": b.provenance(root, case, HERE / "corpus.json"),
         "legacy_icg_sha256": b.digest(icg.read_bytes()),
-        "runtime_input_sha256": b.digest((HERE / "runtime/templates.py").read_bytes()),
+        "runtime_input_sha256": b.digest((HERE / f"runtime/{case_id}.py").read_bytes()),
+        "runtime_inputs": {
+            name: b.digest((HERE / "runtime" / name).read_bytes())
+            for name in RUNTIME_INPUTS[case_id]
+        },
         "expected_sha256": b.digest(
-            (HERE / "runtime/templates.expected.json").read_bytes()
+            (HERE / f"runtime/{case_id}.expected.json").read_bytes()
         ),
         "stages": {},
     }
+    if case_id == "io":
+        report["expected_diagnostics_sha256"] = b.digest(
+            (HERE / "runtime/io.expected-diagnostics.json").read_bytes()
+        )
     report["provenance"]["environment"] = {
         key: env[key] for key in b.ENVIRONMENT if key in env
     }
     b.write_changed(output / "summary.json", b.json_bytes(report))
+    inputs = [*RUNTIME_INPUTS[case_id], f"{case_id}.expected.json"]
+    if case_id == "io":
+        inputs.append("io.expected-diagnostics.json")
+    for name in inputs:
+        b.write_changed(
+            output / "runtime-inputs" / name, (HERE / "runtime" / name).read_bytes()
+        )
     for path in (
         config,
         root / "share/trick/makefiles/config_Linux.mk",
@@ -177,7 +246,7 @@ def capture(args: argparse.Namespace) -> int:
                 str(root),
                 "run",
                 "--case",
-                CASE,
+                case_id,
                 "--output",
                 str(output / label),
                 "--stage",
@@ -198,7 +267,7 @@ def capture(args: argparse.Namespace) -> int:
             if label in ("warm", "rebuilt"):
                 key = f"runtime-{label}"
                 report["stages"][key] = runtime(
-                    sim, output / key, env, timeout, args.runtime_timeout
+                    sim, output / key, env, timeout, args.runtime_timeout, case_id
                 )
             b.write_changed(output / "summary.json", b.json_bytes(report))
         for label in ("warm", "forced", "rebuilt"):
@@ -230,6 +299,7 @@ def positive_integer(value: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=b.DEFAULT_ROOT)
+    parser.add_argument("--case", choices=RUNTIME_INPUTS, default="templates")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--jobs", type=positive_integer, default=2)
     parser.add_argument("--build-timeout", type=positive_integer, default=1200)

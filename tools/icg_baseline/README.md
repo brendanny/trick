@@ -79,9 +79,10 @@ simulation workflow below remains the separate full-build evidence path.
 ## Collect an existing simulation
 
 For the automated full-build and runtime path, see
-[configured SIM_test_templates evidence](runtime/README.md). It captures cold,
+[configured template and I/O simulation evidence](runtime/README.md). It captures cold,
 warm, forced, and rebuilt output and checks Python field access plus checkpoint
-readback using the actual linked simulation. Other cases can use the general
+readback using the actual linked simulations. The I/O case also checks permission
+rejections, checkpoint output selection, and units conversion. Other cases can use the general
 commands below.
 
 First configure and build this checkout of Trick using its normal installation
@@ -213,7 +214,7 @@ exit status (including negative signal status) is retained in the report.
 
 ## Remaining Phase 0 work
 
-- Extend the configured template simulation capture/runtime lane to additional
+- Extend the configured template and I/O simulation capture/runtime lane to additional
   simulations and minimum stacks; promote reviewed full-build references.
 - Add representative medium and real large/old simulations with reproducible
   commands and dependencies. The 12 checked-in cases are focused regressions,

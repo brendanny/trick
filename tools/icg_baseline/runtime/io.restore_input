@@ -1,0 +1,17 @@
+// Deliberately attempts every checkpoint-input permission combination.
+test_io.d0 = 400;
+test_io.d1 = 401;
+test_io.d2 = 402;
+test_io.d3 = 403;
+test_io.d4 = 404;
+test_io.d5 = 405;
+test_io.d6 = 406;
+test_io.d7 = 407;
+test_io.d8 = 408;
+test_io.d9 = 409;
+test_io.d10 = 410;
+test_io.d11 = 411;
+test_io.d12 = 412;
+test_io.d13 = 413;
+test_io.d14 = 414;
+test_io.d15 = 415;

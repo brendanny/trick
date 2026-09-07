@@ -1,9 +1,9 @@
 # Configured simulation and runtime evidence
 
-`simulation.py` drives the existing `SIM_test_templates` through the production
+`simulation.py` drives the existing `SIM_test_templates` and `SIM_test_io` through the production
 Perl configuration processor, legacy ICG, SWIG, generated-source compilation,
 linking, and the Trick executable. It does not substitute the new extractor or
-alter the simulation's existing model or `S_define`.
+alter either simulation's existing model or `S_define`.
 
 ## Reproduce
 
@@ -16,7 +16,9 @@ Use a fresh checkout or worktree. Install the dependencies in
   CC=gcc-13 CXX=g++-13 PYTHON_VERSION=3
 make -j2 no_dp TRICK_VERBOSE_BUILD=1 ICG_CLANGLIBS=-lclang-cpp
 /usr/bin/python3 tools/icg_baseline/simulation.py \
-  --output /tmp/icg-simulation-evidence --jobs 2
+  --case templates --output /tmp/icg-simulation-evidence/templates --jobs 2
+/usr/bin/python3 tools/icg_baseline/simulation.py \
+  --case io --output /tmp/icg-simulation-evidence/io --jobs 2
 ```
 
 This lane is Linux x86-64, LLVM 17.0.6, GCC 13, Python 3.12, and SWIG 4.2.
@@ -52,6 +54,12 @@ rules, and SIE. Optional SWIG/build outputs are captured when present. Missing
 required groups or a missing/ambiguous executable fail the run. Each stage keeps
 raw logs, measurements, sidecars, and churn; the summary retains configuration,
 input/expected-output digests, and the actual executable digest for each run.
+The selected probe, auxiliary checkpoint input, and expected values/diagnostics
+are copied under `runtime-inputs/`; their digests are recorded in the summary.
+`--case` defaults to `templates` for compatibility. CI builds core once, runs
+both cases, and uploads `icg-configured-simulations-llvm17-linux`; evidence is
+separated into `templates/` and `io/` directories. The I/O capture still runs if
+the template capture fails, provided the shared core build succeeded.
 GNU `timeout` bounds complete build commands (20 minutes by default) and runtime
 commands (60 seconds), terminating their process groups on expiry.
 `--jobs` sets `MAKEFLAGS`; `trick-CP` does not accept Make's `-j` option or named
@@ -64,7 +72,7 @@ are not normalized away. A successful capture does not imply zero churn or
 textual equivalence between all build stages. The existing isolated-header
 goldens continue to be checked separately.
 
-## Runtime contract
+## Template runtime contract
 
 The real Trick input processor executes `templates.py`. The probe sets integer,
 floating, array, and enum fields through SWIG and observes them
@@ -96,10 +104,56 @@ I/O permissions, every template form, or a new-versus-legacy backend comparison.
 The Python plumbing tests use synthetic malformed evidence to check rejection;
 the configured CI lane runs the actual simulation.
 
+## I/O and units runtime contract
+
+`io.py` executes the existing `SIM_test_io` matrix of 16 annotated fields at
+simulation time 0.1 seconds. Each row below combines all four variable I/O modes
+(`**`, `*o`, `*i`, `*io`) with the indicated checkpoint mode. Values are observed
+through the real SWIG bindings before and after each operation.
+
+| Fields | Checkpoint mode | Written checkpoint | Readback after all fields are mutated |
+|---|---|---|---|
+| `d0`–`d3` | `**` | Omitted | Remain mutated |
+| `d4`–`d7` | `*o` | `OUTPUT-ONLY` comments | Remain mutated |
+| `d8`–`d11` | `*i` | Omitted | Remain mutated |
+| `d12`–`d15` | `*io` | Active assignments | Restore saved values |
+
+The probe checks these distinct legacy behaviors:
+
+- Direct SWIG reads and assignments work for all 16 public fields, including
+  those without variable-input permission. This is distinct from `var_set`.
+- `var_set` accepts the eight input-enabled fields and leaves rejected fields
+  unchanged. `d0`, with all four permission bits disabled, has no generated
+  metadata: its status is `2` (missing reference). The other seven rejections
+  return `1` (input disabled). These are observed contracts, not new policies.
+- Assigning `attach_units("cm", 125.0)` yields `1.25 m`; `var_set` with `2.5 km`
+  yields `2500 m`. Both results are exactly representable and compared exactly.
+- The generated checkpoint must contain precisely the eight selected numeric
+  fields, with the correct values and comment/assignment distinction above.
+  Extra, duplicate, missing, or incorrectly active fields fail validation.
+- After readback, the independently authored `io.restore_input` attempts all
+  16 fields. Only `d8`–`d15` change to the specified values, exercising
+  checkpoint-input-only fields as well as forbidden input.
+
+The deliberate negative read produces invalid-reference and failed-assignment
+diagnostics for `d0`, seven permission warnings, an eight-invalid-assignments
+summary, and restore-failure messages. The legacy reader still returns `0`;
+the baseline records that fact.
+`io.expected-diagnostics.json` lists the complete expected messages from this
+read and `var_set`. The collector compares their multiplicities across stdout
+and stderr after removing log prefixes/ANSI colors. Extra or missing classified
+messages, any Python traceback, or incorrect observed values fail the gate.
+These specific expected failures do not relax the template runtime gate.
+
+The contract covers variable input, checkpoint input/output, direct SWIG access,
+and two length conversions. It does not establish variable-server output
+permissions, affine/dimensionally invalid conversions, pointer/string behavior,
+restart/reallocation, STL restoration, or replacement-backend equivalence.
+
 ## Remaining evidence gates
 
-Broaden the configured corpus to I/O/units/permissions and full checkpoint
-restart, capture the minimum stacks and macOS, and select representative medium
+Broaden units/permissions coverage and add full checkpoint restart,
+capture the minimum stacks and macOS, and select representative medium
 and large/old models. Review and promote stable generated-output references only
-with their actual package/configuration provenance. This one focused simulation
+with their actual package/configuration provenance. These two focused simulations
 does not close Phase 0 or establish a performance distribution.

@@ -78,7 +78,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 |---|---|
 | Focused corpus manifest and artifact capture | Implemented; synthetic plumbing tests plus actual legacy header reference integrity tests |
 | Command timing, CPU/RSS, bytes/files/churn | Implemented; no production performance claim |
-| Actual normalized legacy output baselines | Four headers / 12 checked-in snapshots plus a configured `SIM_test_templates` cold/warm/forced/rebuilt capture lane; [header references](../../tools/icg_baseline/legacy/README.md) and [full-build scope](../../tools/icg_baseline/runtime/README.md). Full-build golden promotion, broader simulations, and minimum stacks remain pending |
+| Actual normalized legacy output baselines | Four headers / 12 checked-in snapshots plus configured `SIM_test_templates` and `SIM_test_io` cold/warm/forced/rebuilt captures; [header references](../../tools/icg_baseline/legacy/README.md) and [full-build scope](../../tools/icg_baseline/runtime/README.md). Full-build golden promotion, broader simulations, and minimum stacks remain pending |
 | Small/medium/large representative corpus | Focused cases selected; medium/large selection pending |
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |
@@ -92,7 +92,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Review hardening | Named file roots, exact integers/scalar extents, complete member diagnostics and safe reference collection, argument/normalization regressions, content-addressed sidecars, pinned Ruff CI, versioned owned identity tags, consistent display names, capability prerequisites, and verified normalized graph fingerprints implemented |
 | GCC 8.5/12 extractor host builds | Dedicated LLVM 17 / Rocky Linux 8 CI jobs; does not establish generated-code conformance |
 | GCC 8.5/12 layout and generated-operation probes | Focused native size/alignment/public base-path, special-member type-trait, and concrete-template layout probes wired into host CI; broader layout and generated-operation gates pending |
-| Runtime/Python behavior | Configured template simulation checks scalar/array/enum bindings and checkpoint readback into existing allocations before/after regeneration; records the current opaque nested-template binding. Executive restart, lifetime, nested access, units/I/O, and broader coverage remain pending |
+| Runtime/Python behavior | Configured template and I/O simulations check scalar/array/enum bindings, the 16-field variable-input/checkpoint permission matrix, length conversions, and checkpoint readback before/after regeneration. Opaque nested-template access and direct-SWIG versus metadata permission differences are recorded. Executive restart, lifetime, nested access, variable-server output, and broader units/I/O coverage remain pending |
 | S_define and replacement-binding spikes | Pending; configured baseline uses the existing Perl/SWIG path |
 | Exact platform packages and ADR decisions | Package matrix pending; ICG-001 and ICG-002 accepted, eight initial ADRs pending |
 

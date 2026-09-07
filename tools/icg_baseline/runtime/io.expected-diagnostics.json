@@ -1,0 +1,22 @@
+[
+  "reference attributes not found for variable test_io.d0 in call to var_set",
+  "Cannot assign to test_io.d1 because io_spec does not allow input",
+  "Cannot assign to test_io.d4 because io_spec does not allow input",
+  "Cannot assign to test_io.d5 because io_spec does not allow input",
+  "Cannot assign to test_io.d8 because io_spec does not allow input",
+  "Cannot assign to test_io.d9 because io_spec does not allow input",
+  "Cannot assign to test_io.d12 because io_spec does not allow input",
+  "Cannot assign to test_io.d13 because io_spec does not allow input",
+  "Checkpoint Agent ERROR: Invalid Reference: \"test_io->d0\".",
+  "Checkpoint Agent ERROR: Assignment to \"test_io.d0\" failed because it's an invalid reference.",
+  "Checkpoint Agent WARNING: \"test_io.d1\" not restored because IO specification does not allow checkpoint input.",
+  "Checkpoint Agent WARNING: \"test_io.d2\" not restored because IO specification does not allow checkpoint input.",
+  "Checkpoint Agent WARNING: \"test_io.d3\" not restored because IO specification does not allow checkpoint input.",
+  "Checkpoint Agent WARNING: \"test_io.d4\" not restored because IO specification does not allow checkpoint input.",
+  "Checkpoint Agent WARNING: \"test_io.d5\" not restored because IO specification does not allow checkpoint input.",
+  "Checkpoint Agent WARNING: \"test_io.d6\" not restored because IO specification does not allow checkpoint input.",
+  "Checkpoint Agent WARNING: \"test_io.d7\" not restored because IO specification does not allow checkpoint input.",
+  "Checkpoint Agent ERROR: 0 invalid declaration(s) and 8 invalid assignment(s).",
+  "Checkpoint Agent ERROR: Checkpoint restore failed.",
+  "ERROR:Checkpoint restore failed."
+]
