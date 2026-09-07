@@ -70,7 +70,7 @@ applies. No code-generation options are silently stripped: other options, respon
 files, compiler plugins, alternate dialects, and extra source inputs are rejected.
 This is **not yet the GCC argument classifier** or a compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-6 facts document
+Successful extraction writes one deterministic, schema-version-7 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction
@@ -198,13 +198,17 @@ file names and bytes. Source edits or a different first namespace block may chan
 them; they are not persistent symbol IDs across revisions. Anonymous display names
 omit physical locations, and names are not unique identity keys. Forward
 declarations and definitions share one node. A worklist closes dependencies without
-recursively expanding mutually referential record fields. Fallback overload and
-template identity are not implemented because those declaration kinds remain
-unsupported.
+recursively expanding mutually referential record fields. Non-template overloads
+have distinct identities, including constructors, conversions, and operators whose
+semantic names are not Clang identifiers. They use USRs in named contexts and the
+same physical source anchors in source-identified contexts. Templates remain unsupported.
+Translation-unit-local functions use source identity plus the translation-unit
+file ID, so internal symbols are not merged merely because their USRs share a
+header basename. Their IDs still survive relocation of unchanged named roots.
 
-Extractor 0.6.0 advances facts to schema 6 for inheritance and base-subobject
-layout, retaining the enum/bitfield, identity, and context meanings.
-The synthetic minimal fixture is migrated; the reader rejects v1/v2/v3/v4/v5 facts.
+Extractor 0.7.0 advances facts to schema 7 for callables and special-member
+declaration state, retaining the inheritance, enum/bitfield, identity, and context meanings.
+The synthetic minimal fixture is migrated; the reader rejects v1/v2/v3/v4/v5/v6 facts.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
 in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
 
@@ -230,8 +234,49 @@ Records also expose Clang's `data_size_bits`, `non_virtual_size_bits`, and
 frontend layout facts, not a recipe for summing `sizeof(base)` values: empty-base
 optimization and tail-padding reuse can overlap those complete-object extents.
 Incomplete records have null layout quantities and empty base tables. This slice
-does not expose hidden ABI slots, flatten legacy metadata, generate casts/accessors,
-or accept user-declared methods merely because virtual inheritance is supported.
+does not expose hidden ABI slots, flatten legacy metadata, or generate casts/accessors.
+
+Non-template functions, methods, constructors, destructors, conversions, and
+operators now produce `callable` nodes. Records own their direct explicit methods
+through source-ordered `callable_ids`, separate from nested types and fields.
+Signatures retain adjusted parameter types and `original_type_id` (notably arrays
+before parameter decay), return types, variadicness, CV/ref qualification,
+static/virtual/pure/final, explicit, constexpr, deletion/defaulting, and
+`user_provided` facts. `linkage` retains Clang's linkage category; `static` covers
+both static member functions and free functions with a static declaration, even
+when a later redeclaration omits that keyword. Constructors/destructors have null return types. This slice
+accepts Clang's `CC_C` calling convention, not other calling conventions or special
+parameter/register ABI extensions; this is unrelated to C versus C++ language linkage.
+
+One canonical callable node retains all observed `redeclarations` in translation-unit
+order, including each parameter's name, source, defaults, and raw annotations.
+The last redeclaration supplies the node's source, parameters, and lexical context;
+the semantic parent remains its owning namespace/record. Function annotations are
+also aggregated across occurrences. `definition` means any occurrence is a definition
+(including `= delete`/`= default`), not that a linkable implementation was generated.
+An out-of-line defaulted constructor can be `defaulted` and `user_provided` together.
+`default_spelling` is Clang's pretty-printed expression evidence, **not round-trip
+source or generated-code input**; `default_source` preserves spelling/expansion
+locations, including inherited defaults and macros. Bodies, local declarations,
+and expression dependencies are not serialized or included in declaration selection.
+
+Virtual methods retain direct `overridden_declaration_ids`. When a destructor
+overrides an implicit virtual destructor, `overridden_implicit_destructor_record_ids`
+identifies that base record instead of inventing a source declaration or callable ID.
+Covariant return types remain separate callable facts; no trampoline policy is inferred.
+
+Each record has six fixed-order `special_members` summaries: default/copy/move
+construction, copy/move assignment, and destruction. Clang Sema materializes the
+implicit declarations before these are queried. States distinguish `implicit`,
+`user_declared`, `suppressed`, and `unknown` (incomplete records). User-declared
+slots link all matching callable IDs. Only implicit slots contain deletion,
+triviality, virtualness, and evaluated noexcept facts; other slots leave those
+values null. Unresolved exception specifications remain `unknown`, never assumed
+nothrow. These are declaration-state summaries, not full implicit callable
+signatures or use-site constructibility/access decisions. A suppressed move can
+still permit copying an rvalue; a nondeleted private constructor is not publicly
+constructible; a deleted implicit member can still have a triviality flag. No
+allocation/destruction/binding capability is inferred from these flags alone.
 
 Physical input files, their bytes' SHA-256 digests, and resolved include directives
 are recorded through preprocessor callbacks. Forced includes are tracked as inputs
@@ -274,7 +319,8 @@ arguments, environment, frontend facts, physical inputs, and exact paths. It is
 not relocatable and does not capture all filesystem probes, volatile predefined
 macros, or every possible environment influence. No cache is created or reused.
 
-Templates, methods (including methods in selected base records), friends, variables, explicit
+Templates, function/member-pointer signatures, deduced-return structural types,
+friends, variables, explicit
 using declarations/directives, linkage contexts, and unsupported structural types
 in the selected declaration closure
 fail explicitly rather than producing apparently complete facts. Unsupported
@@ -285,7 +331,8 @@ pointee/element consistency, alias targets, member ownership, incomplete layout,
 namespace ownership, context/namespace-alias cycles, anonymous storage, source
 identity propagation, enum value ranges/completeness, bitfield layout/addressability,
 base type/access/layout consistency, inheritance cycles, exact transitive virtual-base
-closure, and direct structural cycles. Record-reference cycles are
+closure, callable ownership/redeclarations/defaults/override ancestry, special-member
+state consistency, and direct structural cycles. Record-reference cycles are
 valid; pointer/alias
 type cycles with no intervening record declaration are not. It still does not
 prove every invariant for not-yet-implemented schema kinds.
@@ -296,7 +343,9 @@ inline namespaces, namespace aliases, unnamed records, anonymous union storage,
 and nested macro expansions. `enums-bitfields.hh` adds enum values/opaque types and
 bitfield storage/separators. `inheritance.hh` adds repeated/mixed/virtual diamonds,
 typedef bases, access defaults, packing, empty bases, and tail-padding reuse.
-CI captures these and the original `record.hh` output for inspection on Linux and macOS.
+`callables.hh` adds overloads, redeclarations, parameter decay, defaults, virtual
+methods, access, deletion/defaulting, and implicit special members. CI captures
+these and the original `record.hh` output for inspection on Linux and macOS.
 
 CTest also passes the configured native C++ compiler to the integration runner.
 One test compiles and runs real fixture objects, comparing `sizeof`, `alignof`, and
@@ -310,10 +359,15 @@ the older `-Wextra` category: only the native probe enables a diagnostic pragma
 scoped to that one fixture declaration. Other warnings remain errors; extraction
 does not enable this fixture exception.
 When invoking `tests/test_extract.py` directly, pass `--layout-compiler /path/to/c++`;
-omitting it explicitly skips this one test. The probe requires a native compiler,
+omitting it explicitly skips the two native probe tests. The probes require a native compiler,
 not a cross-compiled executable.
 
-Next add callable/special-member facts. Legacy
+A second native probe compiles standard type-trait assertions against the focused
+special-member facts and exercises the suppressed-move/copy fallback and private
+constructor distinctions above. Both probes run in all six extractor CI lanes,
+including GCC 8.5/12. They do not establish general generated-operation parity.
+
+Next extend template/specialization facts and remaining declaration kinds. Legacy
 differential baselines and the remaining Phase 0 gates still need
 completion before any production switch.
 

@@ -68,7 +68,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 6)
+        self.assertEqual(document["schema_version"], 7)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -263,9 +263,9 @@ class ExtractTests(unittest.TestCase):
 
     def test_unsupported_declarations_fail_closed(self):
         for source in (
-            "struct Sample { void method(); };",
+            "struct Sample { template<class T> void method(T); };",
             "template<class T> struct Sample { T value; };",
-            "namespace ns { void function(); }",
+            "namespace ns { int variable; }",
             "struct { int value; } anonymous;",
         ):
             with self.subTest(source=source):
@@ -400,7 +400,7 @@ class ExtractTests(unittest.TestCase):
         )
 
     def test_unsupported_referenced_type_does_not_publish_partial_facts(self):
-        (self.root / "types.hh").write_text("struct Node { void method(); };\n")
+        (self.root / "types.hh").write_text("struct Node { static int value; };\n")
         self.header.write_text('#include "types.hh"\nstruct Sample { Node *p; };\n')
         self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
 
@@ -527,7 +527,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_all_unsupported_members_are_reported_in_one_run(self):
         self.header.write_text(
-            "struct Sample {\nfriend struct Friend;\nstatic int value;\nvoid run();\nSample();\n};\n"
+            "struct Sample {\nfriend struct Friend;\nstatic int value;\ntemplate<class T> void run(T);\ntemplate<class T> Sample(T);\n};\n"
         )
         report = self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
         lines = {
@@ -804,7 +804,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_unimplemented_namespace_members_fail_closed(self):
         for source in (
-            "namespace N { struct Good {}; void function(); }",
+            "namespace N { struct Good {}; int variable; }",
             "namespace N { struct Good {}; } using namespace N;",
             "namespace N { struct Good {}; } using N::Good;",
             'extern "C++" { struct Good {}; }',
@@ -1106,6 +1106,318 @@ class ExtractTests(unittest.TestCase):
         self.assertFalse(nodes["model::Opaque"]["definition"])
         self.assertEqual(nodes["model::Packet::count"]["bit_width"], 5)
 
+    def callable_fixture(self):
+        self.header.write_text((HERE / "fixtures/callables.hh").read_text())
+        return self.success(self.invoke())
+
+    def callables(self, document, name):
+        return [
+            n
+            for n in document["declarations"]
+            if n["kind"] == "callable" and n["qualified_name"] == name
+        ]
+
+    def special_members(self, document, name):
+        return {
+            s["kind"]: s for s in self.declarations(document)[name]["special_members"]
+        }
+
+    def test_callable_overloads_flags_and_member_ownership(self):
+        document = self.callable_fixture()
+        nodes = self.declarations(document)
+        values = self.callables(document, "callable_model::Methods::value")
+        self.assertEqual(len(values), 2)
+        self.assertEqual(
+            {(v["const"], v["ref_qualifier"]) for v in values},
+            {(True, "lvalue"), (False, "rvalue")},
+        )
+        ctors = self.callables(document, "callable_model::Methods::Methods")
+        self.assertEqual(len(ctors), 3)
+        self.assertEqual(len({n["id"] for n in ctors}), 3)
+        self.assertTrue(all(n["identity_kind"] == "usr" for n in ctors))
+        self.assertEqual(sum(n["explicit"] for n in ctors), 1)
+        self.assertTrue(all(n["return_type_id"] is None for n in ctors))
+        self.assertTrue(nodes["callable_model::Methods::watch"]["volatile"])
+        self.assertTrue(nodes["callable_model::Methods::scale"]["static"])
+        self.assertTrue(nodes["callable_model::Methods::twice"]["constexpr"])
+        self.assertTrue(nodes["callable_model::Methods::twice"]["definition"])
+        conversion = nodes["callable_model::Methods::operator bool"]
+        self.assertEqual(
+            (
+                conversion["callable_kind"],
+                conversion["explicit"],
+                conversion["noexcept"],
+            ),
+            ("conversion", True, "true"),
+        )
+        owner = nodes["callable_model::Methods"]
+        self.assertEqual(
+            set(owner["callable_ids"]),
+            {
+                n["id"]
+                for n in document["declarations"]
+                if n["kind"] == "callable"
+                and n.get("semantic_parent_id") == owner["id"]
+            },
+        )
+        self.assertEqual(owner["nested_declaration_ids"], [])
+
+    def test_callable_redeclarations_defaults_and_parameter_adjustment(self):
+        document = self.callable_fixture()
+        functions = self.callables(document, "callable_model::free")
+        self.assertEqual(len(functions), 2)
+        function = next(f for f in functions if len(f["redeclarations"]) == 2)
+        self.assertEqual(function["parameters"][0]["name"], "renamed")
+        self.assertEqual(
+            [r["parameters"][0]["name"] for r in function["redeclarations"]],
+            ["value", "renamed"],
+        )
+        default = function["parameters"][0]
+        self.assertTrue(default["has_default"])
+        self.assertEqual(default["default_spelling"], "(2 + 3)")
+        self.assertTrue(default["default_source"]["macro_expansion"])
+        nodes = self.declarations(document)
+        types = {t["id"]: t for t in document["types"]}
+        array = nodes["callable_model::arrays"]["parameters"][0]
+        self.assertEqual(types[array["type_id"]]["kind"], "pointer")
+        self.assertEqual(types[array["original_type_id"]]["kind"], "array")
+        self.assertTrue(nodes["callable_model::varargs"]["variadic"])
+
+    def test_callable_out_of_line_definition_preserves_both_contexts(self):
+        document = self.callable_fixture()
+        late = self.callables(document, "callable_model::Late::Late")[0]
+        self.assertTrue(late["defaulted"])
+        self.assertTrue(late["user_provided"])
+        self.assertTrue(late["definition"])
+        self.assertEqual(len(late["redeclarations"]), 2)
+        self.assertNotEqual(late["semantic_parent_id"], late["lexical_parent_id"])
+        self.assertEqual(
+            late["redeclarations"][0]["lexical_parent_id"], late["semantic_parent_id"]
+        )
+
+    def test_callable_annotations_survive_redeclarations(self):
+        self.header.write_text(
+            '/// first\nvoid f([[clang::annotate("one")]] int value=2);\n/// second\nvoid f(int renamed);\n'
+        )
+        node = self.callables(self.success(self.invoke()), "f")[0]
+        self.assertEqual(
+            [a["payload"] for a in node["annotations"]], ["/// first", "/// second"]
+        )
+        self.assertEqual(
+            node["redeclarations"][0]["parameters"][0]["annotations"][0]["payload"],
+            "one",
+        )
+
+    def test_implicit_special_members_are_materialized_not_assumed_available(self):
+        document = self.callable_fixture()
+        plain = self.special_members(document, "callable_model::Plain")
+        self.assertEqual(len(plain), 6)
+        self.assertTrue(
+            all(s["state"] == "implicit" and not s["deleted"] for s in plain.values())
+        )
+        ref = self.special_members(document, "callable_model::Reference")
+        self.assertTrue(ref["default_constructor"]["deleted"])
+        self.assertTrue(ref["copy_assignment"]["deleted"])
+        self.assertTrue(ref["move_assignment"]["deleted"])
+        self.assertFalse(ref["copy_constructor"]["deleted"])
+        self.assertEqual(
+            self.special_members(document, "callable_model::NoDefault")[
+                "default_constructor"
+            ]["state"],
+            "suppressed",
+        )
+        self.assertEqual(
+            self.special_members(document, "callable_model::UserDtor")[
+                "move_constructor"
+            ]["state"],
+            "suppressed",
+        )
+        self.assertEqual(
+            self.special_members(document, "callable_model::ContainsThrows")[
+                "default_constructor"
+            ]["noexcept"],
+            "false",
+        )
+
+    def test_user_special_members_keep_deletion_access_and_defaulting_separate(self):
+        document = self.callable_fixture()
+        declarations = {n["id"]: n for n in document["declarations"]}
+        slot = self.special_members(document, "callable_model::MoveOnly")[
+            "copy_constructor"
+        ]
+        self.assertEqual(slot["state"], "user_declared")
+        self.assertIsNone(slot["deleted"])
+        self.assertTrue(declarations[slot["declaration_ids"][0]]["deleted"])
+        private = self.callables(
+            document, "callable_model::InaccessibleCtor::InaccessibleCtor"
+        )[0]
+        self.assertEqual(private["access"], "private")
+        self.assertTrue(private["defaulted"])
+        self.assertFalse(private["deleted"])
+        self.assertFalse(private["user_provided"])
+
+    def test_overrides_include_implicit_virtual_destructor_targets(self):
+        self.header.write_text(
+            "struct Base { virtual ~Base()=default; virtual Base* run()=0; };\nstruct Middle:Base {};\nstruct Leaf:Middle { ~Leaf()=default; Leaf* run() final; };\n"
+        )
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertTrue(nodes["Base"]["abstract"])
+        self.assertFalse(nodes["Leaf"]["abstract"])
+        self.assertEqual(
+            nodes["Leaf::run"]["overridden_declaration_ids"], [nodes["Base::run"]["id"]]
+        )
+        self.assertEqual(
+            nodes["Leaf::~Leaf"]["overridden_implicit_destructor_record_ids"],
+            [nodes["Middle"]["id"]],
+        )
+        middle = next(
+            s for s in nodes["Middle"]["special_members"] if s["kind"] == "destructor"
+        )
+        self.assertTrue(middle["virtual"])
+
+    def test_incomplete_record_special_member_states_are_unknown(self):
+        self.header.write_text("struct Forward; void use(Forward*);\n")
+        slots = self.special_members(self.success(self.invoke()), "Forward")
+        self.assertTrue(
+            all(
+                s["state"] == "unknown" and s["deleted"] is None for s in slots.values()
+            )
+        )
+
+    def test_callable_identity_determinism_relocation_and_named_reordering(self):
+        self.header.write_text(
+            "namespace { struct Local { Local()=default; Local(int); int operator+(int) const; }; void f(int); void f(double); }\n"
+        )
+        first_result = self.invoke()
+        first = self.success(first_result)
+        self.assertEqual(first_result.stdout, self.invoke().stdout)
+        self.assertTrue(
+            all(
+                n["identity_kind"] == "source"
+                for n in first["declarations"]
+                if n["kind"] == "callable"
+            )
+        )
+        with tempfile.TemporaryDirectory(
+            prefix="icg-callables-relocated-"
+        ) as relocated:
+            shutil.copy2(self.header, Path(relocated) / self.header.name)
+            second = self.success(
+                self.invoke(cwd=relocated, options=["--source-root", relocated])
+            )
+            for key in ("declarations", "types"):
+                self.assertEqual(first[key], second[key])
+        self.header.write_text("void f(int); void f(double);\n")
+        first_ids = {n["id"] for n in self.success(self.invoke())["declarations"]}
+        self.header.write_text("void f(double); void f(int);\n")
+        self.assertEqual(
+            first_ids, {n["id"] for n in self.success(self.invoke())["declarations"]}
+        )
+
+    def test_static_functions_retain_linkage_and_translation_unit_identity(self):
+        self.header.write_text(
+            "static int f(int value=2); int f(int renamed); namespace { void hidden(); }\n"
+        )
+        first = self.success(self.invoke())
+        function = self.callables(first, "f")[0]
+        self.assertTrue(function["static"])
+        self.assertEqual(function["linkage"], "internal")
+        self.assertEqual(function["identity_kind"], "source")
+        with tempfile.TemporaryDirectory(prefix="icg-static-relocated-") as relocated:
+            shutil.copy2(self.header, Path(relocated) / self.header.name)
+            second = self.success(
+                self.invoke(cwd=relocated, options=["--source-root", relocated])
+            )
+            self.assertEqual(first["declarations"], second["declarations"])
+        other = self.root / "other.hh"
+        shutil.copy2(self.header, other)
+        second = self.success(self.invoke(input="other.hh"))
+        self.assertNotEqual(function["id"], self.callables(second, "f")[0]["id"])
+
+    def test_callable_type_dependencies_do_not_select_unrelated_header_functions(self):
+        (self.root / "types.hh").write_text(
+            "struct Used { int value; }; template<class T> void unrelated(T);\n"
+        )
+        self.header.write_text('#include "types.hh"\nUsed process(const Used&);\n')
+        nodes = self.declarations(self.success(self.invoke()))
+        self.assertIn("Used::value", nodes)
+        self.assertNotIn("unrelated", nodes)
+
+    def test_unsupported_callable_signatures_and_abis_fail_closed(self):
+        for source in (
+            "template<class T> T f(T);",
+            "struct R { template<class T> R(T); };",
+            "auto f() { return 1; }",
+            "void f(int (*callback)(int));",
+            "struct R {}; void f(int R::*);",
+            "__attribute__((ms_abi)) int f(int);",
+            "__attribute__((regparm(2))) int f(int);",
+        ):
+            with self.subTest(source=source):
+                self.header.write_text(source)
+                self.failure(self.invoke(["--target=x86_64-unknown-linux-gnu"]))
+
+    def test_native_special_member_traits_match_the_focused_facts(self):
+        if LAYOUT_COMPILER is None:
+            self.skipTest("Pass --layout-compiler for native special-member probes")
+        document = self.callable_fixture()
+        assertions = []
+        for name, trait, kind in (
+            ("Plain", "is_default_constructible", "default_constructor"),
+            ("Reference", "is_default_constructible", "default_constructor"),
+            ("Reference", "is_copy_assignable", "copy_assignment"),
+            ("Reference", "is_move_assignable", "move_assignment"),
+            ("Constant", "is_default_constructible", "default_constructor"),
+        ):
+            slot = self.special_members(document, f"callable_model::{name}")[kind]
+            self.assertEqual(slot["state"], "implicit")
+            value = "false" if slot["deleted"] else "true"
+            assertions.append(
+                f'static_assert(std::{trait}<callable_model::{name}>::value == {value}, "{name}/{kind}");'
+            )
+        throws = self.special_members(document, "callable_model::ContainsThrows")[
+            "default_constructor"
+        ]
+        assertions.append(
+            f'static_assert(std::is_nothrow_default_constructible<callable_model::ContainsThrows>::value == {throws["noexcept"]}, "exception specification");'
+        )
+        assertions.extend([
+            'static_assert(std::is_move_constructible<callable_model::UserDtor>::value, "copy can bind an rvalue despite suppressed move declaration");',
+            'static_assert(!std::is_default_constructible<callable_model::InaccessibleCtor>::value, "nondeleted is not accessible");',
+            'static_assert(!std::is_copy_constructible<callable_model::MoveOnly>::value, "deleted copy");',
+            'static_assert(std::is_move_constructible<callable_model::MoveOnly>::value, "defaulted move");',
+            'static_assert(!std::is_destructible<callable_model::DeletedDtor>::value, "deleted destructor");',
+            'static_assert(std::is_abstract<callable_model::Base>::value, "abstract base");',
+        ])
+        probe, executable = self.root / "traits.cpp", self.root / "traits-probe"
+        probe.write_text(
+            '#include "record.hh"\n#include <type_traits>\n'
+            + "\n".join(assertions)
+            + "\nint main() {}\n"
+        )
+        result = subprocess.run(
+            [
+                str(LAYOUT_COMPILER),
+                "-std=c++17",
+                "-Wall",
+                "-Wextra",
+                "-Wpedantic",
+                "-Werror",
+                str(probe),
+                "-o",
+                str(executable),
+            ],
+            text=True,
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = subprocess.run(
+            [str(executable)], text=True, capture_output=True, timeout=30, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def inheritance_fixture(self, flags=()):
         self.header.write_text((HERE / "fixtures/inheritance.hh").read_text())
         return self.success(self.invoke(flags))
@@ -1250,7 +1562,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_unsupported_base_members_and_dependent_bases_fail_closed(self):
         for source in (
-            "struct Base { virtual void method(); }; struct Derived : Base {};",
+            "struct Base { template<class T> void method(T); }; struct Derived : Base {};",
             "template<class T> struct Derived : T {};",
             "template<class... T> struct Derived : T... {};",
             "template<class T> struct Base {}; struct Derived : Base<int> {};",

@@ -10,6 +10,15 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
 
+SPECIAL_MEMBERS = (
+    "default_constructor",
+    "copy_constructor",
+    "move_constructor",
+    "copy_assignment",
+    "move_assignment",
+    "destructor",
+)
+
 
 def unique(nodes: list[dict], category: str) -> dict[str, dict]:
     result = {}
@@ -110,13 +119,17 @@ def validate_graph(document: dict) -> None:
             node.get("field_ids", [])
             + node.get("nested_declaration_ids", [])
             + node.get("declaration_ids", [])
+            + node.get("callable_ids", [])
+            + node.get("overridden_declaration_ids", [])
+            + node.get("overridden_implicit_destructor_record_ids", [])
         ):
             require(identifier, declarations, context)
         for reopening in node.get("reopening_sources", []):
             source(reopening, f"{context}.reopening_sources")
         for field in type_links:
             if field in node:
-                require(node[field], types, f"{context}.{field}")
+                if field != "return_type_id" or node[field] is not None:
+                    require(node[field], types, f"{context}.{field}")
         for base in node.get("bases", []):
             require(base["declaration_id"], declarations, f"{context}.bases")
             require(base["type_id"], types, f"{context}.bases")
@@ -125,8 +138,26 @@ def validate_graph(document: dict) -> None:
             require(
                 base["declaration_id"], declarations, f"{context}.virtual_base_offsets"
             )
-        for parameter in node.get("parameters", []):
-            require(parameter["type_id"], types, f"{context}.parameters")
+        parameter_lists = [node.get("parameters", [])]
+        for occurrence in node.get("redeclarations", []):
+            source(occurrence["source"], f"{context}.redeclarations")
+            if "lexical_parent_id" in occurrence:
+                require(occurrence["lexical_parent_id"], declarations, context)
+            for annotation in occurrence["annotations"]:
+                source(annotation["source"], f"{context}.redeclarations.annotations")
+            parameter_lists.append(occurrence["parameters"])
+        for parameters in parameter_lists:
+            for parameter in parameters:
+                require(parameter["type_id"], types, f"{context}.parameters")
+                require(parameter["original_type_id"], types, f"{context}.parameters")
+                source(parameter["source"], f"{context}.parameters")
+                if parameter["default_source"] is not None:
+                    source(parameter["default_source"], f"{context}.parameters.default")
+                for annotation in parameter["annotations"]:
+                    source(annotation["source"], f"{context}.parameters.annotations")
+        for member in node.get("special_members", []):
+            for identifier in member["declaration_ids"]:
+                require(identifier, declarations, f"{context}.special_members")
         for annotation in node["annotations"]:
             source(annotation["source"], f"{context}.annotations")
 
@@ -246,11 +277,34 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             raise ValueError(f"{identifier} is not a supported integral type")
         return node
 
+    def parameter_key(identifier):
+        canonical = types[types[identifier]["canonical_id"]]
+        key = {
+            k: v
+            for k, v in canonical.items()
+            if k not in {"id", "canonical_id", "qualifiers", "spelling"}
+        }
+        if canonical["kind"] == "builtin":
+            key["spelling"] = " ".join(
+                w
+                for w in canonical["spelling"].split()
+                if w not in {"const", "volatile", "restrict"}
+            )
+        return key
+
     for node in declarations.values():
         kind = node["kind"]
         if node["identity_kind"] == "usr" and not node["usr"]:
             raise ValueError(f"{node['id']} has no USR for its identity")
-        if kind in {"record", "field", "enum", "alias", "namespace", "namespace_alias"}:
+        if kind in {
+            "record",
+            "field",
+            "enum",
+            "alias",
+            "namespace",
+            "namespace_alias",
+            "callable",
+        }:
             if node.get("canonical_declaration_id") != node["id"]:
                 raise ValueError(f"{node['id']} is not a canonical declaration")
         for key in ("semantic_parent_id", "lexical_parent_id"):
@@ -298,6 +352,230 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             raise ValueError(f"{node['id']} has record-only layout fields")
         if kind != "enum" and enum_fields & node.keys():
             raise ValueError(f"{node['id']} has enum-only fields")
+        if kind != "record" and {"callable_ids", "special_members"} & node.keys():
+            raise ValueError(f"{node['id']} has record-only callable fields")
+        callable_fields = {
+            "callable_kind",
+            "special_member_kind",
+            "return_type_id",
+            "parameters",
+            "const",
+            "volatile",
+            "ref_qualifier",
+            "noexcept",
+            "virtual",
+            "pure",
+            "final",
+            "deleted",
+            "defaulted",
+            "explicit",
+            "constexpr",
+            "variadic",
+            "user_provided",
+            "calling_convention",
+            "linkage",
+            "overridden_declaration_ids",
+            "overridden_implicit_destructor_record_ids",
+            "redeclarations",
+        }
+        if kind != "callable" and callable_fields & node.keys():
+            raise ValueError(f"{node['id']} has callable-only fields")
+        if kind == "callable":
+            need(node, callable_fields | {"static"})
+            if {
+                "type_id",
+                "underlying_type_id",
+                "complete",
+                "field_ids",
+                "nested_declaration_ids",
+                "size_bits",
+                "alignment_bits",
+                "offset_bits",
+                "record_tag",
+                "anonymous",
+            } & node.keys():
+                raise ValueError(f"{node['id']} callable claims type or layout facts")
+            member = node["callable_kind"] != "function"
+            if member != bool(parent and parent["kind"] == "record"):
+                raise ValueError(f"{node['id']} has inconsistent callable context")
+            if member and node["id"] not in parent.get("callable_ids", []):
+                raise ValueError(f"{node['id']} has inconsistent callable ownership")
+            if (node["access"] == "none") == member:
+                raise ValueError(f"{node['id']} has inconsistent callable access")
+            no_return = node["callable_kind"] in {"constructor", "destructor"}
+            if (node["return_type_id"] is None) != no_return:
+                raise ValueError(f"{node['id']} has inconsistent callable return type")
+            if (not member or node["static"]) and (
+                node["const"]
+                or node["volatile"]
+                or node["ref_qualifier"] != "none"
+                or node["virtual"]
+                or node["pure"]
+                or node["final"]
+            ):
+                raise ValueError(f"{node['id']} has invalid instance-method flags")
+            if node["static"] and node["callable_kind"] not in {"method", "function"}:
+                raise ValueError(f"{node['id']} has invalid static callable kind")
+            if not member and node["static"] and node["linkage"] != "internal":
+                raise ValueError(
+                    f"{node['id']} static function requires internal linkage"
+                )
+            if (
+                node["linkage"] in {"internal", "unique_external"}
+                and node["identity_kind"] != "source"
+            ):
+                raise ValueError(
+                    f"{node['id']} translation-unit-local callable requires source identity"
+                )
+            if (
+                node["pure"] or node["final"] or node["overridden_declaration_ids"]
+            ) and not node["virtual"]:
+                raise ValueError(f"{node['id']} virtual flags require virtual dispatch")
+            if node["explicit"] and node["callable_kind"] not in {
+                "constructor",
+                "conversion",
+            }:
+                raise ValueError(f"{node['id']} has invalid explicit callable kind")
+            if node["callable_kind"] == "constructor" and (
+                node["virtual"]
+                or node["const"]
+                or node["volatile"]
+                or node["ref_qualifier"] != "none"
+            ):
+                raise ValueError(f"{node['id']} has invalid constructor flags")
+            if node["callable_kind"] in {"destructor", "conversion"} and (
+                node["parameters"] or node["variadic"]
+            ):
+                raise ValueError(
+                    f"{node['id']} destructor/conversion cannot have parameters"
+                )
+            special = node["special_member_kind"]
+            if special != "none":
+                expected_kind = (
+                    "constructor"
+                    if special.endswith("constructor")
+                    else "destructor"
+                    if special == "destructor"
+                    else "method"
+                )
+                if node["callable_kind"] != expected_kind or node["static"]:
+                    raise ValueError(
+                        f"{node['id']} has inconsistent special-member kind"
+                    )
+            elif node["defaulted"] or node["callable_kind"] == "destructor":
+                raise ValueError(f"{node['id']} requires a special-member kind")
+            if node["user_provided"] and node["deleted"]:
+                raise ValueError(
+                    f"{node['id']} deleted callable cannot be user-provided"
+                )
+            if (node["deleted"] or node["defaulted"]) and not node["definition"]:
+                raise ValueError(
+                    f"{node['id']} deleted/defaulted callable requires definition evidence"
+                )
+            if node["annotations"] != [
+                a for r in node["redeclarations"] for a in r["annotations"]
+            ]:
+                raise ValueError(
+                    f"{node['id']} has inconsistent callable annotation aggregation"
+                )
+            if node["definition"] != any(
+                r["definition"] for r in node["redeclarations"]
+            ):
+                raise ValueError(
+                    f"{node['id']} has inconsistent callable definition evidence"
+                )
+            if (
+                node["parameters"] != node["redeclarations"][-1]["parameters"]
+                or node["source"] != node["redeclarations"][-1]["source"]
+            ):
+                raise ValueError(
+                    f"{node['id']} must use its last redeclaration evidence"
+                )
+            signature = [parameter_key(p["type_id"]) for p in node["parameters"]]
+            for occurrence in node["redeclarations"]:
+                if "lexical_parent_id" in occurrence and declarations[
+                    occurrence["lexical_parent_id"]
+                ]["kind"] not in {"namespace", "record"}:
+                    raise ValueError(f"{node['id']} has invalid redeclaration context")
+                # Parameter top-level CV does not participate in overload identity.
+                if len(occurrence["parameters"]) != len(signature):
+                    raise ValueError(
+                        f"{node['id']} has inconsistent redeclaration arity"
+                    )
+                if [
+                    parameter_key(p["type_id"]) for p in occurrence["parameters"]
+                ] != signature:
+                    raise ValueError(
+                        f"{node['id']} has inconsistent redeclaration parameter types"
+                    )
+                for parameter in occurrence["parameters"]:
+                    original = types[
+                        types[parameter["original_type_id"]]["canonical_id"]
+                    ]
+                    adjusted = types[types[parameter["type_id"]]["canonical_id"]]
+                    if original["kind"] == "array":
+                        if (
+                            adjusted["kind"] != "pointer"
+                            or adjusted["pointee_id"] != original["element_id"]
+                        ):
+                            raise ValueError(
+                                f"{node['id']} has inconsistent adjusted array parameter"
+                            )
+                    elif parameter_key(parameter["original_type_id"]) != parameter_key(
+                        parameter["type_id"]
+                    ):
+                        raise ValueError(
+                            f"{node['id']} has inconsistent original parameter type"
+                        )
+                    if parameter["has_default"] != (
+                        parameter["default_source"] is not None
+                        and parameter["default_spelling"] is not None
+                    ):
+                        raise ValueError(
+                            f"{node['id']} has inconsistent default argument evidence"
+                        )
+                    if not parameter["has_default"] and (
+                        parameter["default_source"] is not None
+                        or parameter["default_spelling"] is not None
+                    ):
+                        raise ValueError(
+                            f"{node['id']} has spurious default argument evidence"
+                        )
+            overrides = node["overridden_declaration_ids"]
+            if overrides != sorted(set(overrides)):
+                raise ValueError(f"{node['id']} overrides must be sorted and unique")
+            for identifier in overrides:
+                target = declarations[identifier]
+                if (
+                    identifier == node["id"]
+                    or target["kind"] != "callable"
+                    or not target.get("virtual")
+                    or target.get("final")
+                ):
+                    raise ValueError(f"{node['id']} has invalid overridden callable")
+            implicit_overrides = node["overridden_implicit_destructor_record_ids"]
+            if implicit_overrides != sorted(set(implicit_overrides)):
+                raise ValueError(
+                    f"{node['id']} implicit overrides must be sorted and unique"
+                )
+            if implicit_overrides and (
+                node["callable_kind"] != "destructor" or not node["virtual"]
+            ):
+                raise ValueError(
+                    f"{node['id']} implicit overrides require a virtual destructor"
+                )
+            for identifier in implicit_overrides:
+                target = declarations[identifier]
+                slots = target.get("special_members", [])
+                if target["kind"] != "record" or not any(
+                    s["kind"] == "destructor"
+                    and s["state"] == "implicit"
+                    and s["virtual"]
+                    for s in slots
+                ):
+                    raise ValueError(
+                        f"{node['id']} has invalid implicit destructor override"
+                    )
         if kind in {"record", "enum", "namespace"}:
             need(node, {"anonymous"})
             if node["anonymous"] != (node["name"] == ""):
@@ -417,6 +695,8 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                     "complete",
                     "field_ids",
                     "nested_declaration_ids",
+                    "callable_ids",
+                    "special_members",
                     "bases",
                     "virtual_base_offsets",
                     "size_bits",
@@ -437,6 +717,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                 or node.get("alignment_bits") is not None
                 or node["bases"]
                 or node["virtual_base_offsets"]
+                or node["callable_ids"]
                 or any(node[key] is not None for key in record_layout_fields)
             ):
                 raise ValueError(
@@ -528,7 +809,8 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                     )
             for field, expected in (
                 ("field_ids", {"field"}),
-                ("nested_declaration_ids", {"record", "alias", "enum", "callable"}),
+                ("nested_declaration_ids", {"record", "alias", "enum"}),
+                ("callable_ids", {"callable"}),
             ):
                 ids = node[field]
                 if len(ids) != len(set(ids)):
@@ -542,6 +824,48 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                         raise ValueError(
                             f"{node['id']} has an invalid member in {field}"
                         )
+            if tuple(s["kind"] for s in node["special_members"]) != SPECIAL_MEMBERS:
+                raise ValueError(
+                    f"{node['id']} must list all six special-member kinds in order"
+                )
+            for slot in node["special_members"]:
+                expected = sorted(
+                    identifier
+                    for identifier in node["callable_ids"]
+                    if declarations[identifier].get("special_member_kind")
+                    == slot["kind"]
+                )
+                if slot["declaration_ids"] != expected or (
+                    slot["state"] == "user_declared"
+                ) != bool(expected):
+                    raise ValueError(
+                        f"{node['id']} has inconsistent special-member declaration links"
+                    )
+                if (slot["state"] == "unknown") != (not node["complete"]):
+                    raise ValueError(
+                        f"{node['id']} has inconsistent special-member completeness"
+                    )
+                if slot["state"] == "implicit":
+                    if (
+                        slot["deleted"] is None
+                        or slot["trivial"] is None
+                        or slot["virtual"] is None
+                        or slot["noexcept"] is None
+                    ):
+                        raise ValueError(
+                            f"{node['id']} implicit special member requires frontend facts"
+                        )
+                elif any(
+                    slot[key] is not None
+                    for key in ("deleted", "trivial", "virtual", "noexcept")
+                ):
+                    raise ValueError(
+                        f"{node['id']} nonimplicit special member claims implicit facts"
+                    )
+                if slot["virtual"] and slot["kind"] != "destructor":
+                    raise ValueError(
+                        f"{node['id']} only an implicit destructor can be virtual"
+                    )
         if kind == "field":
             need(
                 node,
@@ -634,6 +958,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
         key: node for key, node in declarations.items() if node["kind"] == "record"
     }
     virtual_sets = {}
+    ancestors = {}
     for root_id in records:
         active = set()
         stack = [(root_id, False)]
@@ -643,9 +968,12 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                 active.remove(identifier)
                 node = records[identifier]
                 expected = set()
+                inherited = set()
                 for base in node["bases"]:
                     target = base["declaration_id"]
                     expected.update(virtual_sets[target])
+                    inherited.update(ancestors[target])
+                    inherited.add(target)
                     if base["virtual"]:
                         expected.add(target)
                 actual = {
@@ -656,6 +984,7 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
                         f"{identifier} has inconsistent virtual base closure"
                     )
                 virtual_sets[identifier] = expected
+                ancestors[identifier] = inherited
                 continue
             if identifier in active:
                 raise ValueError(f"inheritance cycle at {identifier}")
@@ -665,6 +994,34 @@ def validate_structure(types: dict[str, dict], declarations: dict[str, dict]) ->
             stack.append((identifier, True))
             stack.extend(
                 (base["declaration_id"], False) for base in records[identifier]["bases"]
+            )
+
+    for node in declarations.values():
+        if node["kind"] != "callable":
+            continue
+        parents = ancestors.get(node.get("semantic_parent_id"), set())
+        for identifier in node["overridden_declaration_ids"]:
+            target = declarations[identifier]
+            if (
+                target.get("semantic_parent_id") not in parents
+                or target["callable_kind"] != node["callable_kind"]
+            ):
+                raise ValueError(f"{node['id']} override must belong to a base record")
+            if node["callable_kind"] != "destructor" and any(
+                node[key] != target[key]
+                for key in ("name", "const", "volatile", "ref_qualifier")
+            ):
+                raise ValueError(f"{node['id']} has an inconsistent override signature")
+            if [parameter_key(p["type_id"]) for p in node["parameters"]] != [
+                parameter_key(p["type_id"]) for p in target["parameters"]
+            ]:
+                raise ValueError(f"{node['id']} has inconsistent override parameters")
+        if any(
+            identifier not in parents
+            for identifier in node["overridden_implicit_destructor_record_ids"]
+        ):
+            raise ValueError(
+                f"{node['id']} implicit override must belong to a base record"
             )
 
     # Each context graph and namespace-alias chain must terminate. They are

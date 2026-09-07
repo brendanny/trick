@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 6; the independent diagnostics envelope is v2.
+current facts schema is version 7; the independent diagnostics envelope is v2.
 
 The document contains frontend facts only:
 
@@ -225,3 +225,60 @@ remain future work.
 
 Facts advance to v6; v1/v2/v3/v4/v5 documents are rejected and the minimal fixture
 is migrated. The diagnostics envelope remains v2.
+
+## Explicit callables and special-member declaration state: schema 7
+
+Extractor 0.7.0 emits non-template functions, methods, constructors, destructors,
+conversions, and operators. Records own direct explicit callables through
+source-ordered `callable_ids`, not `nested_declaration_ids`. Canonical declarations
+merge redeclarations but never overloads. Constructors/operators/conversions have
+semantic names without Clang identifiers; their USRs remain usable in named
+contexts. Source-identified contexts retain physical-anchor fallback identity.
+Translation-unit-local functions also require physical-anchor identity including
+the translation-unit file ID. Linkage categories are retained explicitly; static
+free-function declarations are not mistaken for external functions when a later
+redeclaration omits `static`.
+
+Each callable retains adjusted and original parameter types, return type (null for
+constructors/destructors), variadicness, CV/ref/noexcept, static/virtual/pure/final,
+explicit/constexpr, deleted/defaulted, and user-provided flags. The calling
+convention is explicitly `c` (Clang `CC_C`, not C language linkage); other calling
+conventions and special parameter/register ABI modes are rejected in this slice.
+Function and member-pointer types and undeduced/deduced auto type layers remain
+unsupported. Bodies are parsed by Clang but not serialized or traversed for IR
+declaration selection. Signature types and overrides do enter the dependency closure.
+
+`redeclarations` retains every observed occurrence in translation-unit order, with
+its source, lexical context, parameters/defaults, annotations, and definition flag.
+The latest declaration supplies the node's primary source and parameters; semantic
+ownership remains canonical, including out-of-line definitions. Function annotations
+are also aggregated. Defaults preserve a physical source range and a pretty-printed
+expression string, not an evaluated value, expression graph, or round-trip source.
+Consumers must not emit that string as generated code without further policy.
+
+Direct virtual overrides link explicit declarations. An override of an implicit
+destructor instead lists the base record in `overridden_implicit_destructor_record_ids`;
+no synthetic source declaration or callable identity is invented. The validator
+checks virtualness, ownership, base ancestry, parameter signatures, and CV/ref
+consistency. Return covariance legality and overload resolution remain Clang's
+responsibility, not reconstructed policy in the graph validator.
+
+Sema forces declaration of implicit members in complete selected records and
+evaluates implicit exception specifications. `special_members` contains six entries
+in fixed order: default/copy/move constructors, copy/move assignment, destructor.
+Each is `implicit`, `user_declared`, `suppressed`, or `unknown` for incomplete types.
+User-declared entries link all matching explicit callable nodes. Only implicit
+entries carry deletion, triviality, virtualness, and noexcept facts; other states
+use null values. Unresolved noexcept remains `unknown`. These summaries do not
+attempt full implicit signatures, access/overload resolution at a generated call
+site, allocation/deletion policy, or binding lifetime decisions.
+
+In particular, suppressed move declarations do not imply lack of move
+constructibility (copying can bind an rvalue), nondeleted does not imply accessible,
+and triviality flags do not override deletion. Native type-trait fixtures exercise
+these distinctions in the GCC 8.5/12 and Linux/macOS host lanes. This is focused
+conformance evidence, not the full generated-operation gate.
+
+Facts advance to v7 and the minimal fixture is migrated; versions 1 through 6 are
+rejected. The diagnostics envelope remains v2. Templates, friends, static data,
+annotation policy, legacy emission, and production integration remain future work.

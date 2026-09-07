@@ -62,7 +62,13 @@ namespace trick::icg
         llvm::SmallString<128> rawUSR;
         if (!clang::index::generateUSRForDecl(decl, rawUSR))
             value.usr = rawUSR.str().str();
-        value.fromSource = !decl->getIdentifier() || value.usr.empty();
+        // Constructors, conversions, and operators have semantic names without
+        // IdentifierInfo. Their USRs still distinguish overload signatures.
+        value.fromSource = (!decl->getIdentifier() && !llvm::isa<clang::FunctionDecl>(decl)) || value.usr.empty();
+        const bool translationUnitLocal = llvm::isa<clang::FunctionDecl>(decl)
+            && (decl->getLinkageInternal() == clang::InternalLinkage
+                || decl->getLinkageInternal() == clang::UniqueExternalLinkage);
+        value.fromSource |= translationUnitLocal;
         std::string parentID;
         const auto* parent = decl->getDeclContext();
         if (!parent->isTranslationUnit())
@@ -94,6 +100,8 @@ namespace trick::icg
                     { "location", std::move(location)     }
                 };
                 if (const auto* ns = llvm::dyn_cast<clang::NamespaceDecl>(decl); ns && ns->isAnonymousNamespace())
+                    identity["translation_unit"] = facts.provenance.getString("translation_unit")->str();
+                if (translationUnitLocal)
                     identity["translation_unit"] = facts.provenance.getString("translation_unit")->str();
                 value.id = "decl:" + digest("source:" + serialize(std::move(identity)));
             }

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v6.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v7.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 6},
+    "schema_version": {"const": 7},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -299,12 +299,43 @@
     "parameter": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "type_id", "has_default"],
+      "required": ["name", "type_id", "original_type_id", "source", "annotations", "has_default", "default_spelling", "default_source"],
       "properties": {
         "name": {"type": "string"},
         "type_id": {"$ref": "#/$defs/id"},
+        "original_type_id": {"$ref": "#/$defs/id"},
+        "source": {"$ref": "#/$defs/source"},
+        "annotations": {"type": "array", "items": {"$ref": "#/$defs/annotation"}},
         "has_default": {"type": "boolean"},
-        "default_spelling": {"type": "string"}
+        "default_spelling": {"type": ["string", "null"]},
+        "default_source": {"anyOf": [{"$ref": "#/$defs/source"}, {"type": "null"}]}
+      }
+    },
+    "callable_redeclaration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "parameters", "annotations", "definition"],
+      "properties": {
+        "source": {"$ref": "#/$defs/source"},
+        "parameters": {"type": "array", "items": {"$ref": "#/$defs/parameter"}},
+        "annotations": {"type": "array", "items": {"$ref": "#/$defs/annotation"}},
+        "definition": {"type": "boolean"},
+        "lexical_parent_id": {"$ref": "#/$defs/id"}
+      }
+    },
+    "special_member_kind": {
+      "enum": ["default_constructor", "copy_constructor", "move_constructor", "copy_assignment", "move_assignment", "destructor"]
+    },
+    "special_member": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "state", "declaration_ids", "deleted", "trivial", "virtual", "noexcept"],
+      "properties": {
+        "kind": {"$ref": "#/$defs/special_member_kind"},
+        "state": {"enum": ["implicit", "user_declared", "suppressed", "unknown"]},
+        "declaration_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+        "deleted": {"type": ["boolean", "null"]},
+        "trivial": {"type": ["boolean", "null"]},
+        "virtual": {"type": ["boolean", "null"]},
+        "noexcept": {"enum": ["true", "false", "unknown", null]}
       }
     },
     "declaration": {
@@ -368,6 +399,11 @@
         "non_virtual_alignment_bits": {"$ref": "#/$defs/optional_unsigned"},
         "field_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
         "nested_declaration_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+        "callable_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+        "special_members": {
+          "description": "Six declaration-state summaries in fixed kind order. Implicit facts are not synthetic callable nodes or a use-site constructibility/access decision.",
+          "type": "array", "items": {"$ref": "#/$defs/special_member"}, "minItems": 6, "maxItems": 6
+        },
         "static": {"type": "boolean"},
         "mutable": {"type": "boolean"},
         "bitfield": {"type": "boolean"},
@@ -383,11 +419,21 @@
         "underlying_type_id": {"$ref": "#/$defs/id"},
         "enumerators": {"type": "array", "items": {"$ref": "#/$defs/enumerator"}},
         "callable_kind": {"enum": ["constructor", "destructor", "method", "function", "conversion"]},
-        "return_type_id": {"$ref": "#/$defs/id"},
+        "return_type_id": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
         "parameters": {"type": "array", "items": {"$ref": "#/$defs/parameter"}},
         "const": {"type": "boolean"},
+        "volatile": {"type": "boolean"},
+        "constexpr": {"type": "boolean"},
+        "variadic": {"type": "boolean"},
+        "user_provided": {"type": "boolean"},
+        "calling_convention": {"const": "c"},
+        "linkage": {"enum": ["none", "internal", "unique_external", "visible_no_linkage", "module", "external"]},
+        "special_member_kind": {"anyOf": [{"$ref": "#/$defs/special_member_kind"}, {"const": "none"}]},
+        "overridden_declaration_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+        "overridden_implicit_destructor_record_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+        "redeclarations": {"type": "array", "items": {"$ref": "#/$defs/callable_redeclaration"}, "minItems": 1},
         "ref_qualifier": {"enum": ["none", "lvalue", "rvalue"]},
-        "noexcept": {"enum": ["true", "false", "dependent", "unknown"]},
+        "noexcept": {"enum": ["true", "false", "unknown"]},
         "virtual": {"type": "boolean"},
         "pure": {"type": "boolean"},
         "final": {"type": "boolean"},

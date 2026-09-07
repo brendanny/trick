@@ -17,6 +17,7 @@
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
+#include "clang/Sema/Sema.h"
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/Support/FileSystem.h"
@@ -261,10 +262,31 @@ namespace
         return "none";
     }
 
+    const char* linkage(clang::Linkage value)
+    {
+        switch (value)
+        {
+        case clang::NoLinkage:
+            return "none";
+        case clang::InternalLinkage:
+            return "internal";
+        case clang::UniqueExternalLinkage:
+            return "unique_external";
+        case clang::VisibleNoLinkage:
+            return "visible_no_linkage";
+        case clang::ModuleLinkage:
+            return "module";
+        case clang::ExternalLinkage:
+            return "external";
+        }
+        return "none";
+    }
+
     class Consumer : public clang::ASTConsumer
     {
             Facts& facts;
             Sources& sources;
+            clang::CompilerInstance& compiler;
             clang::ASTContext* context = nullptr;
             std::unique_ptr<trick::icg::TypeGraph> types;
             std::unique_ptr<trick::icg::DeclarationIdentity> identities;
@@ -303,10 +325,12 @@ namespace
                     decl = ns->getCanonicalDecl();
                 else if (llvm::isa<clang::NamespaceAliasDecl>(decl))
                     decl = llvm::cast<clang::NamedDecl>(decl->getCanonicalDecl());
+                else if (const auto* function = llvm::dyn_cast<clang::FunctionDecl>(decl))
+                    decl = function->getMostRecentDecl();
                 else
                 {
                     unsupported(*context, decl,
-                                "Only records, enums, aliases, and namespace declaration references are supported");
+                                "Only records, enums, aliases, callables, and namespace references are supported");
                     return { };
                 }
                 auto id = declarationID(decl);
@@ -428,11 +452,12 @@ namespace
                     if (!sm.isWrittenInMainFile(sm.getExpansionLoc(decl->getLocation())))
                         continue;
                     if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl, clang::NamespaceDecl,
-                                  clang::NamespaceAliasDecl>(decl))
+                                  clang::NamespaceAliasDecl, clang::FunctionDecl>(decl))
                         request(llvm::cast<clang::NamedDecl>(decl));
                     else if (!llvm::isa<clang::EmptyDecl, clang::StaticAssertDecl>(decl))
-                        unsupported(ctx, decl,
-                                    "Only records, enums, aliases, and namespaces are extracted in this slice");
+                        unsupported(
+                            ctx, decl,
+                            "Only records, enums, aliases, callables, and namespaces are extracted in this slice");
                 }
             }
 
@@ -486,6 +511,240 @@ namespace
                 facts.declarations.emplace(declarationID(decl), std::move(node));
             }
 
+            const char* specialKind(const clang::FunctionDecl* decl)
+            {
+                if (const auto* ctor = llvm::dyn_cast<clang::CXXConstructorDecl>(decl))
+                {
+                    if (ctor->isCopyConstructor())
+                        return "copy_constructor";
+                    if (ctor->isMoveConstructor())
+                        return "move_constructor";
+                    if (ctor->isDefaultConstructor())
+                        return "default_constructor";
+                }
+                if (llvm::isa<clang::CXXDestructorDecl>(decl))
+                    return "destructor";
+                if (const auto* method = llvm::dyn_cast<clang::CXXMethodDecl>(decl))
+                {
+                    if (method->isCopyAssignmentOperator())
+                        return "copy_assignment";
+                    if (method->isMoveAssignmentOperator())
+                        return "move_assignment";
+                }
+                return "none";
+            }
+
+            const char* exceptionFact(const clang::FunctionDecl* decl)
+            {
+                auto* mutableDecl = const_cast<clang::FunctionDecl*>(decl);
+                auto* proto       = decl->getType()->getAs<clang::FunctionProtoType>();
+                if (!proto)
+                    return "unknown";
+                if (proto->getExceptionSpecType() == clang::EST_Unevaluated)
+                {
+                    compiler.getSema().EvaluateImplicitExceptionSpec(decl->getLocation(), mutableDecl);
+                    proto = decl->getType()->getAs<clang::FunctionProtoType>();
+                }
+                if (clang::isUnresolvedExceptionSpec(proto->getExceptionSpecType()))
+                    return "unknown";
+                switch (proto->canThrow())
+                {
+                case clang::CT_Cannot:
+                    return "true";
+                case clang::CT_Can:
+                    return "false";
+                case clang::CT_Dependent:
+                    return "unknown";
+                }
+                return "unknown";
+            }
+
+            Array parameters(clang::ASTContext& ctx, const clang::FunctionDecl* decl)
+            {
+                Array result;
+                for (const auto* parameter : decl->parameters())
+                {
+                    auto location
+                        = sources.source(ctx.getSourceManager(), parameter->getSourceRange(), &ctx.getLangOpts());
+                    if (location.kind() == Value::Null)
+                        unsupported(ctx, parameter, "Parameter requires physical source evidence");
+                    Object item {
+                        { "name", parameter->getNameAsString() },
+                        { "type_id", types->get(parameter->getType(), decl) },
+                        { "original_type_id", types->get(parameter->getOriginalType(), decl) },
+                        { "source", std::move(location) },
+                        { "annotations", annotations(ctx, parameter) },
+                        { "has_default", parameter->hasDefaultArg() },
+                        { "default_spelling", nullptr },
+                        { "default_source", nullptr }
+                    };
+                    if (parameter->hasDefaultArg())
+                    {
+                        if (parameter->hasUnparsedDefaultArg() || parameter->hasUninstantiatedDefaultArg())
+                            unsupported(ctx, parameter, "Unparsed/dependent default arguments are unsupported");
+                        else
+                        {
+                            const auto* expression = parameter->getDefaultArg();
+                            auto source = sources.source(ctx.getSourceManager(), expression->getSourceRange(),
+                                                         &ctx.getLangOpts());
+                            if (source.kind() == Value::Null)
+                                unsupported(ctx, parameter, "Default argument requires physical source evidence");
+                            std::string spelling;
+                            llvm::raw_string_ostream stream(spelling);
+                            auto policy                  = ctx.getPrintingPolicy();
+                            policy.AnonymousTagLocations = false;
+                            expression->printPretty(stream, nullptr, policy);
+                            item["default_spelling"] = stream.str();
+                            item["default_source"]   = std::move(source);
+                        }
+                    }
+                    result.emplace_back(std::move(item));
+                }
+                return result;
+            }
+
+            void callable(clang::ASTContext& ctx, const clang::FunctionDecl* decl)
+            {
+                const auto* proto = decl->getType()->getAs<clang::FunctionProtoType>();
+                if (decl->isImplicit() || decl->getTemplatedKind() != clang::FunctionDecl::TK_NonTemplate
+                    || decl->isDependentContext() || !proto || proto->getCallConv() != clang::CC_C
+                    || proto->getMethodQuals().hasRestrict() || proto->getMethodQuals().hasNonFastQualifiers()
+                    || proto->getHasRegParm() || proto->hasExtParameterInfos() || proto->getCmseNSCallAttr())
+                {
+                    unsupported(ctx, decl,
+                                "Only explicit non-template callables with the C calling convention and CV/ref "
+                                "qualifiers are supported");
+                    return;
+                }
+                auto node                   = common(ctx, decl, "callable");
+                const auto* method          = llvm::dyn_cast<clang::CXXMethodDecl>(decl);
+                const auto* ctor            = llvm::dyn_cast<clang::CXXConstructorDecl>(decl);
+                const auto* dtor            = llvm::dyn_cast<clang::CXXDestructorDecl>(decl);
+                const auto* conversion      = llvm::dyn_cast<clang::CXXConversionDecl>(decl);
+                node["callable_kind"]       = ctor ? "constructor"
+                    : dtor                         ? "destructor"
+                    : conversion                   ? "conversion"
+                    : method                       ? "method"
+                                                   : "function";
+                node["special_member_kind"] = specialKind(decl);
+                node["return_type_id"] = ctor || dtor ? Value(nullptr) : Value(types->get(decl->getReturnType(), decl));
+                node["parameters"]     = parameters(ctx, decl);
+                node["const"]          = method && method->isConst();
+                node["volatile"]       = method && method->isVolatile();
+                node["static"]         = method && method->isStatic();
+                node["linkage"]        = linkage(decl->getLinkageInternal());
+                node["ref_qualifier"]  = proto->getRefQualifier() == clang::RQ_LValue ? "lvalue"
+                    : proto->getRefQualifier() == clang::RQ_RValue                    ? "rvalue"
+                                                                                      : "none";
+                node["noexcept"]       = exceptionFact(decl);
+                node["virtual"]        = method && method->isVirtual();
+                node["pure"]           = decl->isPure();
+                node["final"]          = decl->hasAttr<clang::FinalAttr>();
+                node["deleted"]        = decl->isDeleted();
+                node["explicit"]       = ctor ? ctor->isExplicit() : conversion && conversion->isExplicit();
+                node["constexpr"]      = decl->isConstexpr();
+                node["variadic"]       = decl->isVariadic();
+                node["calling_convention"] = "c";
+                node["user_provided"]      = decl->isUserProvided();
+                Array overrides;
+                Array implicitOverrides;
+                std::set<std::string> overrideIDs;
+                std::set<std::string> implicitOverrideIDs;
+                if (method)
+                {
+                    for (const auto* overridden : method->overridden_methods())
+                        if (overridden->isImplicit() && llvm::isa<clang::CXXDestructorDecl>(overridden))
+                            implicitOverrideIDs.insert(request(overridden->getParent()));
+                        else
+                            overrideIDs.insert(request(overridden));
+                }
+                for (const auto& id : overrideIDs)
+                    overrides.emplace_back(id);
+                for (const auto& id : implicitOverrideIDs)
+                    implicitOverrides.emplace_back(id);
+                node["overridden_declaration_ids"]                = std::move(overrides);
+                node["overridden_implicit_destructor_record_ids"] = std::move(implicitOverrides);
+                std::vector<const clang::FunctionDecl*> redecls(decl->redecls_begin(), decl->redecls_end());
+                auto& sm = ctx.getSourceManager();
+                std::sort(redecls.begin(), redecls.end(), [&sm](const auto* a, const auto* b)
+                          { return sm.isBeforeInTranslationUnit(a->getBeginLoc(), b->getBeginLoc()); });
+                Array occurrences;
+                Array allAnnotations;
+                bool defined   = false;
+                bool defaulted = false;
+                for (const auto* occurrence : redecls)
+                {
+                    auto evidence = common(ctx, occurrence, "callable");
+                    Object item {
+                        { "source", std::move(*evidence.get("source")) },
+                        { "parameters", parameters(ctx, occurrence) },
+                        { "annotations", annotations(ctx, occurrence) },
+                        { "definition", occurrence->isThisDeclarationADefinition() }
+                    };
+                    auto lexical = parentID(occurrence->getLexicalDeclContext());
+                    if (!lexical.empty())
+                        item["lexical_parent_id"] = lexical;
+                    for (const auto& annotation : *item.getArray("annotations"))
+                        allAnnotations.emplace_back(Value(annotation));
+                    defined   |= occurrence->isThisDeclarationADefinition();
+                    defaulted |= occurrence->isDefaulted();
+                    if (!method && occurrence->getStorageClass() == clang::SC_Static)
+                        node["static"] = true;
+                    occurrences.emplace_back(std::move(item));
+                }
+                node["definition"]     = defined;
+                node["defaulted"]      = defaulted;
+                node["redeclarations"] = std::move(occurrences);
+                node["annotations"]    = std::move(allAnnotations);
+                facts.declarations.emplace(declarationID(decl), std::move(node));
+            }
+
+            Array specialMembers(clang::ASTContext& ctx, const clang::CXXRecordDecl* decl)
+            {
+                Array result;
+                if (decl->isCompleteDefinition())
+                    compiler.getSema().ForceDeclarationOfImplicitMembers(const_cast<clang::CXXRecordDecl*>(decl));
+                for (const auto* kind : { "default_constructor", "copy_constructor", "move_constructor",
+                                          "copy_assignment", "move_assignment", "destructor" })
+                {
+                    Object slot {
+                        { "kind",            kind                                                    },
+                        { "state",           decl->isCompleteDefinition() ? "suppressed" : "unknown" },
+                        { "declaration_ids", Array { }                                               },
+                        { "deleted",         nullptr                                                 },
+                        { "trivial",         nullptr                                                 },
+                        { "virtual",         nullptr                                                 },
+                        { "noexcept",        nullptr                                                 }
+                    };
+                    std::set<std::string> declared;
+                    if (decl->isCompleteDefinition())
+                        for (const auto* method : decl->methods())
+                            if (std::string(specialKind(method)) == kind)
+                            {
+                                if (method->isImplicit())
+                                {
+                                    slot["state"]    = "implicit";
+                                    slot["deleted"]  = method->isDeleted();
+                                    slot["trivial"]  = method->isTrivial();
+                                    slot["virtual"]  = method->isVirtual();
+                                    slot["noexcept"] = exceptionFact(method);
+                                }
+                                else
+                                    declared.insert(request(method));
+                            }
+                    if (!declared.empty())
+                    {
+                        if (*slot.getString("state") == "implicit")
+                            unsupported(ctx, decl, "Conflicting implicit and user-declared special members");
+                        slot["state"] = "user_declared";
+                        for (const auto& id : declared)
+                            slot.getArray("declaration_ids")->emplace_back(id);
+                    }
+                    result.emplace_back(std::move(slot));
+                }
+                return result;
+            }
+
             void record(clang::ASTContext& ctx, const clang::CXXRecordDecl* decl)
             {
                 if (decl->isDependentType() || decl->getDescribedClassTemplate()
@@ -504,6 +763,8 @@ namespace
                 node["virtual_base_offsets"]   = Array { };
                 node["field_ids"]              = Array { };
                 node["nested_declaration_ids"] = Array { };
+                node["callable_ids"]           = Array { };
+                node["special_members"]        = specialMembers(ctx, decl);
                 if (!decl->isCompleteDefinition())
                 {
                     node["size_bits"]                  = nullptr;
@@ -520,6 +781,8 @@ namespace
                     return;
                 }
                 Array nested;
+                Array callables;
+                std::set<std::string> callableIDs;
                 std::set<std::string> nestedIDs;
                 std::map<const clang::FieldDecl*, uint64_t> bitWidths;
                 bool unsupportedMembers = false;
@@ -530,6 +793,14 @@ namespace
                     if ((member->isImplicit() && !anonymousMember)
                         || llvm::isa<clang::AccessSpecDecl, clang::StaticAssertDecl>(member))
                         continue;
+                    if (const auto* function = llvm::dyn_cast<clang::FunctionDecl>(member))
+                    {
+                        auto id             = request(function);
+                        unsupportedMembers |= id.empty();
+                        if (callableIDs.insert(id).second)
+                            callables.emplace_back(id);
+                        continue;
+                    }
                     if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl>(member))
                     {
                         auto id             = request(llvm::cast<clang::NamedDecl>(member));
@@ -540,9 +811,10 @@ namespace
                     }
                     if (!field || (field->getIdentifier() == nullptr && !anonymousMember && !field->isBitField()))
                     {
-                        unsupported(ctx, member,
-                                    "Only data members, anonymous aggregates, and nested records/enums/aliases "
-                                    "are supported");
+                        unsupported(
+                            ctx, member,
+                            "Only data members, callables, anonymous aggregates, and nested records/enums/aliases "
+                            "are supported");
                         unsupportedMembers = true;
                     }
                     else if (field->isBitField())
@@ -652,14 +924,16 @@ namespace
                     fields.emplace_back(declarationID(field));
                     facts.declarations.emplace(declarationID(field), std::move(data));
                 }
-                node["field_ids"] = std::move(fields);
+                node["field_ids"]    = std::move(fields);
+                node["callable_ids"] = std::move(callables);
                 facts.declarations.emplace(declarationID(decl), std::move(node));
             }
 
         public:
-            Consumer(Facts& facts, Sources& sources)
+            Consumer(Facts& facts, Sources& sources, clang::CompilerInstance& compiler)
                 : facts(facts)
                 , sources(sources)
+                , compiler(compiler)
             {
             }
             void HandleTranslationUnit(clang::ASTContext& ctx) override
@@ -692,6 +966,8 @@ namespace
                         alias(ctx, value);
                     else if (const auto* value = llvm::dyn_cast<clang::NamespaceDecl>(pending[index]))
                         namespaceDecl(ctx, value);
+                    else if (const auto* value = llvm::dyn_cast<clang::FunctionDecl>(pending[index]))
+                        callable(ctx, value);
                     else
                         namespaceAlias(ctx, llvm::cast<clang::NamespaceAliasDecl>(pending[index]));
                 if (facts.failed)
@@ -719,7 +995,7 @@ namespace
             std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance& ci, llvm::StringRef) override
             {
                 ci.getPreprocessor().addPPCallbacks(std::make_unique<Includes>(facts, sources, ci));
-                return std::make_unique<Consumer>(facts, sources);
+                return std::make_unique<Consumer>(facts, sources, ci);
             }
     };
 

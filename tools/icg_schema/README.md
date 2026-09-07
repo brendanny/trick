@@ -10,9 +10,22 @@ incomplete-record layout, and direct type cycles. Each array node represents one
 dimension, with CVR qualification on its element. Recursive record references are
 valid; a pointer/alias graph cannot refer to itself without a record boundary.
 
-Facts schema version 6 validates source-ordered direct base edges, alias-preserving
+Facts schema version 7 adds explicit non-template callable validation: ownership,
+kind-specific flags and return types, adjusted/original parameter relationships,
+redeclaration signatures and evidence, all-or-nothing defaults, and override
+targets in base records. Constructors/operators retain overload-aware identities.
+Linkage is explicit, and translation-unit-local callables require source identity.
+Record `callable_ids` are separate from nested type ownership. Six fixed-order
+special-member summaries distinguish implicit, user-declared, suppressed, and
+incomplete/unknown states; explicit slots must link matching owned callables,
+and only implicit slots may contain implicit deletion/triviality/virtual/noexcept
+facts. An implicit destructor override refers to its owning record. These checks
+do not establish overload resolution, covariance legality, implicit callable
+signatures, constructibility, or permission to generate an operation.
+
+Version 6 source-ordered direct base edges, alias-preserving
 base types, effective/written access, complete non-union targets, and acyclic
-inheritance. Nonvirtual edges require fixed offsets; virtual edges must have null
+inheritance remain validated. Nonvirtual edges require fixed offsets; virtual edges must have null
 offsets. Each record's sorted, unique `virtual_base_offsets` table must match the
 exact transitive virtual-base set and describes only that record as a complete
 most-derived object. Record data/nonvirtual sizes and nonvirtual alignment are
@@ -41,7 +54,7 @@ Named path roots, scalar `extent` (null for incomplete arrays), and exact layout
 integers retain the v3 representation. Numbers through
 `2^53-1` are numeric; larger quantities are canonical decimal strings. Path roots
 must exist in provenance, portable paths must be relative and canonical, and no
-two file nodes may represent the same root/path pair. Version 1/2/3/4/5 facts are
+two file nodes may represent the same root/path pair. Version 1/2/3/4/5/6 facts are
 rejected; the synthetic minimal fixture has been migrated. These checks are not
 complete semantic validation of all future schema kinds, Clang/GCC layout
 agreement, or legacy-printability policy. The independent diagnostics envelope

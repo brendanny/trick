@@ -28,6 +28,8 @@ namespace trick::icg
             return get(context.getQualifiedType(elaborated->getNamedType(), value.getLocalQualifiers()), owner);
         if (const auto* paren = llvm::dyn_cast<clang::ParenType>(raw))
             return get(context.getQualifiedType(paren->getInnerType(), value.getLocalQualifiers()), owner);
+        if (const auto* adjusted = llvm::dyn_cast<clang::AdjustedType>(raw))
+            return get(context.getQualifiedType(adjusted->getAdjustedType(), value.getLocalQualifiers()), owner);
 
         TypeNode node;
         auto policy                    = context.getPrintingPolicy();

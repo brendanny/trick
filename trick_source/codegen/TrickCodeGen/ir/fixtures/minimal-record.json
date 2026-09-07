@@ -1,8 +1,8 @@
 {
-  "schema_version": 6,
+  "schema_version": 7,
   "document_kind": "trick.icg.extracted-facts",
   "provenance": {
-    "extractor_version": "0.6.0-synthetic-fixture",
+    "extractor_version": "0.7.0-synthetic-fixture",
     "frontend_api": "libtooling",
     "frontend_version": "17.0.6",
     "translation_unit": "file:fixture",
@@ -80,6 +80,15 @@
       "non_virtual_alignment_bits": 32,
       "field_ids": ["decl:sample.value"],
       "nested_declaration_ids": [],
+      "callable_ids": [],
+      "special_members": [
+        {"kind": "default_constructor", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
+        {"kind": "copy_constructor", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
+        {"kind": "move_constructor", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
+        {"kind": "copy_assignment", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
+        {"kind": "move_assignment", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
+        {"kind": "destructor", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"}
+      ],
       "annotations": [],
       "capabilities": [
         {"name": "frontend-record-layout", "status": "supported", "reason_code": "SUPPORTED"}

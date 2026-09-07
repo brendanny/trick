@@ -27,7 +27,8 @@ class ValidateTests(unittest.TestCase):
             lambda value: value.update(schema_version=3),
             lambda value: value.update(schema_version=4),
             lambda value: value.update(schema_version=5),
-            lambda value: value.update(schema_version=7),
+            lambda value: value.update(schema_version=6),
+            lambda value: value.update(schema_version=8),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)
@@ -171,6 +172,8 @@ class ValidateTests(unittest.TestCase):
             "complete",
             "field_ids",
             "nested_declaration_ids",
+            "callable_ids",
+            "special_members",
             "bases",
             "virtual_base_offsets",
             "data_size_bits",
@@ -776,6 +779,214 @@ class ValidateTests(unittest.TestCase):
         document["declarations"][0]["complete"] = False
         with self.assertRaisesRegex(ValueError, "incomplete record"):
             ir.validate(self.schema, document)
+
+    def callable_document(self, member=False):
+        document = copy.deepcopy(self.fixture)
+        owner = document["declarations"][0]
+        parameter = {
+            "name": "value",
+            "type_id": "type:int",
+            "original_type_id": "type:int",
+            "source": copy.deepcopy(owner["source"]),
+            "annotations": [],
+            "has_default": False,
+            "default_spelling": None,
+            "default_source": None,
+        }
+        node = {
+            key: copy.deepcopy(owner[key])
+            for key in ("source", "origin", "annotations", "capabilities")
+        }
+        node.update(
+            id="decl:f",
+            canonical_declaration_id="decl:f",
+            kind="callable",
+            name="f",
+            qualified_name="Sample::f" if member else "f",
+            usr="c:@F@f#I#",
+            identity_kind="usr",
+            access="public" if member else "none",
+            definition=False,
+            callable_kind="method" if member else "function",
+            special_member_kind="none",
+            return_type_id="type:int",
+            parameters=[parameter],
+            const=False,
+            volatile=False,
+            static=False,
+            ref_qualifier="none",
+            noexcept="false",
+            virtual=False,
+            pure=False,
+            final=False,
+            deleted=False,
+            defaulted=False,
+            explicit=False,
+            constexpr=False,
+            variadic=False,
+            user_provided=True,
+            calling_convention="c",
+            linkage="external",
+            overridden_declaration_ids=[],
+            overridden_implicit_destructor_record_ids=[],
+            redeclarations=[
+                {
+                    "source": copy.deepcopy(owner["source"]),
+                    "parameters": [copy.deepcopy(parameter)],
+                    "annotations": [],
+                    "definition": False,
+                }
+            ],
+        )
+        if member:
+            node["semantic_parent_id"] = owner["id"]
+            node["lexical_parent_id"] = owner["id"]
+            node["redeclarations"][0]["lexical_parent_id"] = owner["id"]
+            owner["callable_ids"] = [node["id"]]
+        document["declarations"].append(node)
+        return document
+
+    def test_callable_required_fields_and_ownership(self):
+        for member in (False, True):
+            ir.validate(self.schema, self.callable_document(member))
+        document = self.callable_document(True)
+        document["declarations"][0]["callable_ids"] = []
+        with self.assertRaisesRegex(ValueError, "callable ownership"):
+            ir.validate(self.schema, document)
+        document = self.callable_document()
+        del document["declarations"][-1]["noexcept"]
+        with self.assertRaisesRegex(ValueError, "missing structural fields"):
+            ir.validate(self.schema, document)
+
+    def test_callable_flags_are_kind_specific(self):
+        for mutation in (
+            {"static": True},
+            {"const": True},
+            {"pure": True},
+            {"explicit": True},
+            {"return_type_id": None},
+            {"defaulted": True},
+        ):
+            document = self.callable_document()
+            document["declarations"][-1].update(mutation)
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                ir.validate(self.schema, document)
+        document = self.callable_document(True)
+        document["declarations"][-1].update(static=True, virtual=True)
+        with self.assertRaisesRegex(ValueError, "invalid instance-method flags"):
+            ir.validate(self.schema, document)
+
+    def test_callable_default_evidence_is_all_or_nothing(self):
+        for mutation in (
+            {"has_default": True},
+            {"default_spelling": "2"},
+            {"default_source": self.fixture["declarations"][0]["source"]},
+        ):
+            document = self.callable_document()
+            node = document["declarations"][-1]
+            node["parameters"][0].update(mutation)
+            node["redeclarations"][0]["parameters"] = copy.deepcopy(node["parameters"])
+            with (
+                self.subTest(mutation=mutation),
+                self.assertRaisesRegex(ValueError, "default argument evidence"),
+            ):
+                ir.validate(self.schema, document)
+
+    def test_callable_redeclaration_signature_and_evidence_match(self):
+        document = self.callable_document()
+        node = document["declarations"][-1]
+        prior = copy.deepcopy(node["redeclarations"][0])
+        node["redeclarations"].insert(0, prior)
+        prior["parameters"][0].update(
+            type_id="type:sample", original_type_id="type:sample"
+        )
+        with self.assertRaisesRegex(ValueError, "redeclaration parameter types"):
+            ir.validate(self.schema, document)
+        document = self.callable_document()
+        document["declarations"][-1]["definition"] = True
+        with self.assertRaisesRegex(ValueError, "definition evidence"):
+            ir.validate(self.schema, document)
+        document = self.callable_document()
+        document["declarations"][-1]["parameters"][0]["name"] = "renamed"
+        with self.assertRaisesRegex(ValueError, "last redeclaration"):
+            ir.validate(self.schema, document)
+
+    def test_callable_parameter_source_type_and_annotation_links(self):
+        for field in ("type_id", "original_type_id"):
+            document = self.callable_document()
+            document["declarations"][-1]["parameters"][0][field] = "type:missing"
+            with self.assertRaisesRegex(ValueError, "dangling reference"):
+                ir.validate(self.schema, document)
+        document = self.callable_document()
+        document["declarations"][-1]["redeclarations"][0]["parameters"][0]["source"][
+            "spelling"
+        ]["file_id"] = "file:missing"
+        with self.assertRaisesRegex(ValueError, "dangling reference"):
+            ir.validate(self.schema, document)
+        document = self.callable_document()
+        node = document["declarations"][-1]
+        node["parameters"][0]["original_type_id"] = "type:sample"
+        node["redeclarations"][0]["parameters"] = copy.deepcopy(node["parameters"])
+        with self.assertRaisesRegex(ValueError, "original parameter type"):
+            ir.validate(self.schema, document)
+
+    def test_callable_override_targets_must_be_virtual_base_members(self):
+        document = self.callable_document(True)
+        node = document["declarations"][-1]
+        node.update(virtual=True, overridden_declaration_ids=[node["id"]])
+        with self.assertRaisesRegex(ValueError, "invalid overridden callable"):
+            ir.validate(self.schema, document)
+        node["overridden_declaration_ids"] = []
+        node.update(
+            callable_kind="destructor",
+            return_type_id=None,
+            parameters=[],
+            special_member_kind="destructor",
+            overridden_implicit_destructor_record_ids=["decl:sample"],
+        )
+        node["redeclarations"][0]["parameters"] = []
+        with self.assertRaises(ValueError):
+            ir.validate(self.schema, document)
+
+    def test_special_member_summary_states_are_not_interchangeable(self):
+        for mutation in (
+            {"state": "unknown"},
+            {"state": "suppressed"},
+            {"state": "user_declared"},
+            {"deleted": None},
+            {"virtual": True},
+        ):
+            document = copy.deepcopy(self.fixture)
+            document["declarations"][0]["special_members"][0].update(mutation)
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                ir.validate(self.schema, document)
+        document = copy.deepcopy(self.fixture)
+        document["declarations"][0]["special_members"].reverse()
+        with self.assertRaisesRegex(ValueError, "six special-member kinds"):
+            ir.validate(self.schema, document)
+
+    def test_user_special_member_links_must_match_record_callable_list(self):
+        document = self.callable_document(True)
+        node = document["declarations"][-1]
+        node.update(
+            callable_kind="constructor",
+            return_type_id=None,
+            parameters=[],
+            special_member_kind="default_constructor",
+        )
+        node["redeclarations"][0]["parameters"] = []
+        slot = document["declarations"][0]["special_members"][0]
+        with self.assertRaisesRegex(ValueError, "special-member declaration links"):
+            ir.validate(self.schema, document)
+        slot.update(
+            state="user_declared",
+            declaration_ids=[node["id"]],
+            deleted=None,
+            trivial=None,
+            virtual=None,
+            noexcept=None,
+        )
+        ir.validate(self.schema, document)
 
 
 if __name__ == "__main__":
