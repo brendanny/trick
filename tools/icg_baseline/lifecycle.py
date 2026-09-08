@@ -7,6 +7,7 @@ This is a six-record evidence contract, not a general lifecycle-policy emitter.
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import shutil
 import subprocess
@@ -160,8 +161,17 @@ def validate(document: dict, observed: dict) -> dict:
             )
         )
     if observed.get("records") != expected_records:
+        difference = "\n".join(
+            difflib.unified_diff(
+                json.dumps(expected_records, indent=2, sort_keys=True).splitlines(),
+                json.dumps(observed.get("records"), indent=2, sort_keys=True).splitlines(),
+                fromfile="facts",
+                tofile="native probe",
+                lineterm="",
+            )
+        )
         raise ValueError(
-            "lifecycle symbols or exact-operation traits differ from facts"
+            "lifecycle symbols or exact-operation traits differ from facts:\n" + difference
         )
 
     def event(kind, value, offset=0):
