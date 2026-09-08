@@ -20,6 +20,7 @@ HERE = Path(__file__).resolve().parent
 RUNTIME_INPUTS = {
     "templates": ("templates.py",),
     "io": ("io.py", "io.restore_input"),
+    "memorymanager": ("memorymanager.py",),
 }
 
 
@@ -64,7 +65,10 @@ def executable(sim: Path) -> Path:
 
 
 def validate_runtime(
-    output: Path, expected_path: Path, case_id: str = "templates"
+    output: Path,
+    expected_path: Path,
+    case_id: str = "templates",
+    facts: Path | None = None,
 ) -> dict:
     # Legacy read_checkpoint logs a parser failure but can still return zero.
     logs = "\n".join(
@@ -74,6 +78,10 @@ def validate_runtime(
         raise b.BaselineError("runtime log contains a Python error")
     if case_id == "io":
         validate_io_logs(logs)
+    elif case_id == "memorymanager":
+        import memorymanager
+
+        memorymanager.validate_logs(logs)
     elif "Checkpoint restore failed." in logs or "Checkpoint Agent ERROR:" in logs:
         raise b.BaselineError("runtime log contains a checkpoint restore error")
     actual_path = b.contained(output, "observations.json")
@@ -83,6 +91,13 @@ def validate_runtime(
     # the scheduled observation time. Equality of before/restored alone is weak.
     if b.json_bytes(actual) != b.json_bytes(expected):
         raise b.BaselineError("runtime observations differ from the expected contract")
+    if case_id == "memorymanager":
+        if facts is None:
+            raise b.BaselineError("MemoryManager runtime requires extracted facts")
+        return dict(
+            observations_sha256=b.digest(actual_path.read_bytes()),
+            **memorymanager.validate(facts, b.contained(output, "memorymanager.json")),
+        )
     checkpoint = b.contained(output, "icg_model_checkpoint")
     raw = checkpoint.read_bytes()
     text = raw.decode("utf-8")
@@ -134,6 +149,7 @@ def runtime(
     timeout: str,
     seconds: int,
     case_id: str = "templates",
+    facts: Path | None = None,
 ) -> dict:
     output.mkdir(parents=True, exist_ok=False)
     binary = executable(sim)
@@ -156,7 +172,9 @@ def runtime(
         if report["measurement"]["returncode"] != 0:
             raise b.BaselineError("simulation command failed or timed out")
         report.update(
-            validate_runtime(output, HERE / f"runtime/{case_id}.expected.json", case_id)
+            validate_runtime(
+                output, HERE / f"runtime/{case_id}.expected.json", case_id, facts
+            )
         )
         report["status"] = "success"
     except (b.BaselineError, OSError, ValueError) as exc:
@@ -178,6 +196,8 @@ def capture(args: argparse.Namespace) -> int:
     root = args.root.resolve()
     manifest = b.load_manifest(HERE / "corpus.json", root)
     case_id = args.case
+    if case_id == "memorymanager" and args.extractor is None:
+        raise b.BaselineError("--case memorymanager requires --extractor")
     case = next(case for case in manifest["cases"] if case["id"] == case_id)
     sim = b.contained(root, case["directory"])
     require_fresh_simulation(sim)
@@ -231,6 +251,20 @@ def capture(args: argparse.Namespace) -> int:
         if path.is_file():
             b.write_changed(output / "configuration" / path.name, path.read_bytes())
     try:
+        facts = None
+        if case_id == "memorymanager":
+            import memorymanager
+
+            facts = memorymanager.extract(args.extractor, root, output)
+            report["extractor_sha256"] = b.digest(args.extractor.read_bytes())
+            report["lifecycle_source_sha256"] = {
+                name: b.digest((root / name).read_bytes())
+                for name in memorymanager.INPUTS
+            }
+            report["comparison_inputs_sha256"] = {
+                name: b.digest((HERE / name).read_bytes())
+                for name in ("memorymanager.py", "lifecycle.py")
+            }
         for label in ("cold", "warm", "forced", "rebuilt"):
             # trick-CP forwards unrecognized arguments to the S_define parser.
             # Parallelism belongs in MAKEFLAGS; named targets go to Make.
@@ -267,7 +301,13 @@ def capture(args: argparse.Namespace) -> int:
             if label in ("warm", "rebuilt"):
                 key = f"runtime-{label}"
                 report["stages"][key] = runtime(
-                    sim, output / key, env, timeout, args.runtime_timeout, case_id
+                    sim,
+                    output / key,
+                    env,
+                    timeout,
+                    args.runtime_timeout,
+                    case_id,
+                    facts,
                 )
             b.write_changed(output / "summary.json", b.json_bytes(report))
         for label in ("warm", "forced", "rebuilt"):
@@ -300,6 +340,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=b.DEFAULT_ROOT)
     parser.add_argument("--case", choices=RUNTIME_INPUTS, default="templates")
+    parser.add_argument(
+        "--extractor", type=Path, help="required for the MemoryManager facts comparison"
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--jobs", type=positive_integer, default=2)
     parser.add_argument("--build-timeout", type=positive_integer, default=1200)

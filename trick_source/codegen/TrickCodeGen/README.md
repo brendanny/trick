@@ -160,9 +160,14 @@ reference lane additionally enables ASan/UBSan/LSan, including a deliberately
 leaking wrapper whose destructor events otherwise match. Stale reports and
 regenerated graph digests cannot conceal failed execution or semantic differences.
 
-The policy remains restricted to this corpus. MemoryManager registration/dispatch,
-exception/OOM handling, over-alignment, and general lifecycle emission remain
-outstanding; the private-destructor allocator is observed but not executed.
+The [configured MemoryManager gate](../../../tools/icg_baseline/runtime/README.md#memorymanager-lifecycle-contract)
+uses the same fixture sources and validates nine registration/dispatch executions
+and two unavailable allocations against facts. It exercises production SWIG
+`TMMName` scalar ownership, external unregistration, and map removal before
+destructor callbacks, before/after forced generation. That lane is currently the
+Linux LLVM 17/GCC 13 configured stack. The policy remains restricted to this
+corpus; exception/OOM handling, over-alignment, and general lifecycle emission
+remain outstanding. The private-destructor allocator is observed but not executed.
 
 ## Invocation contract
 

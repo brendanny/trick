@@ -90,7 +90,9 @@ known duplicate SIE append. The baseline CI job rebuilds the unchanged generator
 and compares all three passes against these references. The four existing header
 references remain separate and unchanged.
 
-This does not run MemoryManager registration or its dynamic-dispatch methods,
+The separate [configured MemoryManager gate](../runtime/README.md#memorymanager-lifecycle-contract)
+now exercises registration and dispatch through the production simulation,
+including SWIG named ownership. This standalone probe does not run those methods,
 resolve general lifecycle policy, or cover zero/negative counts, allocation
 failure, throwing constructors/destructors, over-alignment, inaccessible
 destruction, or arbitrary class-specific allocation. Those remain separate gates.

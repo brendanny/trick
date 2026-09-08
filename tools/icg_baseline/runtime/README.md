@@ -1,9 +1,11 @@
 # Configured simulation and runtime evidence
 
-`simulation.py` drives the existing `SIM_test_templates` and `SIM_test_io` through the production
+`simulation.py` drives `SIM_test_templates`, `SIM_test_io`, and the focused
+`SIM_icg_lifecycle` through the production
 Perl configuration processor, legacy ICG, SWIG, generated-source compilation,
 linking, and the Trick executable. It does not substitute the new extractor or
-alter either simulation's existing model or `S_define`.
+alter the existing template or I/O models. The lifecycle case compares the
+observed MemoryManager operations with separately extracted facts.
 
 ## Reproduce
 
@@ -19,6 +21,9 @@ make -j2 no_dp TRICK_VERBOSE_BUILD=1 ICG_CLANGLIBS=-lclang-cpp
   --case templates --output /tmp/icg-simulation-evidence/templates --jobs 2
 /usr/bin/python3 tools/icg_baseline/simulation.py \
   --case io --output /tmp/icg-simulation-evidence/io --jobs 2
+python3 tools/icg_baseline/simulation.py \
+  --case memorymanager --extractor /tmp/icg-extract/trick-icg-extract \
+  --output /tmp/icg-simulation-evidence/memorymanager --jobs 2
 ```
 
 This lane is Linux x86-64, LLVM 17.0.6, GCC 13, Python 3.12, and SWIG 4.2.
@@ -57,9 +62,9 @@ input/expected-output digests, and the actual executable digest for each run.
 The selected probe, auxiliary checkpoint input, and expected values/diagnostics
 are copied under `runtime-inputs/`; their digests are recorded in the summary.
 `--case` defaults to `templates` for compatibility. CI builds core once, runs
-both cases, and uploads `icg-configured-simulations-llvm17-linux`; evidence is
-separated into `templates/` and `io/` directories. The I/O capture still runs if
-the template capture fails, provided the shared core build succeeded.
+all three cases, and uploads `icg-configured-simulations-llvm17-linux`; evidence is
+separated by case. The I/O and lifecycle captures still run if a previous capture
+fails, provided the shared core and required extractor builds succeeded.
 GNU `timeout` bounds complete build commands (20 minutes by default) and runtime
 commands (60 seconds), terminating their process groups on expiry.
 `--jobs` sets `MAKEFLAGS`; `trick-CP` does not accept Make's `-j` option or named
@@ -71,6 +76,40 @@ portable goldens. Root-derived SWIG names, generated ordering, and SIE appends
 are not normalized away. A successful capture does not imply zero churn or
 textual equivalence between all build stages. The existing isolated-header
 goldens continue to be checked separately.
+
+## MemoryManager lifecycle contract
+
+The `memorymanager` case requires a standalone facts extractor and Python
+`jsonschema>=4.18,<5`. CI builds the LLVM 17 extractor and installs the validator
+in a separate virtual environment. Simulation Python remains the configured
+production interpreter. The original lifecycle header and definitions are
+fingerprinted against their captured reference; facts, extractor commands,
+diagnostics, source/comparison fingerprints, and runtime evidence are retained.
+
+| Operation | Observation |
+|---|---|
+| `declare_var` for tracked and implicit-default classes, counts 1/3 | Generated allocation, initial values, `ALLOC_INFO` size/range/dimensions/language, name and interior-address lookup |
+| `delete_var` by name and address | Forward destructor events with fact-derived strides; registry removal before callbacks; name/address lookup removed |
+| Deleted-default POD, counts 1/3 | Zeroed raw storage, no construction or typed object access, generated no-op destructor and storage release by MemoryManager |
+| `declare_extern_var` then unregister | No premature destructor; caller storage remains writable and is destroyed explicitly by the caller |
+| SWIG constructors with `TMMName`, with/without constructor arguments | Proxy ownership relinquished; actual `TRICK_LOCAL`/`TRICK_ALLOC_NEW` record; MemoryManager scalar deletion and subsequent proxy disposal |
+| No-default and abstract allocation requests | Null result, unchanged allocation map, no events; exactly the two expected pairs of missing-allocator diagnostics |
+
+Nine executions and two rejected requests run through the real configured
+simulation at time 0.1. The comparison derives sizes and lifecycle availability
+from schema-validated facts; the immutable fixture definitions supply expected
+values and event order. JSON comparison distinguishes booleans from integers.
+The allocation map must return to its initial size. Extra/missing runtime errors
+fail even if the process returns zero. A success report requires both the Python
+observations and the C++ MemoryManager document; this case does not write a
+checkpoint. Mutation tests recompute fact digests before checking rule coverage.
+
+This closes the focused dispatch/registration gap, not general lifecycle policy.
+It excludes executive checkpoint restart, recursive user destructors, concurrent
+registration, OOM/exception recovery, over-aligned types, arbitrary class-specific
+allocation, and destruction of private-destructor objects. The full configured
+simulation is not sanitizer-instrumented; the separate captured-wrapper gate
+retains its ASan/UBSan/LSan checks. No generated production backend is replaced.
 
 ## Template runtime contract
 

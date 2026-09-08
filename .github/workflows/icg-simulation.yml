@@ -7,6 +7,7 @@ on:
       - 'tools/icg_baseline/**'
       - 'test/SIM_test_templates/**'
       - 'test/SIM_test_io/**'
+      - 'test/SIM_icg_lifecycle/**'
       - 'trick_source/**'
       - 'include/**'
       - 'bin/**'
@@ -20,6 +21,7 @@ on:
       - 'tools/icg_baseline/**'
       - 'test/SIM_test_templates/**'
       - 'test/SIM_test_io/**'
+      - 'test/SIM_icg_lifecycle/**'
       - 'trick_source/**'
       - 'include/**'
       - 'bin/**'
@@ -35,7 +37,7 @@ permissions:
 
 jobs:
   simulations:
-    name: Templates + I/O / LLVM 17 / GCC 13 / Python 3.12 / SWIG 4.2
+    name: Templates + I/O + lifecycle / LLVM 17 / GCC 13 / Python 3.12 / SWIG 4.2
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -44,7 +46,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-13 make bison flex perl pkg-config zip curl \
-            python3-dev swig=4.2.0-2ubuntu1 libxml2-dev zlib1g-dev \
+            python3-dev python3-venv cmake swig=4.2.0-2ubuntu1 libxml2-dev zlib1g-dev \
             clang-17=1:17.0.6-9ubuntu1 llvm-17-dev=1:17.0.6-9ubuntu1 \
             libclang-17-dev=1:17.0.6-9ubuntu1 libclang-cpp17-dev=1:17.0.6-9ubuntu1 \
             libudunits2-dev=2.2.28-7build1
@@ -80,6 +82,23 @@ jobs:
         run: |
           /usr/bin/python3 tools/icg_baseline/simulation.py \
             --case io --output build/icg-simulation-evidence/io --jobs 2
+      - name: Build facts extractor for the MemoryManager comparison
+        id: facts
+        if: ${{ !cancelled() && steps.core.outcome == 'success' }}
+        run: |
+          /usr/bin/python3 -m venv build/icg-schema-venv
+          build/icg-schema-venv/bin/python -m pip install 'jsonschema>=4.18,<5'
+          cmake -S trick_source/codegen/TrickCodeGen -B build/icg-extract \
+            -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm \
+            -DPython3_EXECUTABLE="$PWD/build/icg-schema-venv/bin/python" \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-Werror
+          cmake --build build/icg-extract --parallel 2
+      - name: Verify MemoryManager allocation, SWIG ownership, and deletion against facts
+        if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
+        run: |
+          build/icg-schema-venv/bin/python tools/icg_baseline/simulation.py \
+            --case memorymanager --extractor build/icg-extract/trick-icg-extract \
+            --output build/icg-simulation-evidence/memorymanager --jobs 2
       - name: Preserve configuration, build, runtime, and failure evidence
         if: always()
         uses: actions/upload-artifact@v7

@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "cases": [
+    {"id": "memorymanager", "directory": "test/SIM_icg_lifecycle", "covers": ["generated lifecycle dispatch", "allocation registry", "SWIG named ownership", "external storage", "rejected constructors"]},
     {"id": "io", "directory": "test/SIM_test_io", "covers": ["I/O and checkpoint annotations", "units", "pointers"]},
     {"id": "enums", "directory": "test/SIM_anon_enum", "covers": ["anonymous enums"]},
     {"id": "inheritance", "directory": "test/SIM_test_inherit", "covers": ["inherited SimObject jobs"]},

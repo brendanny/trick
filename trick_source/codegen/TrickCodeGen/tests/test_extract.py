@@ -1825,6 +1825,58 @@ enum PodTraits {
             )
         self.assertFalse((output / "lifecycle.json").exists())
 
+    def test_memorymanager_rules_use_validated_facts_not_only_digests(self):
+        _, document, _ = self.lifecycle_comparison()
+        sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
+        try:
+            import memorymanager as mm
+        finally:
+            sys.path.pop(0)
+        expected = mm.expected(document)
+        facts = self.root / "facts.json"
+        observed = self.root / "memorymanager.json"
+        facts.write_text(json.dumps(document))
+        observed.write_text(json.dumps(expected))
+        self.assertEqual(mm.validate(facts, observed)["executions"], 9)
+        # Synthetic observations test rule rejection; the configured simulation
+        # supplies the independent real observations in CI.
+        for path, value in (
+            (["executions", 0, "allocation", "allocator"], "new"),
+            (["executions", 0, "allocation", "size_bytes"], 8),
+            (["executions", 0, "allocation", "cpp"], False),
+            (["executions", 0, "allocation", "named"], False),
+            (["executions", 0, "delete_status"], False),
+            (["executions", 0, "unregistered"], False),
+            (["executions", 3, "allocation", "dimensions"], [1]),
+            (["executions", 3, "events", 3, "registered"], True),
+            (["executions", 6, "events_after_unregister"], 2),
+            (["executions", 7, "events"], []),
+            (["rejections", 0, "null"], False),
+            (["allocation_delta"], 1),
+        ):
+            changed = copy.deepcopy(expected)
+            target = changed
+            for key in path[:-1]:
+                target = target[key]
+            target[path[-1]] = value
+            observed.write_text(json.dumps(changed))
+            with (
+                self.subTest(path=path),
+                self.assertRaisesRegex(mm.b.BaselineError, "observations differ"),
+            ):
+                mm.validate(facts, observed)
+        observed.write_text(json.dumps(expected))
+        changed = copy.deepcopy(document)
+        destructor = self.declarations(changed)[
+            "IcgLifecycleTracked::~IcgLifecycleTracked"
+        ]
+        destructor["access"] = "private"
+        changed["provenance"]["graph_digest"] = VALIDATOR.graph_digest(changed)
+        VALIDATOR.validate(SCHEMA, changed)
+        facts.write_text(json.dumps(changed))
+        with self.assertRaisesRegex(mm.b.BaselineError, "policy differs"):
+            mm.validate(facts, observed)
+
     def test_incomplete_record_special_member_states_are_unknown(self):
         self.header.write_text("struct Forward; void use(Forward*);\n")
         slots = self.special_members(self.success(self.invoke()), "Forward")

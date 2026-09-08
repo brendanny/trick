@@ -1,0 +1,15 @@
+/************************TRICK HEADER*************************
+PURPOSE: (Exercise real MemoryManager dispatch for the ICG rewrite evidence gate.)
+*************************************************************/
+
+#include "sim_objects/default_trick_sys.sm"
+
+##include "LifecycleProbe.hh"
+
+class LifecycleSimObject : public Trick::SimObject {
+    public:
+        LifecycleProbe probe;
+        LifecycleSimObject() {}
+};
+
+LifecycleSimObject lifecycle;

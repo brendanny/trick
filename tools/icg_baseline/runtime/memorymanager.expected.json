@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "scenario": "memorymanager-lifecycle",
+  "sim_time": 0.1,
+  "named_proxy_ownership": [false, false]
+}
