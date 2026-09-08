@@ -7,6 +7,7 @@ differential.py. It links the real Trick UnitsMap implementation, without stubs.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -178,6 +179,31 @@ def capture(
     (output / "legacy.cpp").write_text(materialized)
     (output / "native_probe.hh").write_bytes(HELPER.read_bytes())
     (output / "probe.cpp").write_text(source(document, report))
+    sources = [
+        output / "probe.cpp",
+        ROOT / "trick_source/sim_services/UnitsMap/UnitsMap.cpp",
+    ]
+    if case["id"] == "anonymous-enum":
+        sources.append(ROOT / "test/SIM_anon_enum/models/starter.cpp")
+    evidence = execute(sources, output, compiler)
+    validate(document, report, evidence["observations"])
+    result_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
+    return evidence
+
+
+def execute(
+    sources: list[Path],
+    output: Path,
+    compiler: Path,
+    *,
+    compile_flags: tuple[str, ...] = (),
+    link_flags: tuple[str, ...] = (),
+    runtime_environment: dict[str, str] | None = None,
+) -> dict:
+    """Compile/link/run an evidence probe, retaining argv, logs and dependencies.
+
+    The caller validates observations before publishing its success report.
+    """
     commands = []
 
     def run(
@@ -186,7 +212,14 @@ def capture(
         timed_out = False
         try:
             result = subprocess.run(
-                arguments, cwd=output, capture_output=True, timeout=timeout, check=False
+                arguments,
+                cwd=output,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+                env={**os.environ, **runtime_environment}
+                if label == "run" and runtime_environment
+                else None,
             )
         except subprocess.TimeoutExpired as error:
             timed_out = True
@@ -200,6 +233,7 @@ def capture(
                 argv=arguments,
                 returncode=result.returncode,
                 timed_out=timed_out,
+                environment=runtime_environment or {} if label == "run" else {},
                 stdout=f"{label}.stdout",
                 stderr=f"{label}.stderr",
             )
@@ -219,12 +253,6 @@ def capture(
     target = (
         run([str(compiler), "-dumpmachine"], "compiler-target").stdout.decode().strip()
     )
-    sources = [
-        output / "probe.cpp",
-        ROOT / "trick_source/sim_services/UnitsMap/UnitsMap.cpp",
-    ]
-    if case["id"] == "anonymous-enum":
-        sources.append(ROOT / "test/SIM_anon_enum/models/starter.cpp")
     objects = []
     dependencies = {Path(__file__), HELPER}
     for index, path in enumerate(sources):
@@ -237,6 +265,7 @@ def capture(
                 "-Wall",
                 "-Wextra",
                 "-Werror",
+                *compile_flags,
                 "-I" + str(ROOT / "include"),
                 "-MMD",
                 "-MF",
@@ -256,10 +285,9 @@ def capture(
         )
         objects.append(str(obj))
     executable = output / "probe"
-    run([str(compiler), *objects, "-o", str(executable)], "link")
+    run([str(compiler), *objects, *link_flags, "-o", str(executable)], "link")
     result = run([str(executable)], "run", timeout=30)
     observed = json.loads(result.stdout)
-    validate(document, report, observed)
     evidence = dict(
         compiler=str(compiler),
         compiler_version=version,
@@ -271,5 +299,4 @@ def capture(
         },
         commands=commands,
     )
-    result_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
     return evidence

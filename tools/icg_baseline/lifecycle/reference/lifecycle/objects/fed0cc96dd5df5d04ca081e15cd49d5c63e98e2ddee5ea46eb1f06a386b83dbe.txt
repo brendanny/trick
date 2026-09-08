@@ -1,0 +1,1 @@
+build${TRICK_ROOT}/tools/icg_baseline/lifecycle/fixtures/io_Lifecycle.o

@@ -1,0 +1,84 @@
+  <class name="IcgLifecycleTracked">
+    <member
+      name="value"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="IcgLifecycleImplicit">
+    <member
+      name="value"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="IcgLifecycleDeleted">
+    <member
+      name="value"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="IcgLifecycleNoDefault">
+    <member
+      name="value"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="IcgLifecyclePrivateDestructor">
+  </class>
+
+  <class name="IcgLifecycleAbstract">
+  </class>
+
+  <class name="IcgLifecycleTracked">
+    <member
+      name="value"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="IcgLifecycleImplicit">
+    <member
+      name="value"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="IcgLifecycleDeleted">
+    <member
+      name="value"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="IcgLifecycleNoDefault">
+    <member
+      name="value"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="IcgLifecyclePrivateDestructor">
+  </class>
+
+  <class name="IcgLifecycleAbstract">
+  </class>
+

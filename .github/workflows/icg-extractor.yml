@@ -9,6 +9,8 @@ on:
       - 'tools/icg_baseline/differential.py'
       - 'tools/icg_baseline/baseline.py'
       - 'tools/icg_baseline/native*'
+      - 'tools/icg_baseline/lifecycle*'
+      - 'tools/icg_baseline/lifecycle/**'
       - 'tools/icg_baseline/legacy/**'
       - 'include/trick/**'
       - 'trick_source/sim_services/UnitsMap/UnitsMap.cpp'
@@ -23,6 +25,8 @@ on:
       - 'tools/icg_baseline/differential.py'
       - 'tools/icg_baseline/baseline.py'
       - 'tools/icg_baseline/native*'
+      - 'tools/icg_baseline/lifecycle*'
+      - 'tools/icg_baseline/lifecycle/**'
       - 'tools/icg_baseline/legacy/**'
       - 'include/trick/**'
       - 'trick_source/sim_services/UnitsMap/UnitsMap.cpp'
@@ -97,9 +101,14 @@ jobs:
           "$LLVM_PREFIX/bin/llvm-config" --version | tee build/icg-evidence/llvm-version.txt
           test "$("$LLVM_PREFIX/bin/llvm-config" --version | cut -d. -f1)" = '${{ matrix.llvm }}'
           "$LLVM_PREFIX/bin/clang" --version > build/icg-evidence/clang-version.txt
+          lifecycle_sanitizers=OFF
+          if [ '${{ matrix.os }}' = ubuntu-24.04 ] && [ '${{ matrix.llvm }}' = 17 ] && [ '${{ matrix.python }}' = 3.11 ]; then
+            lifecycle_sanitizers=ON
+          fi
           cmake -S trick_source/codegen/TrickCodeGen -B build/icg-extract \
             -DLLVM_DIR="$LLVM_DIR" -DPython3_EXECUTABLE="$(command -v python)" \
             -DICG_CLANG_LINKAGE=${{ matrix.linkage }} \
+            -DICG_TEST_LIFECYCLE_SANITIZERS="$lifecycle_sanitizers" \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-Werror
           cmake --build build/icg-extract --parallel 2
       - name: Test actual extraction and failure paths
@@ -127,6 +136,13 @@ jobs:
             --extractor build/icg-extract/trick-icg-extract \
             --compiler "$(command -v g++)" \
             --output build/icg-evidence/legacy-comparison
+      - name: Capture lifecycle symbols, facts, execution, and sanitizer evidence
+        if: matrix.os == 'ubuntu-24.04' && matrix.llvm == 17 && matrix.python == '3.11'
+        run: |
+          python tools/icg_baseline/lifecycle.py \
+            --extractor build/icg-extract/trick-icg-extract \
+            --compiler "$(command -v g++)" --leak-check \
+            --output build/icg-evidence/lifecycle
       - uses: actions/upload-artifact@v7
         if: always()
         with:

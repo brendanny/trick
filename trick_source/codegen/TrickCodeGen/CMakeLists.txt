@@ -50,6 +50,7 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    option(ICG_TEST_LIFECYCLE_SANITIZERS "Run lifecycle probes with ASan/UBSan/LSan on Linux" OFF)
     find_package(Python3 3.11 REQUIRED COMPONENTS Interpreter)
     add_executable(icg-compat-test tests/test_compat.cpp)
     set_target_properties(icg-compat-test PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)
@@ -67,6 +68,12 @@ if(BUILD_TESTING)
             break()
         endif()
     endforeach()
+    if(ICG_TEST_LIFECYCLE_SANITIZERS)
+        if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            message(FATAL_ERROR "The lifecycle leak-check lane requires Linux")
+        endif()
+        list(APPEND ICG_TEST_ROOT_ARGS --lifecycle-leak-check)
+    endif()
     add_test(NAME icg_extract_integration
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_extract.py"
             --extractor "$<TARGET_FILE:trick-icg-extract>"

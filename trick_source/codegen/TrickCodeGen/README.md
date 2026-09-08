@@ -133,14 +133,36 @@ including GCC 8.5/12 and Linux/macOS across LLVM 17–23.
 Ignored/private records and unnamed/private enums are explicit, checked
 exclusions. UnitsMap lookups must agree with compiled units, including `rad`;
 units and raw annotations remain side by side for review. This does not implement
-annotation resolution policy. Lifecycle allocation/destruction/deletion wrappers
-are compiled and linked but are not executed. General registry, template/STL,
+annotation resolution policy. These metadata probes compile lifecycle wrappers;
+the separate lifecycle corpus below exercises their execution. General registry, template/STL,
 and simulation behavior remain separate gates.
 
 `comparison.json`, full facts/diagnostics, probe sources, compiler commands and
 logs, dependency hashes, and native observations are CI artifacts. This is a
 deliberately restricted evidence bridge for those snapshots, not a general C++
 parser or completed legacy backend. No unsupported declaration is silently skipped.
+
+### Lifecycle facts versus actual generated operations
+
+The [focused lifecycle gate](../../../tools/icg_baseline/lifecycle/README.md)
+captures six instrumented records with the unchanged legacy generator. It checks
+18 named lifecycle symbols (including required absences), independently compiled
+construction/destruction expressions, and 12 execution scenarios against validated
+facts. Cases distinguish raw POD storage from C++ construction, public constructors
+from accessible destruction, and abstract types from valid virtual base deletion.
+Constructor/destructor counts, values, strides, and order are observed directly.
+
+Generated allocation is paired with generated destruction and `free`; a separate
+scalar `new` path calls generated delete. These follow the runtime's ownership
+split without substituting MemoryManager. All extractor lanes run the focused
+checks, including GCC 8.5/12 and LLVM 17–23 on macOS/Linux. The Linux LLVM 17
+reference lane additionally enables ASan/UBSan/LSan, including a deliberately
+leaking wrapper whose destructor events otherwise match. Stale reports and
+regenerated graph digests cannot conceal failed execution or semantic differences.
+
+The policy remains restricted to this corpus. MemoryManager registration/dispatch,
+exception/OOM handling, over-alignment, and general lifecycle emission remain
+outstanding; the private-destructor allocator is observed but not executed.
 
 ## Invocation contract
 

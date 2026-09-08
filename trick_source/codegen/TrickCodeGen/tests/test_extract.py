@@ -28,6 +28,8 @@ EXTRACTOR: Path
 PATH_ROOTS: list[str] = []
 LAYOUT_COMPILER: Path | None = None
 LLVM_MAJOR: int | None = None
+LIFECYCLE_SANITIZERS = False
+LIFECYCLE_LEAK_CHECK = False
 
 
 def layout_compiler_path(value):
@@ -1641,6 +1643,149 @@ class ExtractTests(unittest.TestCase):
                 self.assertFalse((output / "native.json").exists())
                 self.assertTrue((output / "commands.json").is_file())
 
+    def lifecycle_comparison(self):
+        if LAYOUT_COMPILER is None:
+            self.skipTest("lifecycle conformance requires --layout-compiler")
+        sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
+        try:
+            import lifecycle
+        finally:
+            sys.path.pop(0)
+        self.header.write_bytes(lifecycle.HEADER.read_bytes())
+        return lifecycle, self.success(self.invoke()), lifecycle.reference()
+
+    def test_captured_lifecycle_wrappers_match_facts_and_observed_events(self):
+        lifecycle, document, legacy = self.lifecycle_comparison()
+        evidence = lifecycle.check(
+            document,
+            legacy,
+            self.root / "lifecycle",
+            LAYOUT_COMPILER,
+            sanitize=LIFECYCLE_SANITIZERS,
+            leak_check=LIFECYCLE_LEAK_CHECK,
+        )
+        observed = evidence["observations"]
+        self.assertEqual(len(observed["executions"]), 12)
+        private = next(
+            item
+            for item in observed["records"]
+            if item["name"] == "IcgLifecyclePrivateDestructor"
+        )
+        self.assertTrue(private["default_placement"])
+        self.assertFalse(private["default_constructible"])
+        self.assertFalse(private["destructible"])
+        self.assertEqual(
+            evidence["policy"]["IcgLifecycleDeleted"]["allocate"], "raw_storage"
+        )
+        for path, value in (
+            (["records", 2, "default_placement"], True),
+            (["records", 3, "symbols", "allocate"], True),
+            (["records", 4, "symbols", "destruct"], True),
+            (["records", 5, "virtual_destructor"], False),
+            (["executions", 0, "events"], []),
+            (["executions", 4, "events", 1, "offset_bytes"], 0),
+            (["executions", 4, "events", 3, "value"], 0),
+            (["executions", 2, "zeroed"], False),
+            (
+                ["executions", 11, "events"],
+                [{"kind": 2, "value": 0, "offset_bytes": 0}],
+            ),
+        ):
+            with self.subTest(path=path):
+                changed = copy.deepcopy(observed)
+                target = changed
+                for key in path[:-1]:
+                    target = target[key]
+                self.assertNotEqual(target[path[-1]], value)
+                target[path[-1]] = value
+                with self.assertRaises(ValueError):
+                    lifecycle.validate(document, changed)
+        # Regenerating a legitimate producer digest must not hide wrong facts.
+        for name, key, value in (
+            ("IcgLifecycleDeleted::IcgLifecycleDeleted", "deleted", False),
+            (
+                "IcgLifecyclePrivateDestructor::~IcgLifecyclePrivateDestructor",
+                "access",
+                "public",
+            ),
+        ):
+            with self.subTest(name=name):
+                changed = copy.deepcopy(document)
+                self.declarations(changed)[name][key] = value
+                changed["provenance"]["graph_digest"] = VALIDATOR.graph_digest(changed)
+                VALIDATOR.validate(SCHEMA, changed)
+                with self.assertRaisesRegex(ValueError, "traits differ"):
+                    lifecycle.validate(changed, observed)
+
+    def test_compiled_lifecycle_mutations_fail_without_success_report(self):
+        lifecycle, document, legacy = self.lifecycle_comparison()
+        output = self.root / "lifecycle-failure"
+        output.mkdir()
+        for before, after, message in (
+            (
+                "new(&temp[ii]) IcgLifecycleTracked();",
+                "new(&temp[ii]) IcgLifecycleTracked(); temp[ii].value = -1;",
+                "lifecycle event",
+            ),
+            (
+                "temp[ii].~IcgLifecycleTracked();",
+                "if (ii + 1 < num) temp[ii].~IcgLifecycleTracked();",
+                "lifecycle event",
+            ),
+            (
+                "temp[ii].~IcgLifecycleTracked();",
+                "temp[num - ii - 1].~IcgLifecycleTracked();",
+                "lifecycle event",
+            ),
+        ):
+            with self.subTest(after=after):
+                self.assertIn(before, legacy)
+                (output / "lifecycle.json").write_text('{"stale":true}')
+                with self.assertRaisesRegex(ValueError, message):
+                    lifecycle.check(
+                        document,
+                        legacy.replace(before, after),
+                        output,
+                        LAYOUT_COMPILER,
+                        sanitize=LIFECYCLE_SANITIZERS,
+                        leak_check=LIFECYCLE_LEAK_CHECK,
+                    )
+                self.assertFalse((output / "lifecycle.json").exists())
+        added = (
+            legacy
+            + '\nextern "C" void io_src_destruct_IcgLifecyclePrivateDestructor(void*, int) {}\n'
+        )
+        with self.assertRaisesRegex(ValueError, "symbols or exact-operation traits"):
+            lifecycle.check(
+                document,
+                added,
+                output,
+                LAYOUT_COMPILER,
+                sanitize=LIFECYCLE_SANITIZERS,
+                leak_check=LIFECYCLE_LEAK_CHECK,
+            )
+
+    def test_lifecycle_leak_sanitizer_detects_destructor_without_deallocation(self):
+        if not LIFECYCLE_LEAK_CHECK:
+            self.skipTest("LeakSanitizer runs in the explicit Linux reference lane")
+        lifecycle, document, legacy = self.lifecycle_comparison()
+        before = "delete (IcgLifecycleTracked*)address;"
+        self.assertIn(before, legacy)
+        changed = legacy.replace(
+            before, "((IcgLifecycleTracked*)address)->~IcgLifecycleTracked();"
+        )
+        output = self.root / "lifecycle-leak"
+        with self.assertRaisesRegex(ValueError, "LeakSanitizer: detected memory leaks"):
+            lifecycle.check(
+                document,
+                changed,
+                output,
+                LAYOUT_COMPILER,
+                sanitize=True,
+                leak_check=True,
+            )
+        self.assertFalse((output / "lifecycle.json").exists())
+
     def test_incomplete_record_special_member_states_are_unknown(self):
         self.header.write_text("struct Forward; void use(Forward*);\n")
         slots = self.special_members(self.success(self.invoke()), "Forward")
@@ -2608,9 +2753,13 @@ if __name__ == "__main__":
     parser.add_argument("--path-root", action="append", default=[])
     parser.add_argument("--layout-compiler", type=layout_compiler_path)
     parser.add_argument("--llvm-major", type=int, choices=range(17, 24))
+    parser.add_argument("--lifecycle-sanitizers", action="store_true")
+    parser.add_argument("--lifecycle-leak-check", action="store_true")
     args, remaining = parser.parse_known_args()
     EXTRACTOR = args.extractor.resolve(strict=True)
     PATH_ROOTS = args.path_root
     LAYOUT_COMPILER = args.layout_compiler
     LLVM_MAJOR = args.llvm_major
+    LIFECYCLE_SANITIZERS = args.lifecycle_sanitizers or args.lifecycle_leak_check
+    LIFECYCLE_LEAK_CHECK = args.lifecycle_leak_check
     unittest.main(argv=[sys.argv[0], *remaining])

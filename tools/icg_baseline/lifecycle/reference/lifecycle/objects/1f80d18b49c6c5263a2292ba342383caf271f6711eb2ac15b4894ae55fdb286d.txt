@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/lifecycle/fixtures/Lifecycle.hh
+${SIM_ROOT}/input.cpp

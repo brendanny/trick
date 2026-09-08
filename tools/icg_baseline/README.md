@@ -250,10 +250,16 @@ separately. Use a native C++17 compiler for `--compiler` (default `g++`).
 The gate covers six emitted records, six fields, and two enum tables. It checks
 explicit record/enum policy exclusions and UnitsMap lookup agreement, without
 claiming a general annotation policy or registration-presence test (UnitsMap
-returns `1` for an unknown name). Allocation/destruction/deletion wrappers are
-compiled but not executed; their ownership semantics need a dedicated contract.
+returns `1` for an unknown name). These three header probes compile lifecycle
+wrappers; the separate [lifecycle gate](lifecycle/README.md) executes a dedicated
+six-record corpus with observable construction/destruction and ownership checks.
 Template/STL closure, broad registry behavior, and generated simulation behavior
 remain outstanding.
+
+The lifecycle gate adds three actual legacy snapshots, 18 symbol-presence/absence
+checks, and 12 execution scenarios. Every extractor platform/compiler lane runs
+the focused contract; the Linux reference lane also runs ASan/UBSan/LSan and a
+missing-deallocation regression. See its [scope and reproduction commands](lifecycle/README.md).
 
 ## Remaining Phase 0 work
 
