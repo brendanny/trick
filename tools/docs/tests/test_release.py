@@ -150,10 +150,12 @@ class PublishingPolicy(unittest.TestCase):
     def test_source_collisions_fail_before_rendering(self):
         for names in (
             ("guide.md", "guide.html"),
-            ("Guide.md", "guide.md"),
+            # Distinct source paths even on case-insensitive filesystems, but
+            # their generated HTML paths collide after case folding.
+            ("Guide.md", "guide.html"),
             ("a.md", "a.html/b.png"),
         ):
-            with tempfile.TemporaryDirectory() as tmp:
+            with self.subTest(names=names), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 for name in ("index.md", *names):
                     path = root / "docs" / name
