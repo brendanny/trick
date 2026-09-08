@@ -26,6 +26,7 @@ VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
 EXTRACTOR: Path
 PATH_ROOTS: list[str] = []
+STDLIB_INCLUDE: Path | None = None
 LAYOUT_COMPILER: Path | None = None
 LLVM_MAJOR: int | None = None
 LIFECYCLE_SANITIZERS = False
@@ -110,7 +111,9 @@ class ExtractTests(unittest.TestCase):
             any(d["severity"] in ("error", "fatal") for d in report["diagnostics"])
         )
         if code:
-            self.assertIn(code, {d["code"] for d in report["diagnostics"]})
+            self.assertIn(
+                code, {d["code"] for d in report["diagnostics"]}, result.stderr
+            )
         return report
 
     @staticmethod
@@ -2696,11 +2699,14 @@ enum PodTraits {
                     "".join(f"#include <{header}>\n" for header in headers)
                     + f"struct Containers {{ {fields} }};\n"
                 )
-                # This rejection probe intentionally reaches the host's real
-                # libstdc++/libc++ closure. Map all physical paths so unrelated
+                # This rejection probe intentionally reaches real standard
+                # library headers. On Homebrew, select the frontend package's
+                # libc++ explicitly instead of an unrelated installation.
+                # Map all physical paths so unrelated
                 # missing-root diagnostics cannot make the assertion vacuous.
+                flags = ["-isystem", str(STDLIB_INCLUDE)] if STDLIB_INCLUDE else []
                 report = self.failure(
-                    self.invoke(options=["--source-root", self.root.anchor]),
+                    self.invoke(flags, options=["--source-root", self.root.anchor]),
                     "ICG_UNSUPPORTED_DECLARATION",
                 )
                 codes = {d["code"] for d in report["diagnostics"]}
@@ -3022,6 +3028,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--extractor", required=True, type=Path)
     parser.add_argument("--path-root", action="append", default=[])
+    parser.add_argument("--stdlib-include", type=Path)
     parser.add_argument("--layout-compiler", type=layout_compiler_path)
     parser.add_argument("--llvm-major", type=int, choices=range(17, 24))
     parser.add_argument("--lifecycle-sanitizers", action="store_true")
@@ -3029,6 +3036,9 @@ if __name__ == "__main__":
     args, remaining = parser.parse_known_args()
     EXTRACTOR = args.extractor.resolve(strict=True)
     PATH_ROOTS = args.path_root
+    STDLIB_INCLUDE = (
+        args.stdlib_include.resolve(strict=True) if args.stdlib_include else None
+    )
     LAYOUT_COMPILER = args.layout_compiler
     LLVM_MAJOR = args.llvm_major
     LIFECYCLE_SANITIZERS = args.lifecycle_sanitizers or args.lifecycle_leak_check

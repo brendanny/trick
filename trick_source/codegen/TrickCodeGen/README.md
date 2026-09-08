@@ -108,8 +108,11 @@ ranges (`ICG_IDENTITY_COLLISION` and `ICG_IDENTITY_PREVIOUS`) and publish no fac
 Failed parent identities propagate to their children: hashing an empty parent
 would manufacture collisions between members whose template source is shared.
 The combined `std::vector<int>` / `std::string` rejection probe now runs alongside
-each container alone and reversed include/member order, against the host's actual
-libstdc++ or libc++. These probes still require explicit unsupported-declaration
+each container alone and reversed include/member order, against actual standard
+library headers: the host's libstdc++ on Linux and the selected LLVM package's
+libc++ on Homebrew. CMake explicitly selects that libc++ include directory for
+the container probe, keeping it separate from path-root mapping. These probes
+still require explicit unsupported-declaration
 errors and empty stdout; they do not claim successful STL extraction. The earlier
 vector-only probe did not establish this combined-container behavior.
 

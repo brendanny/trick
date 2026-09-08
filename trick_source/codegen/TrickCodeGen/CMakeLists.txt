@@ -69,12 +69,14 @@ if(BUILD_TESTING)
     target_compile_options(icg-type-owner-test PRIVATE ${ICG_TEST_COMPILE_OPTIONS})
     target_link_libraries(icg-type-owner-test PRIVATE ${ICG_TEST_LINK_LIBRARIES})
     add_test(NAME icg_type_missing_owner COMMAND icg-type-owner-test)
-    # Homebrew's stddef.h goes through libc++ wrappers outside the resource dir.
-    # Map that separate root explicitly in tests, as a caller must do in practice.
+    # Homebrew's libc++ is separate from the resource dir. Map that root and
+    # explicitly select the matching package's headers for the container probe;
+    # the embedded driver must not find another installed version by accident.
     set(ICG_TEST_ROOT_ARGS "")
     foreach(include_dir IN LISTS LLVM_INCLUDE_DIRS)
         if(EXISTS "${include_dir}/c++/v1/stddef.h")
-            list(APPEND ICG_TEST_ROOT_ARGS --path-root "stdlib=${include_dir}/c++/v1")
+            list(APPEND ICG_TEST_ROOT_ARGS --path-root "stdlib=${include_dir}/c++/v1"
+                --stdlib-include "${include_dir}/c++/v1")
             break()
         endif()
     endforeach()
