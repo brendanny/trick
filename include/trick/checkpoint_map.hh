@@ -449,7 +449,6 @@ int restore_map_ik_sd(STL & in_map , std::string object_name , std::string var_n
 
     REF2 * keys_ref , * items_ref ;
     typename STL::key_type * keys ;
-    std::string * items ;
 
     //message_publish(1, "in regular map template restore\n") ;
 
@@ -463,7 +462,6 @@ int restore_map_ik_sd(STL & in_map , std::string object_name , std::string var_n
     if ( keys_ref != NULL && items_ref != NULL ) {
         in_map.clear() ;
         keys = (typename STL::key_type *)keys_ref->address ;
-        items = (std::string *)items_ref->address ;
         cont_size = get_size((char *)keys) ;
 
         for ( ii = 0 ; ii < cont_size ; ii++ ) {
@@ -557,7 +555,6 @@ int restore_map_sk_sd(STL & in_map , std::string object_name , std::string var_n
 
     REF2 * keys_ref , * items_ref ;
     std::string * keys ;
-    std::string * items ;
 
     //message_publish(1, "in regular map template restore\n") ;
 
@@ -571,7 +568,6 @@ int restore_map_sk_sd(STL & in_map , std::string object_name , std::string var_n
     if ( keys_ref != NULL && items_ref != NULL ) {
         in_map.clear() ;
         keys = (std::string *)keys_ref->address ;
-        items = (std::string *)items_ref->address ;
         cont_size = get_size((char *)keys) ;
 
         for ( ii = 0 ; ii < cont_size ; ii++ ) {
