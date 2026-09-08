@@ -3,9 +3,6 @@ title: "Making the Simulation"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Building a Simulation](Building-a-Simulation.md) → Making the Simulation |
-|------------------------------------------------------------------|
-
 
 ## Simulation Compilation Environment Variables
 

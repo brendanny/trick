@@ -3,9 +3,6 @@ title: "Standard Template Libraries (STL) in Trick"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Using STLs in Trick Sims |
-|------------------------------------------------------------------|
-
 # Standard Template Libraries (STL) in Trick
 
 STLs may be used in models. However, STL variables (currently) are not data recordable, visible in the variable server, nor directly accessible in the input file. Some STLs can be checkpointed: `array`, `vector`, `list`, `deque`, `set`, `multiset`, `map`, `multimap`, `stack`, `queue`, `priority_queue`, `pair`.

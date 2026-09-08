@@ -5,28 +5,9 @@ documentation_status: current
 
 # HOWTO Setup a Python Virtual Environment
 
+## Using the Built-in venv Module in Python 3
 
-- [Using the Built-in venu Module in Python3](#using-the-built-in-venv-module-in-python-3)
-  * [Creating a Virtual Environment](#creating-a-virtual-environment)
-  * [Activating the Virtual Environment](#activating-the-virtual-environment)
-  * [Installing Python Modules Into Your Virtual Environment](#installing-python-modules-into-your-virtual-environment)
-  * [Deactivating the venv Shell](#deactivating-the-venv-shell)
-- [Using Conda](#using-conda)
-  * [Creating a Conda Environment with Commands](#creating-a-conda-environment-with-commands)
-  * [Creating a Conda Environment From a YAML File](#creating-a-conda-environment-from-a-yaml-file)
-  * [Activating the Conda Environment](#activating-the-conda-environment)
-  * [Installing Packages Into a Conda Environment](#installing-packages-into-a-conda-environment)
-  * [Deactivating an Active Conda Environment](#deactivating-an-active-conda-environment)
-  * [Removing a Conda Environment](#removing-a-conda-environment)
-
-- [References](#references)
-
-
-<!-- toc -->
-
-## [Using the Built-in venv Module in Python 3](#using-the-built-in-venv-module-in-python-3)
-
-### [Creating a Virtual Environment](#creating-a-virtual-environment)
+### Creating a Virtual Environment
 
 The following command creates a virtual Python environment:
 
@@ -44,7 +25,7 @@ in your home directory.
 	
 ```% python3 -m venv ~/myVenv```
 
-### [Activating the Virtual Environment](#activating-the-virtual-environment)
+### Activating the Virtual Environment
 
 To activate the virtual environment, execute the following:
 
@@ -54,7 +35,7 @@ To activate the virtual environment, execute the following:
 
 Note that the name of virtual environment is added to the command prompt.
 
-### [Installing Python Modules Into Your Virtual Environment](#installing-python-modules-into-your-virtual-environment)
+### Installing Python Modules Into Your Virtual Environment
 
 Use the following command to install Python modules into the virtual environment:
 
@@ -72,7 +53,8 @@ This Python module would be installed as follows:
 Every time ```myVenv``` is activated, the PyYAML module will be available.
 
 
-### [Deactivating the venv Shell](#deactivating-the-venv-shell)
+### Deactivating the venv Shell
+
 To deactivate the venv shell, execute the following:
 
 ```(myVenv) % deactivate```
@@ -83,7 +65,7 @@ The above should get you going. If you need more details, the following tutorial
 
 
 
-## [Using Conda](#using-conda)
+## Using Conda
 
 Conda is a powerful package manager and environment manager that you use with command line commands at the Anaconda Prompt for Windows, or in a terminal window for macOS or Linux.
 
@@ -95,7 +77,7 @@ Anaconda is a downloadable, free, open-source, high-performance, and optimized P
 
 
 
-### [Creating a Conda Environment with Commands](#creating-a-conda-environment-with-commands)
+### Creating a Conda Environment with Commands
 
 #### Create a conda virtial environment with Python by running one of following conda commands from a terminal:
 
@@ -116,7 +98,7 @@ or
 ```
 
 
-### [Creating a Conda Environment From a YAML File](#creating-a-conda-environment-from-a-yaml-file)
+### Creating a Conda Environment From a YAML File
 
 #### Create the file ```myenv.yml``` with following contents: 
 
@@ -138,14 +120,14 @@ Once you have your YAML file ready, you can create your conda environment using 
 ```% conda env create -f myenv.yml```
 
 
-### [Activating the Conda Environment](#activating-the-conda-environment)
+### Activating the Conda Environment
 
 After creating the environment, you can activate it using the following command:
 
 ```% conda activate trick```
 
 
-### [Installing Packages Into a Conda Environment](#installing-packages-into-a-conda-environment)
+### Installing Packages Into a Conda Environment
 
 If you're in your conda environment, you can install package(s) using the following command:
 
@@ -157,14 +139,14 @@ If you're NOT in your conda environment, you can install package(s) into a speci
 ``` % conda install -n trick numpy scipy```
 
 
-### [Deactivating an Active Conda Environment](#deactivating-an-active-conda-environment)
+### Deactivating an Active Conda Environment
 
 If you're in your conda environment, you can deactivate it using the following command:
 
 ```(trick) % conda deactivate```
 
 
-### [Removing a Conda Environment](#removing-a-conda-environment)
+### Removing a Conda Environment
 
 You can remove a conda environment from your terminal using the following command:
 
@@ -182,7 +164,7 @@ The removed environment should not be shown.
 
 
 
-# [References](#references)
+## References
 
 * [RealPython Tutorial - Python Virtual Environment: A Primer](https://realpython.com/python-virtual-environments-a-primer/)
 * [Conda Document - Managing environments](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)

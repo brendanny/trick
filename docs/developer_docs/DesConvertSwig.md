@@ -9,9 +9,6 @@ search:
 > older Trick behavior and has not been verified against the current release.
 > For current guidance, start with the [developer documentation](Developer-Docs-Home.md).
 
-| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → Convert Swig |
-|------------------------------------------------------------------|
-
 # convert_swig
 
 The purpose of convert_swig is to create SWIG interface files for the given

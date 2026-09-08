@@ -3,9 +3,6 @@ title: "How do I use inherited templates in the input file?"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [How‐To Guides](How-To-Guides.md) → Use Inherited Templates |
-|---------------------------------------------------------------------|
-
 # How do I use inherited templates in the input file?
 
 First, here is some documentation on how [SWIG handles templates](http://www.swig.org/Doc1.3/SWIGPlus.html#SWIGPlus_nn30).

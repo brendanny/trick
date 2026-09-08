@@ -3,9 +3,6 @@ title: "Realtime Injector"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Realtime Injector |
-|------------------------------------------------------------------|
-
 The Real Time Injector (RTI) allows the user to set simulation variables
 synchronously without impacting real-time performance.  The RTI performs the injection
 as a top of frame job ensuring thread-safe variable operations.

@@ -3,9 +3,6 @@ title: "TrickView"
 documentation_status: current
 ---
 
-| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → [Runtime GUIs](Runtime-GUIs.md) → Trick View |
-|------------------------------------------------------------------|
-
 Trick View (hereafter referred to as TV) is a graphical user interface that allows users to view and modify Trick-managed variables in a simulation while it is running. It also provides for the launching of integrated strip charts and can save and restore lists of variables and their associated strip charts.
 
 ### Launching

@@ -88,7 +88,8 @@ preparing the source uses a stale projection and is not the supported workflow.
 | Metadata | Every page needs an explicit title and current/historical status; rendered titles are checked. |
 | Search index | All current pages must be indexed; all historical pages must be absent. Missing/invalid/empty search fails. |
 | Native search relevance | Six Trick queries must return the intended guidance within the first three worker hits; missing targets and rank regressions fail. Browser interaction remains a separate check. |
-| Navigation and archive | Every current page has exactly one primary nav home; all historical pages are linked from the archive. |
+| Navigation and archive | Every current page has exactly one primary nav home; rendered tabs, active section sidebar, nested breadcrumbs, and Previous/Next order are checked. All historical pages are linked from the archive. |
+| Page contents | Every authored page has one top-level title; all Markdown section headings must appear in the native contents panel. Legacy breadcrumb tables, contents headings, and page footers fail the check. |
 | Reader metadata | Authored-source edit links, canonical URLs, current-page sitemap, light/dark controls, skip links, and development label are checked. |
 | Automatic resources | HTML/CSS subresources and search configuration must resolve locally under `/trick/`; the repository-statistics component is prohibited. Runtime browser network behavior remains unverified. |
 | Historical pages | Published at their original paths, with a visible notice and links to current guidance. |
@@ -130,11 +131,27 @@ deliberately incomplete and authorizes no deployment.
 
 ## Reader experience (step 3)
 
-The explicit sidebar in `zensical.toml` organizes the 101 existing current pages
-and the new archive index into Start here, Tutorials, User guide, Reference,
-How-to and troubleshooting, and Developer guide. Each page has one primary home;
-contextual links remain in the content. Tutorials follow the existing cannonball
-sequence. No baseline files, paths, asset bytes, anchors, or code samples move.
+The navigation in `zensical.toml` organizes the 101 existing current pages
+and the new archive index into Start here, Tutorial, User guide, Reference,
+How-to, FAQ, and Developer. Native sticky header tabs select the top-level
+section; on wide screens the sidebar shows only that section's pages. On narrow
+screens the theme provides its navigation drawer. Each page has one primary
+home, and contextual links remain in the content. The tutorial follows the
+existing cannonball sequence, with native Previous/Next controls generated from
+the same navigation order.
+
+The former tutorial, user-guide, how-to, and developer page lists are concise
+overviews at their existing URLs. Their first entries open from the corresponding
+tabs; their page lists are maintained only in `zensical.toml`. The existing
+filenames are intentionally retained, so these overviews are ordinary first
+navigation entries rather than renamed `index.md` files or redirects.
+
+Hand-written breadcrumb tables, tutorial next-page footers, and contents lists
+(including the FAQ list and installation jump table) have been removed. The
+theme supplies breadcrumbs for nested sections and heading-based “On this page”
+navigation. Pages with multiple top-level headings now have a single title and
+nested sections so that the entire outline appears. Heading IDs, explicit anchor
+aliases, baseline page URLs, asset bytes, and code samples are preserved.
 
 The homepage gives direct routes to installation, the tutorial, and common
 references, then links to the manuals, archive, related projects, and license.

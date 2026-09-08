@@ -3,9 +3,6 @@ title: "HTTP-API: alloc_info"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → [APIs](Webserver-apis.md) → HTTP Alloc API |
-|------------------------------------------------------------------|
-
 # HTTP-API: alloc_info 
 
 ```http://localhost:8888/api/http/alloc_info```

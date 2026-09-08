@@ -3,22 +3,9 @@ title: "A Simple (non-Trick) Simulation"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → A Simple Simulation |
-|----------------------------------------------------------------|
-
 <!-- Section -->
 <a id="simulating-a-cannonball"></a>
 ## A Simple (non-Trick) Simulation
-
-**Contents**
-
-* [Cannonball Problem Statement](#cannonball-problem-stated)<br>
-* [Modeling The Cannonball](#modeling-the-cannonball)<br>
-* [A Cannonball Simulation (without Trick)](#a-cannonball-simulation-without-trick)<br>
-  - [Listing 1 - **cannon.c**](#listing_1_cannon.c)
-* [Limitations Of The Simulation](#limitations-of-the-simulation)<br>
-
-***
 
 In this tutorial, we are going to build a cannonball simulation. We will start out with
 a non-Trick-based simulation. Then we will build a Trick-based simulation. Then we
@@ -187,6 +174,3 @@ we want to be able to synchronize simulation-time with "wall clock" time.
 * What if we want to record the data produced by our simulation over time?
 
 In the next section, we'll see how a Trick simulation goes together, and how it helps us to easily integrate user-supplied simulation models with commonly needed simulation capabilites.
-
----
-[Next Page](ATutArchitecture.md)

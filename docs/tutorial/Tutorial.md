@@ -3,42 +3,35 @@ title: "Tutorial"
 documentation_status: current
 ---
 
-| [Home](../index.md) → Tutorial Home |
-|------------------------------|
+<a id="table-of-contents"></a>
 
-## Table of Contents
-01. [Introduction](ATutIntroduction.md)<br>
-What Trick is, it's goal, the objective of the tutorial, and how to get and install Trick.
+# Build your first Trick simulation
 
-01. [A Simple (non-Trick) Simulation](ATutASimpleSim.md)<br>
-Description of a simple cannon ball simulation problem that is used through out this tutorial. Also a non-trick solution to the problem and a discussion of it's limitations.
+Develop a cannonball simulation from a small C program into a Trick simulation
+that records data, runs in real time, and communicates with other applications.
 
-01. [Architecture of a Trick Simulation](ATutArchitecture.md)<br>
-How the parts of a Trick simulation are organized and assembled.
+## Before you begin
 
-01. [Building & Running a Trick-based Cannonball Simulation](ATutAnalyticSim.md)<br>
-In this section, we write, build, and execute a Trick-based cannon ball simulation.
+[Install Trick](../documentation/install_guide/Install-Guide.md) and have a text
+editor and terminal ready. The examples use C/C++ for the model and Python for
+simulation input files.
 
-01. [Recording Simulation Data](ATutRecordingData.md)<br>
-How to record data from our Trick-based cannon ball simulation.
+## Work through the tutorial
 
-01. [Plotting Recorded Data](ATutPlottingData.md)<br>
-How to plot our recorded cannon ball data.
+Begin with the introduction, then follow the numbered lessons in order. Each
+lesson builds on the same cannonball model: first an analytical simulation,
+then numerical integration, dynamic events, a variable-server client, and
+Monte Carlo runs.
 
-01. [Running Real-time](ATutRunningRealtime.md)<br>
-How to synchronize simulation time to real-time, that is, "wall clock time".
+The sidebar lets you return to any lesson. Use **Next** and **Previous** at the
+bottom of the page to continue through the sequence.
 
-01. [Viewing Real-time Data With Trick View](ATutTrickView.md)<br>
-Viewing simulation data while the simulation is running.
-   
-01. [State Propagation with Numerical Integration](ATutNumericSim.md)<br>
-How to use numeric integration in a Trick simulation to find the next state. 
+[Begin the tutorial](ATutIntroduction.md){ .md-button .md-button--primary }
 
-01. [Dynamic Events - Making Contact](ATutDynamicEvents.md)<br>
-When interesting things happen between simulation times steps.
+## Use what you learn
 
-01. [Trick Variable Server](TutVariableServer.md)<br>
-How to interact with a running simulation.
-
-01. [Monte Carlo](ATutMonteCarlo.md)<br>
-How to enable and use Monte Carlo functionality in your simulation.
+When you are ready to develop your own model, the
+[user guide](../documentation/Documentation-Home.md) explains how to build and
+operate a simulation. Keep the
+[S_define reference](../documentation/building_a_simulation/Simulation-Definition-File.md)
+handy when defining simulation objects and jobs.

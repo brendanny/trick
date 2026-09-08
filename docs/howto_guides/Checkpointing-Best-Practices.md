@@ -5,14 +5,6 @@ documentation_status: current
 
 # Trick CheckPointing Best Practices
 
-**Contents**
-
-* [Prerequisite Knowledge](#prerequisite-knowledge)<br>
-* [Do's and Don'ts](#guidelines)<br>
-* [Other Resources You Might Find Useful](#other-resources)<br>
-
-***
-
 Part of the process of designing a Trick simulation model is to ensure that it can be reliably checkpointed. Trick provides a lot of support for checkpointing, but there are things to know, and pitfalls to avoid. The purpose of this article is to provide knowledge, and guidelines that will make checkpointing easier.
 
 

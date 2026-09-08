@@ -3,9 +3,6 @@ title: "Extending the WebSocket API"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → [APIs](Webserver-apis.md) → Extend the WS API |
-|------------------------------------------------------------------|
-
 ## Extending the WebSocket-API
 
 ## When You Create a WebSocket Connection

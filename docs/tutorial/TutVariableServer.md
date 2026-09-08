@@ -3,27 +3,7 @@ title: "Trick Variable Server"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Variable Server |
-|------------------------------------------------------------|
-
 # Trick Variable Server
-
-**Contents**
-
-* [What Is The Variable Server?](#what-is-the-variable-server)
-    * [Variable Server Sessions](#variable-server-sessions)
-* [A Simple Variable Server Client](#a-simple-variable-server-client)
-    * [Listing - CannonDisplay_Rev1.py](#listing-CannonDisplay_Rev1-py)
-    * [Running The Client](#running-the-client)
-    * [How The Client Works](#how-the-client-works)
-    * [Getting Values Just Once](#getting-values-just-once)
-* [A More Realistic Example](#a-more-realistic-example)
-    * [Listing - CannonDisplay_Rev2.py](#listing-CannonDisplay_Rev2-py)
-    * [Controlling the Simulation Mode from a VS Client](#controlling-the-simulation-mode-from-a-vs-client)
-    * [Initializing the Simulation from a VS Client](#initializing-the-simulation-from-a-vs-client)
-* [Starting a Client From the Input File](#starting-a-client-from-the-input-file)
-
-***
 
 This tutorial section will demonstrate how to write a Trick variable server
 client. We'll be writing the clients in Python, but they can be written in any
@@ -652,5 +632,3 @@ Set the synchronization mode of the variable server session, where the modes are
 
   This means that periodic data messages are guaranteed to
   be time homogeneous, but are written from the main simulation thread.
-
-[Next Page](ATutMonteCarlo.md)

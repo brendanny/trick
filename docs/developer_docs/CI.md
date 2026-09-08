@@ -3,9 +3,6 @@ title: "CI System"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → CI |
-|------------------------------------------------------------------|
-
 
 # CI System
 

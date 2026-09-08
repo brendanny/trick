@@ -3,9 +3,6 @@ title: "Viewing Recorded Data"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Plotting Recorded Data |
-|-------------------------------------------------------------------|
-
 
 ## Viewing Recorded Data
 
@@ -111,6 +108,3 @@ window and Trick DP.
 ![Plot Zoomed X vs Y Position](images/PlotZoomedXYPosition.png)
 
 **Figure 6 Zoomed X -vs- Y Position - `DP_cannon_xy`**
-
----
-[Next Page](ATutRunningRealtime.md)

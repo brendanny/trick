@@ -3,9 +3,6 @@ title: "SimControlPanel"
 documentation_status: current
 ---
 
-| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → [Runtime GUIs](Runtime-GUIs.md) → Sim Control Panel |
-|------------------------------------------------------------------|
-
 ## Sim Control Panel
 
 The Sim Control Panel is a graphical user interface that allows users to control and view the state of a simulation.

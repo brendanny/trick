@@ -3,9 +3,6 @@ title: "Input File"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Running a Simulation](Running-a-Simulation.md) → Input File |
-|------------------------------------------------------------------|
-
 The primary interface between the simulation executable and the user is the runstream
 input file. The Trick simulation input file syntax is Python.  All Python syntax rules
 apply

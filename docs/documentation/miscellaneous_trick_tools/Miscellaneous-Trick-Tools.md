@@ -3,9 +3,6 @@ title: "Miscellaneous Trick Tools"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Miscellaneous Trick Tools |
-|------------------------------------------------------------------|
-
 ## Interface Code Generator - ICG
 
 ICG is the processor that %Trick uses to parse header files.  It is normally called

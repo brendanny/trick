@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from check_experience import (
     check_navigation,
+    check_navigation_controls,
+    check_outline,
     check_page,
     check_resources,
     check_sitemap,
@@ -20,6 +22,63 @@ from check_experience import (
 
 
 class ReaderExperience(unittest.TestCase):
+    def test_rendered_navigation_requires_section_scope_trail_and_page_order(self):
+        nav = [{"Guide": ["a.md", {"Topic": ["b.md"]}]}, {"FAQ": "c.md"}]
+        html = """<nav class="md-tabs">
+          <li class="md-tabs__item--active"><a href="a.html">Guide</a></li>
+          <li><a href="c.html">FAQ</a></li></nav>
+          <nav class="md-nav--primary md-nav--lifted"><ul>
+            <li class="md-nav__item--active">
+              <a href="a.html">Start</a><a href="b.html">Topic</a>
+              <a href="#section">Section</a>
+            </li><li><a href="c.html">FAQ</a></li>
+          </ul></nav>
+          <nav class="md-path"><a href="a.html">Guide</a>
+            <a href="b.html">Topic</a></nav>
+          <a class="md-footer__link--prev" href="a.html">Previous</a>
+          <a class="md-footer__link--next" href="c.html">Next</a>"""
+
+        def check(markup):
+            return check_navigation_controls(
+                nav, {"b.html": BeautifulSoup(markup, "html.parser")}
+            )
+
+        self.assertEqual(check(html), [])
+        for old, new in (
+            ('class="md-tabs"', 'class="missing"'),
+            ('class="md-tabs__item--active"', 'class="missing"'),
+            ("md-nav--lifted", "missing"),
+            ('class="md-nav__item--active"', 'class="missing"'),
+            ('href="b.html">Topic', 'href="c.html">Topic'),
+            ('class="md-path"', 'class="missing"'),
+            ('class="md-footer__link--prev"', 'class="missing"'),
+            ('href="c.html">Next', 'href="a.html">Next'),
+        ):
+            with self.subTest(old=old):
+                self.assertTrue(check(html.replace(old, new)))
+
+    def test_outline_requires_complete_contents_without_legacy_navigation(self):
+        html = """<article><h1>Page</h1><h2 id="section">Section
+          <a class="headerlink" href="#section">¶</a></h2>
+          <p>See <a href="#section">the section</a>.</p>
+          <pre><code># Contents</code></pre></article>
+          <nav class="md-nav--secondary"><a href="#section">Section</a></nav>"""
+
+        def check(markup):
+            return check_outline("a.html", BeautifulSoup(markup, "html.parser"))
+
+        self.assertEqual(check(html), [])
+        self.assertTrue(check(html.replace("md-nav--secondary", "missing")))
+        for extra in (
+            "<h1>Another title</h1>",
+            "<h2>Table of Contents</h2>",
+            "<p><strong>Contents</strong></p>",
+            '<table><tr><th><a href="index.html">Home</a> → Page</th></tr></table>',
+            '<a href="b.html">Next Page</a>',
+        ):
+            with self.subTest(extra=extra):
+                self.assertTrue(check(html.replace("</article>", extra + "</article>")))
+
     def test_sitemap_requires_current_pages_and_canonical_prefix_without_duplicates(
         self,
     ):

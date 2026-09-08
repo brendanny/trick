@@ -5,18 +5,6 @@ documentation_status: current
 
 # trick-jperf
 
-**Contents**
-
-* [Purpose](#purpose)<br>
-* [Introduction](#introduction)<br>
-* [Prerequisite Knowledge](#prerequisite-knowledge)<br>
-* [Recording Simulation Timeline Data](#recording-simulation-timeline-data)<br>
-* [Running trick-jperf](#running-jperf)<br>
-* [The trick-jperf GUI](#jperf-gui)<br>
-
----
-
-
 ## Purpose
 The purpose of this document is explain how to use **trick-jperf**.
 

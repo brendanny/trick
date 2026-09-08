@@ -5,14 +5,14 @@ documentation_status: current
 
 # MonteCarloGeneration Model
 
-# Revision History
+## Revision History
 | Version | Date | Author | Purpose |
 | :--- |:---| :--- | :--- |
 | 1 | April 2020 | Gary Turner | Initial Version |
 | 2 | March 2021 | Gary Turner | Added Verification |
 | 3 | October 2022 | Isaac Reaves | Converted to Markdown |
 
-# 1 Introduction
+## 1 Introduction
 
 The MonteCarlo Model is used to disperse the values assigned to variables at the start of a simulation. Dispersing the initial
 conditions and configurations for the simulation allows for robust testing and statistical analysis of the probability of
@@ -34,7 +34,7 @@ adding complexity to the setup. While this model does not (at this time) provide
 organization of the model has been designed to support external tools seeking to sequentially modify the distributions being
 applied to the dispersed variables, and generate new dispersion sets.
 
-# 2 Requirements
+## 2 Requirements
 
 1. The model shall provide common statistical distribution capabilities, including:
     1. Uniform distribution between specified values
@@ -64,21 +64,21 @@ applied to the dispersed variables, and generate new dispersion sets.
     1. types of dispersions
     1. correlations between variables
 
-# 3 Model Specification
+## 3 Model Specification
 
-## 3.1 Code Structure
+### 3.1 Code Structure
 
 The model can be broken down into its constituent classes; there are two principle components to the model – the variables,
 and the management of the variables.
 
-### 3.1.1 Variable Management (MonteCarloMaster) 
+#### 3.1.1 Variable Management (MonteCarloMaster) 
 
 MonteCarloMaster is the manager of the MonteCarlo variables. This class controls how many sets of dispersed variables
 are to be generated; for each set, it has the responsibility for
 * instructing each variable to generate its own dispersed value
 * collecting those values and writing them to an external file
 
-### 3.1.2 Dispersed Variables (MonteCarloVariable)
+#### 3.1.2 Dispersed Variables (MonteCarloVariable)
 
 MonteCarloVariable is an abstract class that forms the basis for all dispersed variables. The following classes inherit from
 MonteCarloVariable:
@@ -174,13 +174,13 @@ the identifying variable_name is used to identify the variable whose value is to
 the MonteCarloPythonFileExec implementation, the variable_name is hijacked to provide the name of the file to
 be executed.
 
-## 3.2 Mathematical Formulation
+### 3.2 Mathematical Formulation
 
 No mathematical formulation. The random number generators use the C++ \<random\> library.
 
-# 4 User's Guide
+## 4 User's Guide
 
-## 4.1 What to expect
+### 4.1 What to expect
 
 This role played by this model can be easily misunderstood, so let’s start there.
 **This model generates Python files containing assignments to variables.**
@@ -202,7 +202,7 @@ The intention is that the model runs very early in the simulation sequence. If t
 
 **When a simulation executes with this model active, the only result of the simulation will be the generation of files containing the assignments to the dispersed variables. The simulation should be expected to terminate at t=0.**
 
-## 4.1.1 Trick Users
+### 4.1.1 Trick Users
 
 The model is currently configured for users of the Trick simulation engine. The functionality of the model is almost exclusively independent of the chosen simulation engine, with the exceptions being the shutdown sequence, and the application of units information in the variables.
 
@@ -236,7 +236,7 @@ which appends Trick instructions to interpret the generated value as being repre
 
 The rest of the User’s Guide will use examples of configurations for Trick-simulation input files
 
-## 4.1.2 Non-Trick Users
+### 4.1.2 Non-Trick Users
 
 To configure the model for simulation engines other than Trick, the Trick-specific content identified above should be replaced with equivalent content that will result in:
 * the shutdown of the simulation, and
@@ -244,9 +244,9 @@ To configure the model for simulation engines other than Trick, the Trick-specif
 
 While the rest of the User’s Guide will use examples of configurations for Trick-simulation input files, understand that these are mostly just C++ or Python code setting the values in this model to make it work as desired. Similar assignments would be required for any other simulation engine.
 
-## 4.2 MonteCarlo Manager (MonteCarloMaster)
+### 4.2 MonteCarlo Manager (MonteCarloMaster)
 
-### 4.2.1 Instantiation
+#### 4.2.1 Instantiation
 
 The instantiation of MonteCarloMaster would typically be done directly in the S_module. The construction of this instance takes a single argument, a STL-string describing its own location within the simulation data-structure.
 
@@ -276,13 +276,13 @@ MonteCarloSimObject monte_carlo("monte_carlo.master"); // <--- location of “ma
                                                                argument
 ```
 
-### 4.2.2 Configuration
+#### 4.2.2 Configuration
 
 The configuration of the MonteCarloMaster is something to be handled as a user-input to the simulation without requiring re-compilation; as such, it is typically handled in a Python input file. There are two sections for configuration:
 * modifications to the regular input file, and
 * new file-input or other external monte-carlo initiation mechanism
 
-#### 4.2.2.1 Modifications to the regular input file
+##### 4.2.2.1 Modifications to the regular input file
 
 A regular input file sets up a particular scenario for a nominal run. To add monte-carlo capabilities to this input file, the
 following code should be inserted somewhere in the file:
@@ -329,7 +329,7 @@ else:
  3. If the `generate_dispersions` flag is also set to true, the `MonteCarloMaster::execute()` method will execute,
 generating the dispersion files and shutting down the simulation.
 
-#### 4.2.2.2 Initiating MonteCarlo
+##### 4.2.2.2 Initiating MonteCarlo
 
 Somewhere outside this file, the `active` and generate_dispersion flags must be set. This can be performed either in a separate input file or via a command-line argument. Unless the command-line argument capability is already supported, by far the easiest mechanism is to create a new input file that subsequently reads the existing input file:
 
@@ -343,7 +343,7 @@ The activate method takes a single string argument, representing the name of the
 * In the creation of a `MONTE_<argument>` directory. This directory will contain some number of sub-directories identified as, for example, RUN_01, RUN_02, RUN_03, etc. each of which will contain one of the generated dispersion files.
 * In the instructions written into the generated dispersion files to execute the content of the input file found in `<argument>`.
 
-#### 4.2.2.3 Additional Configurations
+##### 4.2.2.3 Additional Configurations
 
 There are additional configurations instructing the MonteCarloMaster on the generation of the new dispersion files. Depending on the use-case, these could either be embedded within the `if monte_carlo.master.generate_dispersions:` block of the original input file, or in the secondary input file (or command-line arguments if configured to do so).
 
@@ -377,11 +377,11 @@ There are additional configurations instructing the MonteCarloMaster on the gene
 
     ```monte_carlo.master.run_name = “RUN_2”```
 
-## 4.3 MonteCarlo Variables (MonteCarloVariable)
+### 4.3 MonteCarlo Variables (MonteCarloVariable)
 
 The instantiation of the MonteCarloVariable instances is typically handled as a user-input to the simulation without requiring re-compilation. As such, these are usually implemented in Python input files. This is not a requirement, and these instances can be compiled as part of the simulation build. Both cases are presented.
 
-### 4.3.1 Instantiation and Registration
+#### 4.3.1 Instantiation and Registration
 
 For each variable to be dispersed, an instance of a MonteCarloVariable must be created, and that instance registered with the MonteCarloMaster instance:
 
@@ -390,7 +390,7 @@ For each variable to be dispersed, an instance of a MonteCarloVariable must be c
 3. Create the new instance using its constructor.
 4. Register it with the MonteCarloMaster using the `MonteCarloMaster::add_variable( MonteVarloVariable&)` method
 
-#### 4.3.1.1 Python input file implementation for Trick:
+##### 4.3.1.1 Python input file implementation for Trick:
 
 When the individual instances are registered with the master, it only records the address of those instances. A user may create completely new variable names for each dispersion, or use a generic name as illustrated in the example below. Because these are typically created within a Python function, it is important to add the thisown=False instruction on each creation to prevent its destruction when the function returns.
 
@@ -403,7 +403,7 @@ mc_var.thisown = False
 monte_carlo.master.add_variable(mc_var)
 ```
 
-#### 4.3.1.2 C++ implementation in its own class:
+##### 4.3.1.2 C++ implementation in its own class:
 
 In this case, the instances do have to be uniquely named.
 
@@ -433,7 +433,7 @@ class MonteCarloVarSet {
 };
 ```
 
-#### 4.3.1.3 C++ implementation within a Trick S-module:
+##### 4.3.1.3 C++ implementation within a Trick S-module:
 
 Instantiating the variables into the same S-module as the master is also a viable design pattern. However, this can lead to a very long S-module so is typically only recommended when there are few variables. As with the C++ implementation in a class, the variables can be registered with the master in the constructor rather than in an additional method, with the same caveats presented earlier.
 
@@ -463,7 +463,7 @@ class MonteCarloSimObject : public Trick::SimObject
 MonteCarloSimObject monte_carlo("monte_carlo.master");
 ```
 
-### 4.3.2 input-file Access
+#### 4.3.2 input-file Access
 
 If using a (compiled) C++ implementation with the registration conducted at construction, the `generate_dispersions` flag is not used in the input file.
 
@@ -487,11 +487,11 @@ if monte_carlo.master.active:
  # add only those lines such as logging configuration
 ```
 
-### 4.3.3 Configuration
+#### 4.3.3 Configuration
 
 For all variable-types, the variable_name is provided as the first argument to the constructor. This variable name must include the full address from the top level of the simulation. After this argument, each variable type differs in its construction arguments and subsequent configuration options.
 
-#### 4.3.3.1 MonteCarloVariable
+##### 4.3.3.1 MonteCarloVariable
 
 MonteCarloVariable is an abstract class; its instantiable implementations are presented below. There is one important configuration for general application to these implementations, the setting of units. In a typical simulation, a variable has an inherent unit-type; these are often SI units, but may be based on another system. Those native units may be different to those in which the distribution is described. In this case, assigning the generated numerical value to the variable without heed to the units mismatch would result in significant error.
 
@@ -503,7 +503,7 @@ Notes
 * if it is known that the variable’s native units and the dispersion units match (including the case of a dimensionless value), this method is not needed.
 * This method is not applicable to all types of MonteCarloVariable; use with MonteCarloVariableRandomBool and MonteCarloPython* is considered undefined behavior.
 
-#### 4.3.3.2 MonteCarloVariableFile
+##### 4.3.3.2 MonteCarloVariableFile
 
 The construction arguments are:
 
@@ -516,7 +516,7 @@ There is no additional configuration beyond the constructor
 
 There is no additional configuration beyond the constructor.
 
-#### 4.3.3.3 MonteCarloVariableFixed
+##### 4.3.3.3 MonteCarloVariableFixed
 
 The construction arguments are:
 1. variable name
@@ -525,14 +525,14 @@ The construction arguments are:
 Additional configuration for this model includes the specification of the maximum number of lines to skip between runs.
 `max_skip`.  This public variable has a default value of 0 – meaning that the next run will be drawn from the next line of data, but this can be adjusted.
 
-#### 4.3.3.4 MonteCarloVariableRandomBool
+##### 4.3.3.4 MonteCarloVariableRandomBool
 
 The construction arguments are:
 1. variable name
 2. seed for random generator
 There is no additional configuration beyond the constructor.
 
-#### 4.3.3.5 MonteCarloVariableRandomNormal
+##### 4.3.3.5 MonteCarloVariableRandomNormal
 
 The construction arguments are:
 1. variable name
@@ -581,7 +581,7 @@ This method provides a one-sided truncation. All generated values will be below 
 
 This method removes previously configured truncation limits.
 
-#### 4.3.3.6 MonteCarloVariableRandomStringSet
+##### 4.3.3.6 MonteCarloVariableRandomStringSet
 
 The construction arguments are:
 1. variable name
@@ -593,7 +593,7 @@ This type of MonteCarloVariable contains a STL-vector of STL-strings containing 
 
 This method adds the specified string (`new_string`) to the vector of available strings
 
-#### 4.3.3.7 MonteCarloVariableRandomUniform
+##### 4.3.3.7 MonteCarloVariableRandomUniform
 
 The construction arguments are:
 1. variable name
@@ -603,7 +603,7 @@ The construction arguments are:
 
 There is no additional configuration beyond the constructor
 
-#### 4.3.3.8 MonteCarloVariableRandomUniformInt
+##### 4.3.3.8 MonteCarloVariableRandomUniformInt
 
 The construction arguments are:
 1. variable name
@@ -613,7 +613,7 @@ The construction arguments are:
 
 There is no additional configuration beyond the constructor
 
-#### 4.3.3.9 MonteCarloVariableSemiFixed
+##### 4.3.3.9 MonteCarloVariableSemiFixed
 
 The construction arguments are:
 1. variable name
@@ -621,7 +621,7 @@ The construction arguments are:
 
 There is no additional configuration beyond the constructor.
 
-#### 4.3.3.10 MonteCarloPythonLineExec
+##### 4.3.3.10 MonteCarloPythonLineExec
 
 The construction arguments are:
 1. variable name
@@ -629,13 +629,13 @@ The construction arguments are:
 
 There is no additional configuration beyond the constructor.
 
-#### 4.3.3.11 MonteCarloPythonFileExec
+##### 4.3.3.11 MonteCarloPythonFileExec
 The construction argument is:
 1. name of the file to be executed from the generated input file.
 
 There is no additional configuration beyond the constructor.
 
-## 4.4 Information on the Generated Files
+### 4.4 Information on the Generated Files
 
 This section is for informational purposes only to describe the contents of the automatically-generated dispersion files. Users do not need to take action on any content in here.
 
@@ -662,7 +662,7 @@ object.test_variable1 = 1.23456789
 ...
 ```
 
-## 4.5 Extension
+### 4.5 Extension
 
 The model is designed to be extensible and while we have tried to cover the most commonly used applications, complete anticipation of all use-case needs is impossible. The most likely candidate for extension is in the area of additional distributions. In this case:
 * A new distribution should be defined in its own class
@@ -671,7 +671,7 @@ The model is designed to be extensible and while we have tried to cover the most
     * Call the `insert_units()` method inherited from MonteCarloVariable
     * Set the `command_generated` flag to true if the command has been successfully generated.
 
-## 4.6 Running generated runs within an HPC framework
+### 4.6 Running generated runs within an HPC framework
 
 Modern HPC (High Performance Computing) labs typically have one or more tools for managing the execution of jobs across multiple computers.  There are several linux-based scheduling tools, but this section focuses on running the generated runs using a SLURM (Simple Linux Utility for Resource Management) array job.  Consider this script using a simulation built with gcc 4.8 and a user-configured run named `RUN_example` which has already executed once with the Monte-Carlo Generation model enabled to generate 100 runs on disk:
 
@@ -705,6 +705,6 @@ The above script can be executed within a SLURM environment by running `sbatch <
 
 For more information on SLURM, refer to the project documentation: https://slurm.schedmd.com/documentation.html
 
-# 5 Verification
+## 5 Verification
 
 The verification of the model is provided by tests defined in `test/SIM_mc_generation`.  This sim was originally developed by by JSC/EG NASA in the 2020 timeframe. The verification section of the original documentation is omitted from this markdown file because it heavily leverages formatting that markdown cannot support. It can be viewed [here](MCG_verification_2020.pdf)

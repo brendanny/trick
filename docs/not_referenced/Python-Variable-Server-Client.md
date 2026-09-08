@@ -5,17 +5,19 @@ search:
   exclude: true
 ---
 
+# Python Variable Server Client
+
 > **Historical documentation:** Retained for reference. This page may describe
 > older Trick behavior and has not been verified against the current release.
 > For current guidance, start with the [Python variable server client guide](../documentation/miscellaneous_trick_tools/Python-Variable-Server-Client.md).
 
 `variable_server.py` is a Python module for communicating with a sim's variable server from a Python program. Its primary purpose is to easily get and set variable values and units, but it also includes some additional convenience methods for affecting the sim's state. The code itself is well-commented, so I won't be reproducing the API here. Run `pydoc variable_server` (in the containing directory) for that.
 
-# Release Your Resources!
+## Release Your Resources!
 First things first. Communicating
  with the variable server means opening sockets. Sockets are a resource. Threads are also a resource, and this module uses them as well. The OS gets angry when you leak resources, so you should do your best to dispose of them when you're done. Python doesn't support RAII well, and `__del__` isn't a good place to free resources, so I'm afraid I couldn't automatically clean up after you. You're going to have to be explicit about it, which [Python style](https://www.python.org/dev/peps/pep-0020/) prefers anyway.
 
-## Call Close when You're Done
+### Call Close when You're Done
 So how do we release this module's resources? I've provided a handy little function called `close` that takes care of everything for you. All you have to do is remember to call it when you're done. I know, I know, I hate having to remember to call close functions too. They're unassuming, not particularly interesting, and easy to forget about. But there's no way around it, so do your best. In truth, the world won't come crashing down around you if you do forget. You probably won't even notice a difference unless you're leaking hundreds of `VariableServer` instances, in which case you're probably _trying_ to break everything. But call it anyway, ok?
 
 ```python
@@ -29,7 +31,7 @@ variable_server = VariableServer('localhost', 7000)
 variable_server.close()  # don't forget to call close!
 ```
 
-## Or Use a Context Manager
+### Or Use a Context Manager
 Wait a tick! Python has the concept of context managers, which support automatic finalization within a limited scope. This is perfect if you only need to create an instance for a single block of code. However, it doesn't work if the use is spread over multiple scopes (many different methods sharing the same instance, for example), so you'll have to decide what works best for you.
 
 ```python
@@ -45,7 +47,7 @@ with VariableServer('localhost', 7000) as variable_server:
 
 `close` is automatically called when the `with` block exits, no matter how that occurs: normally, via exception, ~~even if you pull the power cord from your computer!~~
 
-# Just Tell Me How to Get a Frickin' Value
+## Just Tell Me How to Get a Frickin' Value
 Looking for the TL;DR version, eh? Alright, here you go:
 
 ```python
@@ -55,10 +57,10 @@ Looking for the TL;DR version, eh? Alright, here you go:
 '10'
 ```
 
-## What!? That Returned a String. Mass isn't a String!
+### What!? That Returned a String. Mass isn't a String!
 Well if you weren't in such a rush, we could talk a bit more about your options. What's that? You suddenly have some time to actually read the documentation? Great! Let's dive in.
 
-## Specifying Type
+### Specifying Type
 `get_value` has a parameter called `type_` that is used to convert the string value returned by the sim into something more useful. Want an int? Pass `int`. Want a float? Pass `float`. Want a string? Don't pass anything; `str` is the default. Whatever you pass to `type_` is actually called on the string from the sim, so you can pass any function that accepts one argument. Even a custom lambda!
 
 ```python
@@ -81,7 +83,7 @@ Traceback (most recent call last):
 ValueError: dictionary update sequence element #0 has length 1; 2 is required
 ```
 
-## Specifying Units
+### Specifying Units
 `get_value` has a parameter for that too: `units`.
 
 ```python
@@ -102,7 +104,7 @@ Traceback (most recent call last):
 variable_server.UnitsConversionError: [ball.obj.state.input.mass] cannot be converted to [m]
 ```
 
-# What About Setting Values?
+## What About Setting Values?
 Of course you can set values! It's even easier than getting them.
 
 ```python
@@ -131,12 +133,12 @@ unless you say otherwise.
 5.0
 ```
 
-# Single-Value Fetches are for Chumps. I Want Multiple Values Simultaneously!
+## Single-Value Fetches are for Chumps. I Want Multiple Values Simultaneously!
 To get any fancier, we have to talk about implementation details a bit. Trick's variable server doesn't actually have a "one-shot" value fetching option. Instead, it's designed to periodically send a set of variable values over and over again. If you're familiar with variable server commands, `get_value` actually calls `var_add`, `var_send`, and `var_clear` every time it's called. If we want multiple values, we're better off doing all the `var_adds` together and just calling `var_send` and `var_clear` once. If you don't know what I'm talking about, don't worry about it. All you need to know is that `get_values` is more efficient than calling `get_value` for fetching multiple variables.
 
 It's also a little more complicated. Having a parameter list like `name1, units1, type1, name2, units2, type2` and so on would get ugly fast. So say goodbye to the simple interface! Time to encapsulate that data in a class.
 
-## The `Variable` Class
+### The `Variable` Class
 `Variable` represents a simulation variable. It's constructor takes the same parameters we've been using with `get_value` and `set_value`: `name`, `units`, and `type_`. `Variables` are used with the `get_values` function (note the trailing `s`), which accepts an arbitrary number of them. `get_values` uses the information in each `Variable` in the same way that `get_value` uses its parameters, and the observable behavior is largely the same: you get back a list of values.
 
 ```python
@@ -212,7 +214,7 @@ Which are both equivalent to, but more compact than:
 The ball is at position (3.069993744436219, -11.04439115432281)
 ```
 
-### Don't Mess With `Variable` Attributes
+#### Don't Mess With `Variable` Attributes
 You should consider `Variable` read-only. This module ensures that each `Variable`'s state remains consistent. Once you've constructed one, you should not directly set any of its fields, and you shouldn't need to. Of course, this is Python, so there's nothing to stop you from doing:
 
 ```python
@@ -241,10 +243,10 @@ ball.obj.state.input.mass = 1337.0 g
 
 A `Variable` only reflects the state of its corresponding variable in the sim. It does not manipulate it. Always use  `set_value` to change the value. The units can be specified in `Variable`'s constructor. They can also be changed via `set_units`, but only for `Variable`s that are being periodically sampled.
 
-# Periodic Sampling
+## Periodic Sampling
 Ah, now we're _really_ cooking! This is what the variable server was made for: sending sets of variable values at a specified rate. If you find yourself calling `get_values` over and over again on the same set of variables, perhaps you'd like to step up to the big leagues and take a crack at asynchronous periodic sampling. Don't worry, it's not as scary as it sounds. In fact, we're already familiar with the core data structure: our old friend `Variable`.
 
-## Adding `Variable`s
+### Adding `Variable`s
 Periodic sampling uses the same `Variable`s we used with `get_values`. To get started, just call `add_variables`!
 
 ```python
@@ -275,7 +277,7 @@ Look at that! `position` is updating all on its own. Now you can stick your peri
 4.8450427189593777
 ```
 
-## Triggering Callbacks
+### Triggering Callbacks
 Using a `while` loop with a `sleep` might work for applications that don't care about the "staleness" of the data when it arrives, but we write real-time code around here; I can't suffer unnecessary delays! The problem with the above approach is that there's no synchronization between when the updates occur and when our sleep happens to return. Sure, we could use `set_period` to tell the sim to send data at the same rate that we're sleeping, but we're bound to drift apart over time, and we can't ensure that we start a new cycle at the same time the sim does. Plus, there's network latency. And what if we ask the sim to send as fast as possible? Then we don't even know what the rate _is_!
 
 But wait, it gets worse! If your processing cycle is faster than the sim's update cycle, you'll needlessly reprocess values that haven't been updated since the last time you processed them, which is wasteful. But if your cycle is slower, you'll miss some updates entirely.
@@ -293,10 +295,10 @@ For some applications, these issues may truly not matter, and using a simple `wh
 
 Now `foo` will be called each and every time there's an update, as soon as it arrives. Huzzah! You can set the period at which updates are sent via `set_period`, which applies to _all_ variables that this instance is tracking, regardless of when they're added. If you want to receive another set at a different rate, you should create another `VariableServer`.
 
-## Concurrency Concerns
+### Concurrency Concerns
 Callback functions are executed on the variable sampling thread, which is started when you instantiate `VariableServer` and runs until you call `close` (either explicitly or via a `with` statement). This means that new updates can't be processed until all callback functions have returned. The variable sampling thread spends most of its time blocked, waiting for new updates to arrive, so time consumed by callback functions usually isn't an issue. But if your callback performs a long-running task, you should probably do it in another thread so it doesn't cause the variable sampling thread to fall behind.
 
-# The API
+## The API
 Wikis are great for how-tos and high-level discussions, but if you want to get down to the nuts and bolts, you need to look at the API. You can do so by running `pydoc variable_server` in the directory containing `variable_server.py` or programmatically by calling `help` on the feature in which you're interested.
 
 ```python

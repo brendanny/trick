@@ -3,9 +3,6 @@ title: "MonteMonitor"
 documentation_status: current
 ---
 
-| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → [Runtime GUIs](Runtime-GUIs.md) → Monte Monitor |
-|------------------------------------------------------------------|
-
 ## Monte Monitor
 
 Monte Monitor (hereafter referred to as MM) is a graphical user interface that allows users to view and modify the states

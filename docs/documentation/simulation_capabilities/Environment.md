@@ -3,9 +3,6 @@ title: "Environment"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Environment |
-|------------------------------------------------------------------|
-
 This class saves the Trick environment variables at compile-time.  The variables
 are saved inside the S_main executable.  These variables are read-only after they
 are compiled into the sim.

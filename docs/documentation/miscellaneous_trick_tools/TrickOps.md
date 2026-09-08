@@ -3,25 +3,7 @@ title: "TrickOps"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Miscellaneous Trick Tools](Miscellaneous-Trick-Tools.md) → Trick Ops |
-|------------------------------------------------------------------|
-
-# Table of Contents
-* [Requirements](#requirements)
-* [Features](#features)
-* [The YAML File](#the-yaml-file)
-* [Learn by Example](#learn-trickops-with-an-example-workflow-that-uses-this-trick-repository)
-* [File Comparisons](#compare---file-vs-file-comparisons)
-* [Post-Run Analysis](#analyze---post-run-analysis)
-* [Defining sets of runs](#defining-sets-of-runs-using-integer-integer-range-notation)
-* [Order builds, runs, and analyses](#phase---an-optional-mechanism-to-order-builds-runs-and-analyses)
-* [Where does my output go?](#where-does-the-output-of-my-tests-go)
-* [Other Useful Examples](#other-useful-examples)
-* [The TrickOps Design](#regarding-the-design-why-do-i-have-to-write-my-own-script)
-* [Tips and Best Practices](#tips-and-best-practices)
-* [MonteCarloGenerationHelper](#montecarlogenerationhelper---trickops-helper-class-for-montecarlogeneratesm-users)
-* [TrickOps Helper Class](#sendhs---trickops-helper-class-for-parsing-simulation-diagnostics)
-* [More Information](#more-information)
+<a id="table-of-contents"></a>
 
 # TrickOps
 

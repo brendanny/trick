@@ -3,9 +3,6 @@ title: "Integrator"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Integrator |
-|------------------------------------------------------------------|
-
 Trick provides a state integration capability described by the inputs below.
 To use these options a developer must develop application code which interfaces the application states with
 the Trick integration services.

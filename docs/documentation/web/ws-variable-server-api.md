@@ -3,9 +3,6 @@ title: "WS-API: VariableServer"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → [APIs](Webserver-apis.md) → WS Variable Server API |
-|------------------------------------------------------------------|
-
 # WS-API: VariableServer 
 
 ```ws://localhost:8888/api/ws/VariableServer```

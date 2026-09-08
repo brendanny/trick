@@ -3,25 +3,9 @@ title: "Dynamic Events - Making Contact"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Dynamic Events |
-|-----------------------------------------------------------|
-
 <!-- Section -->
 
 # Dynamic Events - Making Contact
-
-**Contents**
-
-* [What are Dynamic Events?](#what-are-dynamic-events)
-* [Dynamic Event Jobs](#dynamic-event-jobs)
-  - [Finding Events with *regula_falsi()*](#finding-events-with-regula-falsi)
-  - [Listing - **cannon_impact()**](#listing_cannon_impact)
-* [Specifying an Event Boundary](#specifying-an-event-boundary)
-* [Calling **regula_falsi()**](#calling-regula-falsi)
-* [Updating Our Cannonball Simulation](#updating-our-cannonball-simulation)
-
-***
-
 
 ## What are Dynamic Events?
 
@@ -251,5 +235,3 @@ vel = [0.000000000, 0.000000000]
 ```
 
 **It's the same answer we got from our analytic simulation!**
-
-[Next Page](TutVariableServer.md)

@@ -3,13 +3,12 @@ title: "Monte Carlo User Guide"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Monte Carlo |
-|------------------------------------------------------------------|
+# Monte Carlo User Guide
 
-# Introduction
+## Introduction
 Monte Carlo is an advanced simulation capability provided by Trick that allows users to repeatedly run copies of a simulation with different input values. Users can vary the input space of a simulation via input file, random value generation, or by calculating values from previous Monte Carlo runs in a process called optimization.
 
-# Design
+## Design
 ### Master
 The master controller for any given Monte Carlo simulation delegates run information to distributed slave instances. The master is responsible for spawning and managing the state of all slaves for a given simulation.
 
@@ -40,17 +39,17 @@ There are 8 Monte Carlo specific Trick jobs that users can use to direct how the
 ![MonteCarlo-JobOrder](images/MonteCarlo-JobOrder.png)
 
 
-# Using Monte Carlo
-## Enabling Monte Carlo
+## Using Monte Carlo
+### Enabling Monte Carlo
 In order to use Monte Carlo functionality, it is necessary to first enable Monte Carlo in the simulation input file.
 ```python
 trick.mc_set_enabled(1)
 ```
 
-## Variable Types
+### Variable Types
 There are four different Monte Carlo variable types available to users: **File**, **Random**, **Calculated**, **Fixed**
 
-### File
+#### File
 MonteVarFile allows users to store specific values in an column delimited input file.
 ```python
 FileVariable = trick.MonteVarFile("variable_name", "input_file_name", column_number, "variable_unit")
@@ -67,7 +66,7 @@ The columns in the input file can be separated by tabs or spaces; both will work
 5	19	6928
 ```
 
-### Random
+#### Random
 MonteVarRandom allows users to randomly generate input values by using a distribution formula.
 ```python
 RandomVariable = trick.MonteVarRandom("variable_name", distribution, "variable_unit", engine)
@@ -111,21 +110,21 @@ There are also several different psuedo-random engines available to choose from.
 | RANLUX\_44\_ENGINE			|
 | KNUTH\_B\_ENGINE				|
 
-### Calculated
+#### Calculated
 Calculated values are created in user-designed Monte Carlo jobs. The primary purpose of the MonteVarCalculated variable type is for optimization.
 ```python
 CalculatedVariable = trick.MonteVarCalculated("variable_name", "variable_unit")
 trick_mc.mc.add_variable(CalculatedVariable)
 ```
 
-### Fixed
+#### Fixed
 Fixed values are not changed from simulation to simulation.
 ```python
 FixedVariable = trick.MonteVarFixed("variable_name", variable_value, "variable_unit")
 trick_mc.mc.add_variable(FixedVariable)
 ```
 
-## Runs
+### Runs
 Users can specify how many times they wish for a simulation to run by using the following function:
 ```python
 trick.mc_set_num_runs(100)
@@ -137,7 +136,7 @@ For a series of values listed in an **input file**, Monte Carlo will execute the
 
 For multiple variables listed in **multiple input files**, Monte Carlo will execute the fewest number of runs specified and will not exceed the fewest number of runs in any given input file.
 
-## Ranges
+### Ranges
 After establishing the number of simulation runs, users can specify subsets within that number that the simulation should focus on. If no range is specified, all runs will be dispatched. 
 
 ```python
@@ -147,7 +146,7 @@ trick.mc_add_range(90, 100)
 ```
 These three function calls will tell Monte Carlo to only process runs 25-50, 73, and 90-100. The values are inclusive and additive.
 
-## Creating Slaves
+### Creating Slaves
 The simplest way to create a new slave is to call `trick.mc_add_slave` with the machine name in the input file.
 
 ```python
@@ -172,7 +171,7 @@ trick.mc_add_slave("extra-machine")
 trick.mc_add_slave("secret-machine")
 ```
 
-### Modifying Slave Options
+#### Modifying Slave Options
 
 `trick.mc_add_slave` is nice and simple, and it's generally all you need. However, [`MonteSlave`](https://github.com/nasa/trick/blob/master/include/trick/MonteCarlo.hh) has a few options you might want to modify. For instance, you can change the remote shell from `ssh` to something else or add arguments to the remote shell invocation. To do that, you need a reference to the `MonteSlave`, but `mc_add_slave`, being a C function, cannot return a class instance. But don't worry! It's easy to create one yourself.
 
@@ -186,7 +185,7 @@ trick_mc.mc.add_slave(slave)
 ```
 
 If you're curious about the last time, we are calling the `add_slave` function of the [`MonteCarlo`](https://github.com/nasa/trick/blob/master/include/trick/MonteCarlo.hh) instance (`mc`) of the [`MonteCarloSimObject`](https://github.com/nasa/trick/blob/master/share/trick/sim_objects/default_trick_sys.sm) instance (`trick_mc`).
-## Notes
+### Notes
 1. [SSH](https://en.wikipedia.org/wiki/Secure_Shell) is is the default remote shell.
 1. Each slave will work in parallel with other slaves, greatly reducing the computation time of a Monte Carlo.
 1. The faster a machine is, the more work it can do.
@@ -196,7 +195,7 @@ If you're curious about the last time, we are calling the `add_slave` function o
 1. Monte Carlo always runs distributed. If no slave is manually added, a single slave on `localhost` is created.
 1. Slaves can be created in **monte\_master\_pre** and **monte\_master\_post** jobs.
 
-## Data Logging
+### Data Logging
 Each Monte Carlo run generates data logging files in a **MONTE_** directory on the machine that processed the run. Existing run directories are not cleaned and are overwritten when a new Monte Carlo simulation begins. 
 
 | Data File					| Description																																												|
@@ -206,18 +205,18 @@ Each Monte Carlo run generates data logging files in a **MONTE_** directory on t
 | run\_summary				| This file contains the summary statistical information that is printed out to the screen after a run completes.																			|
 | monte\_input				| This file contains the input file commands necessary to rerun a single run as a stand alone simulation. It can be found in the RUN_ folder used to store the run's information.			|
 
-## Dry Runs
+### Dry Runs
 A dry run generates only the **monte_runs** and **monte_header** files without actually processing any runs. Dry runs can be used to verify input values before dedicating resources to a full Monte Carlo simulation.
 ```python
 trick.mc_set_dry_run(1)
 ```
 
-## Optimization
+### Optimization
 Monte Carlo is capable of running input values that have been derived from the results of previous runs. Monte Carlo is not capable of autonomous and intelligent decision making; it is the responsibility of the user to design the optimization logic by hand.
 
 Optimization code is typically located in either the **monte_master_pre** or **monte_master_post** jobs. There is no hard and fast rule on how to implement optimization, so choose the best method for your specific simulation.
 
-## Function Overview
+### Function Overview
 There are a number of Monte Carlo functions that are available to the user. The following table consists of various C functions that can be called in the input file via:
 ```python
 trick.mc_function_name(function_parameter, "function_parameter2", . . .)

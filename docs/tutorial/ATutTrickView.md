@@ -3,9 +3,6 @@ title: "Viewing Simulation Variables with Trick View"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Viewing Real-Time Data |
-|-------------------------------------------------------------------|
-
 <!-- Section -->
 <a id="viewing-real-time-data-with-trick-view"></a>
 ## Viewing Real-Time Data with Trick View (TV)
@@ -128,5 +125,3 @@ trick.stop(5.2)
 ```
 
 You may now run the sim and verify that TV pops up automatically.
-
-[Next Page](ATutNumericSim.md)

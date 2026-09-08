@@ -3,9 +3,6 @@ title: "Building a Simulation"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Building a Simulation |
-|------------------------------------------------------------------|
-
 The building blocks of a basic Trick simulation are C/C++ structures/classes (models), a Python input file and a Trick simulation definition file (S_define).  The S_define contains simulation objects which offer a way to turn the C/C++ function/methods into simulation jobs.  Trick generates the necessary Python glue code which makes the C/C++ structures/classes accessible by the Python input file.  The input file configures the simulation and is a command-line argument to the simulation executable.
 
 ... to be continued ...

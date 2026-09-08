@@ -3,14 +3,13 @@ title: "Install Guide"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → Install Guide |
-| ------------------------------------ |
+# Install Guide
 
-# Introduction
+## Introduction
 
 This document will walk you through the process of installing Trick on your computer. Please read each section carefully.
 
-# Package Dependencies
+## Package Dependencies
 
 Trick requires various free third party utilities in order to function. All the following products are used by Trick and may already be installed as part of your OS distribution. **Install any missing dependencies with your operating system's [package manager](https://en.wikipedia.org/wiki/Package_manager).** For most operating systems, the default version of a dependency will be compatitable with Trick. **We strongly recommend that you use your package manager's default versions if they meet Trick's requirements.** Please check the specific OS instructions below for your operating system for more details.
 
@@ -39,42 +38,21 @@ Trick requires various free third party utilities in order to function. All the 
 [udunits]: https://www.unidata.ucar.edu/software/udunits/
 [maven]: https://maven.apache.org/
 
-## Notes
+### Notes
 
-### Clang/LLVM compiler and libraries
+#### Clang/LLVM compiler and libraries
 
 Clang/LLVM can be installed and located manually should your package manager fail to acquire it. You can tell Trick where to find Clang/LLVM with the `"--with-llvm"` configuration option specified. If the version of Clang/LLVM installed by your package manager doesn't work, see [Build Clang and LLVM](#build-clang-and-llvm).
 
-### Java
+#### Java
 
 Trick needs the `javac` compiler included in the Java Development Kit (JDK). Trick will work with either the Oracle JDK or OpenJDK.
 
 **Installing both the Oracle JDK and OpenJDK may lead to problems and confusion.**
 
-# Operating Systems
+## Operating Systems
 
 Trick runs on GNU/Linux and macOS, though any System V/POSIX compatible UNIX workstation should accept the Trick software with very little source code porting. Below are instructions for installing the prerequisites on popular operating systems here at NASA.
-
-| Quick Jump Menu                                 |
-| ----------------------------------------------- |
-| [RedHat Enterprise Linux (RHEL) 9](#redhat9)    |
-| [Oracle Linux 9](#redhat9)                      |
-| [AlmaLinux 9](#redhat9)                         |
-| [Rocky Linux 9](#redhat9)                       |
-| [RedHat Enterprise Linux (RHEL) 8](#redhat8)    |
-| [Oracle Linux 8](#redhat8)                      |
-| [AlmaLinux 8](#redhat8)                         |
-| [Rocky Linux 8](#redhat8)                       |
-| [Fedora](#fedora)                               |
-| [Ubuntu](#ubuntu)                               |
-| [macOS](#macos)                                 |
-| [Apple Silicon Mac](#apple_silicon_mac)         |
-| [Windows 10 (Linux Subsystem Only)](#windows10) |
-| [Build Clang and LLVM](#build-clang-and-llvm)   |
-| [Build SWIG](#build-swig)                       |
-| [Troubleshooting](#trouble)                     |
-
----
 
 <a name="trouble"></a>
 
@@ -484,9 +462,9 @@ Note: Remember to add `--with-llvm=<clang+llvm-17_path>` for Trick configure if 
 
 <a name="install"></a>
 
-# Install Trick
+## Install Trick
 
-## 1.) Clone Trick
+### 1.) Clone Trick
 
 The following commands will clone the Trick repository into a folder named _trick_ in your home directory. You can install multiple copies of Trick in different locations to isolate your simulation environments from one another.
 
@@ -495,7 +473,7 @@ cd ${HOME}
 git clone https://github.com/nasa/trick
 ```
 
-## 2.) Configure Trick
+### 2.) Configure Trick
 
 Navigate to the _trick_ directory you just created and run the _configure_ script.
 
@@ -510,7 +488,7 @@ The _configure_ script will generate makefiles and locate project dependencies a
 ./configure --help
 ```
 
-## 3.) Compile Trick
+### 3.) Compile Trick
 
 Now that Trick has been configured and a makefile has been generated, we can run _make_ to compile Trick. To build Trick in 32-bit mode, first set the `TRICK_FORCE_32BIT` environment variable to `1`.
 
@@ -518,7 +496,7 @@ Now that Trick has been configured and a makefile has been generated, we can run
 make
 ```
 
-## 4.) Optionally Update Your Environment
+### 4.) Optionally Update Your Environment
 
 Gone are the days when you needed to set several environment variables to use Trick. Trick can now be used completely environmentlessly\*. You no longer need to set `TRICK_HOME` and friends.
 
@@ -532,9 +510,9 @@ Finally, although setting `TRICK_CFLAGS` and `TRICK_CXXFLAGS` is not necessary, 
 
 [Continue to Building A Simulation](../building_a_simulation/Building-a-Simulation.md)
 
-## Notes
+### Notes
 
-### 32-bit Mode
+#### 32-bit Mode
 
 If you intend to build Trick in 32-bit mode, you will need 32-bit versions of the libraries in the above table. If a 32-bit version of udunits is not available through your package manager, you can build it from [source](ftp://ftp.unidata.ucar.edu/pub/udunits/udunits-2.2.25.tar.gz):
 
@@ -547,9 +525,9 @@ make
 make install
 ```
 
-### Offline Mode
+#### Offline Mode
 
-#### (No maven) (19.1 and up)
+##### (No maven) (19.1 and up)
 
 Because Java is virtual machine code and is portable, you can copy the Java applications that have already been built on a different machine into your Trick installation on the target machine. If Trick is configured in this way, it no longer relies on maven or calls it (in the target environment only). If you know someone trustworthy who has built Trick already, they can provide the built Java code to you (you can skip step 1 below).
 
@@ -577,7 +555,7 @@ cp prebuiltTrick/libexec/trick/java/build/*.jar trick/trick-offline
 
 4. Follow regular install instructions above.
 
-### Python Version
+#### Python Version
 
 If you would like to use Python 2 with Trick please first make sure Python 2 and the Python 2 libs are installed. Then you will likely need to set `PYTHON_VERSION=2` in your shell environment before executing the `configure` script so that Trick will use Python 2 instead of Python 3. This can be done in bash or zsh with the following commands:
 

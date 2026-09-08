@@ -3,9 +3,6 @@ title: "Variable Server"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Variable Server |
-|------------------------------------------------------------------|
-
 If enabled, a server called the "variable server" is always up and listening in a separate
 thread of execution. The variable server is privy to simulation parameters and their
 values since it resides in an asynchronous simulation thread. Threads share the same

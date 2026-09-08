@@ -3,9 +3,6 @@ title: "Checkpoints"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Checkpoints |
-|------------------------------------------------------------------|
-
 The Trick CheckPointWriter is a C++ Class that implements checkpointing.
 
 ## Checkpointing

@@ -3,9 +3,6 @@ title: "MemoryManager Declaration String"
 documentation_status: current
 ---
 
-| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Simulation Capabilities](../Simulation-Capabilities.md) → [Memory Manager](MemoryManager.md) → Declaration String|
-|------------------------------------------------------------------|
-
 
 ## Memory Manager Declaration
 A declaration provides a data type description of a chunk of memory.

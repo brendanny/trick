@@ -3,9 +3,6 @@ title: "Adding a Web Server to Your Sim"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Web Server |
-|------------------------------------------------------------------|
-
 # Adding a Web Server to Your Sim
 
 If Trick is [configured with Civetweb](Configure-Civetweb.md),

@@ -3,9 +3,6 @@ title: "Runtime GUIs"
 documentation_status: current
 ---
 
-| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → Runtime GUIs |
-|------------------------------------------------------------------|
-
 Trick provides the following graphical user interfaces:
 
 ## [Sim Control Panel](SimControlPanel.md)

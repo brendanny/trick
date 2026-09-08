@@ -3,9 +3,6 @@ title: "Data Products"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Data Products |
-|------------------------------------------------------------------|
-
 The Data Products (DP) is a simulation data post processor designed to allow visualization of data recorded in the Trick simulation.
 
 The data products can plot ASCII, Binary & HDF5 data. HDF5 is the new data format supported since Trick 10.

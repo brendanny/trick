@@ -3,9 +3,6 @@ title: "Echo Jobs"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Echo Jobs |
-|------------------------------------------------------------------|
-
 Echo Jobs is a handy debugging toggle provided by Trick. When turned on, Echo Jobs will print the current simulation time and
 the name of the current job being executed. Echo Jobs is a convenient way to see the order of job execution and narrow down when
 and where something occurs during a simulation run.

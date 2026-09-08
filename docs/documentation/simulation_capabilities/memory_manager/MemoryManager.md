@@ -3,9 +3,6 @@ title: "MemoryManager"
 documentation_status: current
 ---
 
-| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Simulation Capabilities](../Simulation-Capabilities.md) → Memory Manager |
-|------------------------------------------------------------------|
-
 ## Trick Memory Manager
 
 The Memory Manager

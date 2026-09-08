@@ -3,22 +3,9 @@ title: "🏁 Introduction"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Introduction |
-|---------------------------------------------------------|
-
 <!-- Section -->
 
 # 🏁 Introduction
-
-**Contents**
-
-* [What Trick Is](#what-trick-is)<br>
-* [The Goal of Trick](#the-goal-of-trick)<br>
-* [The Objective of This Tutorial](#the-objective-of-this-tutorial)<br>
-* [Installing Trick](#installing-trick)<br>
-
-***
-
 
 ## What Trick Is
 
@@ -100,6 +87,3 @@ setenv PATH ${PATH}:${HOME}/trick/bin
 ```
 
 Close and then re-open your terminal window.
-
----
-[Next Page](ATutASimpleSim.md)

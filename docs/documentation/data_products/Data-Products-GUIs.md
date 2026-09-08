@@ -3,9 +3,6 @@ title: "Data Products GUIs"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Data Products](Data-Products.md) → Data Products GUIs |
-|------------------------------------------------------------------|
-
 There are two main GUIs for viewing Trick logged data:
 
 - TrickDP

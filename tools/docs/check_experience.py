@@ -59,6 +59,116 @@ def check_navigation(nav, metadata: dict) -> list[str]:
     return errors
 
 
+def nav_ancestors(value, parents=()) -> dict:
+    if isinstance(value, str):
+        return {value: parents}
+    if isinstance(value, dict):
+        return {
+            name: trail
+            for child in value.values()
+            for name, trail in nav_ancestors(
+                child,
+                (*parents, nav_paths(child)[0]) if isinstance(child, list) else parents,
+            ).items()
+        }
+    return {
+        name: trail
+        for child in value
+        for name, trail in nav_ancestors(child, parents).items()
+    }
+
+
+def check_navigation_controls(nav, pages: dict) -> list[str]:
+    """Check the rendered section scope, trails, and sequential page links."""
+    errors = []
+    order = nav_paths(nav)
+    ancestors = nav_ancestors(nav)
+    tabs = [(title, nav_paths(value)) for item in nav for title, value in item.items()]
+    expected_tabs = [(title, SITE_URL + html_path(paths[0])) for title, paths in tabs]
+    for source in order:
+        page = html_path(source)
+        if page not in pages:
+            continue  # Missing output is reported by the authored-page check.
+        soup = pages[page]
+
+        def links(selector, page=page, soup=soup):
+            return [
+                unquote(urljoin(SITE_URL + page, tag["href"]))
+                for tag in soup.select(selector)
+            ]
+
+        rendered_tabs = [
+            (tag.get_text(" ", strip=True), target)
+            for tag, target in zip(
+                soup.select(".md-tabs a[href]"), links(".md-tabs a[href]")
+            )
+        ]
+        if rendered_tabs != expected_tabs:
+            errors.append(f"Incorrect section tabs: {page}")
+        section = next(i for i, (_, paths) in enumerate(tabs) if source in paths)
+        if links(".md-tabs__item--active a[href]") != [expected_tabs[section][1]]:
+            errors.append(f"Incorrect active tab: {page}")
+        active = soup.select(
+            ".md-nav--primary.md-nav--lifted > ul > .md-nav__item--active"
+        )
+        if len(active) != 1:
+            errors.append(f"Missing section-scoped sidebar: {page}")
+        else:
+            targets = {
+                unquote(urljoin(SITE_URL + page, tag["href"]))
+                for tag in active[0].select("a[href]")
+                if not urlsplit(tag["href"]).fragment
+            }
+            if targets != {SITE_URL + html_path(name) for name in tabs[section][1]}:
+                errors.append(f"Incorrect sidebar section pages: {page}")
+        # The native theme shows breadcrumbs for two or more ancestor sections;
+        # the active tab identifies pages immediately within a top-level section.
+        if len(ancestors[source]) > 1 and links(".md-path a[href]") != [
+            SITE_URL + html_path(name) for name in ancestors[source]
+        ]:
+            errors.append(f"Incorrect breadcrumbs: {page}")
+        position = order.index(source)
+        for direction, neighbor in (("prev", position - 1), ("next", position + 1)):
+            expected = (
+                [SITE_URL + html_path(order[neighbor])]
+                if 0 <= neighbor < len(order)
+                else []
+            )
+            if links(f".md-footer__link--{direction}[href]") != expected:
+                errors.append(f"Incorrect {direction} page navigation: {page}")
+    return errors
+
+
+def check_outline(page: str, soup) -> list[str]:
+    """A single page title keeps every Markdown section in the native TOC."""
+    errors = []
+    if len(soup.select("article h1")) != 1:
+        errors.append(f"Page needs one top-level title: {page}")
+    headings = {
+        tag["id"]
+        for tag in soup.select("article :is(h2, h3, h4, h5, h6)[id]")
+        if tag.select_one("a.headerlink")
+    }
+    contents = {
+        unquote(tag["href"][1:])
+        for tag in soup.select('.md-nav--secondary a[href^="#"]')
+    }
+    if headings - contents:
+        errors.append(f"Sections missing from native contents: {page}")
+    for tag in soup.select("article th, article strong, article h1, article h2"):
+        text = tag.get_text(" ", strip=True).removesuffix(" ¶").lower()
+        if text in {"contents", "table of contents", "quick jump menu"} or (
+            text.startswith("home") and "→" in text
+        ):
+            errors.append(f"Legacy navigation inside article: {page}")
+    if any(
+        re.fullmatch(r"(?:next|previous) page", tag.get_text(strip=True), re.IGNORECASE)
+        for tag in soup.select("article a[href]")
+    ):
+        errors.append(f"Legacy page footer inside article: {page}")
+    return errors
+
+
 def local_resource(page: str, href: str, files: set[str]) -> str | None:
     """Require same-origin, under-prefix resources; data URLs need no request."""
     if href.startswith(("data:", "#")):
@@ -163,6 +273,7 @@ def inspect_experience(root: Path, directory: Path) -> dict:
         for name in sorted(files)
         if name.endswith(".html")
     }
+    errors.extend(check_navigation_controls(config["nav"], pages))
     for page, soup in pages.items():
         errors.extend(check_resources(page, soup, files))
         runtime = soup.select_one("script#__config")
@@ -188,6 +299,7 @@ def inspect_experience(root: Path, directory: Path) -> dict:
             errors.append(f"Missing authored output: {page}")
             continue
         errors.extend(check_page(page, pages[page], source))
+        errors.extend(check_outline(page, pages[page]))
     historical = {
         html_path(name)
         for name, meta in metadata.items()

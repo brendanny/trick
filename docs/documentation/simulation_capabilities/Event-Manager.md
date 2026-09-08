@@ -3,9 +3,6 @@ title: "Event Manager"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Event Manager |
-|------------------------------------------------------------------|
-
 This page describes the methods available in the Trick::EventManager and Trick::EventProcessor class.
 See [Input_File](../running_a_simulation/Input-File.md) for detailed information on the syntax of the input processor file.
 

@@ -3,9 +3,6 @@ title: "Adding SSL Encryption to Your Webserver"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → Adding SSL Encryption to your Webserver |
-|------------------------------------------------------------------|
-
 # Adding SSL Encryption to Your Webserver
 
 ## Getting started

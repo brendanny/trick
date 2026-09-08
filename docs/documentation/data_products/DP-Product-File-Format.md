@@ -3,9 +3,6 @@ title: "DP Product File Format"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Data Products](Data-Products.md) → DP Product File Format |
-|------------------------------------------------------------------|
-
 Since Trick 10, the DP Product Specification File Format is changed to XML. The DP Product XML file
 DTD is defined as following:
 

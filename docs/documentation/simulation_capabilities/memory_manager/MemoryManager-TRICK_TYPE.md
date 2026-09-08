@@ -3,9 +3,6 @@ title: "MemoryManager TRICK TYPE"
 documentation_status: current
 ---
 
-| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Simulation Capabilities](../Simulation-Capabilities.md) → [Memory Manager](MemoryManager.md) → Trick Type|
-|------------------------------------------------------------------|
-
 - **TRICK_TYPE** is an enmeration type that specifies data types.
 Available types are provided in the following table.
 

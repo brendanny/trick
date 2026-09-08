@@ -3,9 +3,6 @@ title: "Web Server APIs"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → APIs |
-|------------------------------------------------------------------|
-
 # Web Server APIs
 
 The web server provides APIs over http and wss protocol. Both can be extended by a client developer if necessary.

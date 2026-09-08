@@ -3,9 +3,6 @@ title: "How To Make A Trick Release"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → How to make a release |
-| ------------------------------------------------------------------------------ |
-
 # How To Make A Trick Release
 
 This guide describes how to make a Trick release on GitHub

@@ -5,31 +5,33 @@ search:
   exclude: true
 ---
 
+# S_sie.resource Parsing Algorithm
+
 > **Historical documentation:** Retained for reference. This page may describe
 > older Trick behavior and has not been verified against the current release.
 > For current guidance, start with the [developer documentation](../developer_docs/Developer-Docs-Home.md).
 
-# Data Structures
+## Data Structures
 
-## Classes
+### Classes
 - **MemberInfo**  
   a class that encapsulates the data contained in a `<top_level_object>` or `<member>` xml element
 - **EnumInfo**  
   a class that encapsulates the data contained in an `<enumeration>` xml element
 
-## Lists
+### Lists
 - **allInstances**  
   a list of `MemberInfo`s
 - **rootInstances**  
   another list of `MemberInfo`s
 
-## Hash Maps
+### Hash Maps
 - **typeHashMap**  
   a hash map whose keys are strings and whose values are lists of `MemberInfo`s
 - **enumHashMap**  
   a hash map whose keys are strings and whose values are `EnumInfo`s
 
-# Logic Pseudo-Code
+## Logic Pseudo-Code
 
 ```
 for each topLevelObject in (xml elements of type <top_level_object>):
@@ -53,5 +55,5 @@ for each instance in allInstances:
     instance.enumeration = enumHashMap[instance.type]    // will be NULL
 ```
 
-# Walking the Tree
+## Walking the Tree
 The entire variable hierarchy can be obtained via a pre-order depth-first traversal of `rootInstances`. The other data structures are now redundant and can be discarded.

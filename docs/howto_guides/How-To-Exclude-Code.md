@@ -3,9 +3,6 @@ title: "How do I exclude code from being processed by Trick?"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [How‐To Guides](How-To-Guides.md) → Exclude Code |
-|----------------------------------------------------------|
-
 # How do I exclude code from being processed by Trick?
 
 #### Exclude directories via TRICK\_ICG\_EXCLUDE makefile or environment variable:

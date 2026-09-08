@@ -3,9 +3,6 @@ title: "Threads"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Threads |
-|------------------------------------------------------------------|
-
 # The ThreadBase Class
 
 A trick sim is a multi-threaded process, and all of the threads that are created by Trick or Trick generated code inherit from the abstract class ThreadBase. ThreadBase classes have the capability to change the priority and cpu affinity of the thread. ThreadBase classes include trick_sys threads as well as user defined threads from the S_define:

@@ -3,9 +3,6 @@ title: "DP Session File Format"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Data Products](Data-Products.md) → DP Session File Format |
-|------------------------------------------------------------------|
-
 Since Trick 10, the DP Session file is changed to XML format. The Session XML Document
 Type Definitions(DTD) is defined as following:
 

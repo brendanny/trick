@@ -3,9 +3,6 @@ title: "Running in Real Time"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Running Real-Time |
-|--------------------------------------------------------------|
-
 <!-- Section -->
 
 ## Running Real-Time
@@ -106,7 +103,3 @@ Some items to note about the simulation control panel for your future use:
     the tiny box next to the simulation name. If the simulation overruns, the
     sim will run as fast as it can "to catch up" to where it should be.
     * Using the Actions menu at the top, you may set a freeze point in the future.
-
----
-
-[Next Page](ATutTrickView.md)

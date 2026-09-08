@@ -3,9 +3,6 @@ title: "Plot Printing"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Data Products](Data-Products.md) → Plot Printing |
-|------------------------------------------------------------------|
-
 To print fermi plots, simply bring up the fermi plot, and press either the "Print" (printer icon) button or the individual "Print" (printer icon) buttons on the plots themselves. In order for this to work you should set two environment variables:
 
 ```

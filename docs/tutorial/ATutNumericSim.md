@@ -3,32 +3,9 @@ title: "State Propagation with Numerical Integration"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Numerical Integration |
-|------------------------------------------------------------------|
-
 <!-- Section -->
 <a id="state-Propagation-with-numerical-integration"></a>
 # State Propagation with Numerical Integration
-
-**Contents**
-
-   * [How Trick Does Numerical Integration](#how-trick-does-numerical-integration)
-   * [Derivative Class Jobs](#derivative-class-jobs)
-   * [Integration Class Jobs](#integration-class-jobs)
-   * [Configuring The Integration Scheduler](#configuring-the-integration-scheduler)
-   * [Updating the Cannonball Sim to use Numerical Integration](#updating-the-cannonball-sim-to-use-numerical-integration)
-      - [Listing - **cannon_numeric.h**](#listing_cannon_numeric_h)
-   * [Creating a Derivative Class Job](#creating-a-derivative-class-job)
-      - [Listing - **cannon_deriv()**](#listing_cannon_deriv_func)
-   * [Creating an Integration Class Job](#creating-an-integration-class-job)
-      - [Listing - **cannon_integ()**](#listing_cannon_integ_func)
-   * [Updating the S_define File](#updating-the-s_define-file)
-      - [Listing - **S_define**](#listing_s_define)  
-   * [Running The Cannonball With Trick Integration](#running-the-cannonball-with-trick-integration)
-   * [Numeric Versus Analytical](#numeric_vs_analytical)
-
-***
-
 
 ## How Trick Does Numerical Integration
 The type of model that we created in the last section relied on the fact that
@@ -463,5 +440,3 @@ lose sleep.  However, we still dont like it!  It is no fun being a sloppy
 perfectionist!
 
 Congratulations, you are now running a simulation with numerical integration.
-
-[Next Page](ATutDynamicEvents.md)

@@ -3,9 +3,6 @@ title: "Executive Scheduler"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Executive Scheduler |
-|------------------------------------------------------------------|
-
 This scheduler or derivative of this class is required for Trick simulations to run.
 
 The scheduler is in charge of simulation execution.  The scheduler maintains simulation elapsed time.  The scheduler has 4 modes of operation, Initialization, Run, Freeze, and Shutdown.  The scheduler maintains the simulation mode.  Within each mode of operation the executive/scheduler calls different sets of user and system jobs.

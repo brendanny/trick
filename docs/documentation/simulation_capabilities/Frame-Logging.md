@@ -3,9 +3,6 @@ title: "Frame Logging"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Frame Logging |
-|------------------------------------------------------------------|
-
 Trick provides a means to gather simulation performance data and view it using Data Products (see [Data Products](../data_products/Data-Products.md)).
 When the user turns on the Frame Logging feature, Trick will use its Data Recording mechanism to track the following:
 - execution time of each Trick and User job, view in Data Products using DP_rt_trickjobs.xml and DP_rt_userjobs.xml

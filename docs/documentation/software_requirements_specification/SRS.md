@@ -3,9 +3,6 @@ title: "Software Requirements Specification"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → Software Requirements Specification |
-|-------------------------------------------------------------------------------------------------|
-
 # Introduction
 The Software Requirements Specification defines the functional, performance, and interface requirements for Trick.
 

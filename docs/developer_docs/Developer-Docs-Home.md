@@ -3,29 +3,23 @@ title: "Developer Documentation"
 documentation_status: current
 ---
 
-| [Home](../index.md) → Developer Docs |
-|------------------------------------------------------------------|
-
 # Developer Documentation
 
+This guide is for contributors working on Trick itself. It covers the build
+configuration, internals, testing tools, continuous integration, and release
+process.
 
-Link documentation for Trick internals, processes, and plans here.
+## Prepare and check a change
 
-- [Testing](Testing.md)
-- [How to make a new Trick release on GitHub](How-To-Make-A-Release.md)
-- [Tooling and Sanitizers](Tooling-and-Sanitizers.md)
-- [Python Environment](Python-Environment-Issues.md)
-- [CI](CI.md)
-- [Configure Script](Configure.md)
+Start with the [configure script](Configure.md) to understand the build options,
+then use the [testing guide](Testing.md) to check your changes. The sidebar
+contains additional guidance for tooling, environment issues, and releases.
 
-Old design documentation - may or may not be up to date
+For building applications with Trick, use the
+[user guide](../documentation/Documentation-Home.md).
 
-- [Convert Swig](DesConvertSwig.md)
-- [ICG](DesInterfaceCodeGenerator.md)
-- [Realtime Clock](DesRealTimeClock.md)
-- [Realtime Synchronization](DesRealTimeSynchronization.md)
-- [Scheduled Job Queue](DesScheduledJobQueue.md)
-- [Sleep Timer](DesSleepTimer.md)
-- [Data Recording](DesDataRecording.md)
-- [Monte Carlo](DesMonteCarlo.md)
-- [Master Slave](DesMasterSlave.md)
+## Explore earlier designs
+
+The [historical archive](../archive.md) preserves older design notes and
+implementation proposals. Consult them for background alongside the current
+source and documentation.

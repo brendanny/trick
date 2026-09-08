@@ -20,8 +20,8 @@ nav = [
         { "Install Trick" = "documentation/install_guide/Install-Guide.md" },
         { "Related projects" = "related_projects/Related-Projects.md" },
     ] },
-    { "Tutorials" = [
-        "tutorial/Tutorial.md",
+    { "Tutorial" = [
+        { "Overview" = "tutorial/Tutorial.md" },
         { "01 · Introduction" = "tutorial/ATutIntroduction.md" },
         { "02 · A simple simulation" = "tutorial/ATutASimpleSim.md" },
         { "03 · Simulation architecture" = "tutorial/ATutArchitecture.md" },
@@ -37,7 +37,7 @@ nav = [
         { "Unit tables" = "tutorial/ATutUnitTables.md" },
     ] },
     { "User guide" = [
-        "documentation/Documentation-Home.md",
+        { "Overview" = "documentation/Documentation-Home.md" },
         { "Build a simulation" = [
             "documentation/building_a_simulation/Building-a-Simulation.md",
             { "Model source code" = "documentation/building_a_simulation/Model-Source-Code.md" },
@@ -124,9 +124,8 @@ nav = [
         { "Software requirements" = "documentation/software_requirements_specification/SRS.md" },
         { "Deprecated features" = "Deprecated-Features.md" },
     ] },
-    { "How-to and troubleshooting" = [
-        "howto_guides/How-To-Guides.md",
-        { "FAQ" = "faq/FAQ.md" },
+    { "How-to" = [
+        { "Overview" = "howto_guides/How-To-Guides.md" },
         { "Checkpointing best practices" = "howto_guides/Checkpointing-Best-Practices.md" },
         { "Real-time best practices" = "howto_guides/Realtime-Best-Practices.md" },
         { "Get simulation time" = "howto_guides/HOWTOgetSimulationTimeFromTheVariableServer.md" },
@@ -137,8 +136,9 @@ nav = [
         { "Profile with trick-jperf" = "howto_guides/How-to-Use-trick-jperf.md" },
         { "Dump a core file on macOS" = "howto_guides/How-to-dump-core-file-on-MacOS.md" },
     ] },
-    { "Developer guide" = [
-        "developer_docs/Developer-Docs-Home.md",
+    { "FAQ" = "faq/FAQ.md" },
+    { "Developer" = [
+        { "Overview" = "developer_docs/Developer-Docs-Home.md" },
         { "Configure" = "developer_docs/Configure.md" },
         { "Testing" = "developer_docs/Testing.md" },
         { "Continuous integration" = "developer_docs/CI.md" },
@@ -155,6 +155,7 @@ custom_dir = "tools/docs/overrides"
 font = false
 logo = "images/TrickLogo.png"
 features = [
+    "navigation.tabs", "navigation.tabs.sticky", "navigation.footer",
     "navigation.sections", "navigation.indexes", "navigation.path",
     "navigation.top", "toc.follow", "content.code.copy",
     "content.action.edit", "search.highlight",

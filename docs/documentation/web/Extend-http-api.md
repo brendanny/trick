@@ -3,9 +3,6 @@ title: "Extending the HTTP API"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → [APIs](Webserver-apis.md) → Extending the HTTP API |
-|------------------------------------------------------------------|
-
 ## Extending the HTTP-API
 
 The HTTP-API is implemented as a collection of ```httpMethodHandlers```. An ```httpMethodHandler``` is a pointer to a function that is expected to respond to an HTTP GET request, using the **CivetWeb** framework. An ```httpMethodHandler``` is defined (in ```trick/CivetWeb.hh```) as follows:

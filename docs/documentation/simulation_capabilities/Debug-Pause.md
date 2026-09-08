@@ -3,9 +3,6 @@ title: "Debug Pause"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Debug Pause |
-|------------------------------------------------------------------|
-
 Debug Pause is a debugging feature provided by Trick. When turned on, Debug Pause will print the current simulation time and
 the name of the current job, and pause the simulation @e before the job is executed. Debug Pause provides a way for the user to step
 through a simulation run job by job. The Simulation Control Panel (see @ref SimControlPanel "Sim Control Panel") is the means by which the user does this.

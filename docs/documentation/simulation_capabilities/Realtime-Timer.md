@@ -3,9 +3,6 @@ title: "Realtime Timer"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Realtime Timer |
-|------------------------------------------------------------------|
-
 A realtime sleep timer is an optional class for Trick simulations.
 
 The Realtime Sleep Timer allows the simulation to sleep in case of an frame underrun.

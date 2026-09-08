@@ -8,13 +8,6 @@ documentation_status: current
 This HOWTO assumes that we building our Docker images on a Linux system. If you're using
 MacOS or Windows, the translation should hopefully be fairly straight forward.
 
-**Contents**
-
-* [Containerize a Basic Trick Environment](#containerize-a-basic-trick-environment)
-* [Containerize a Trick Simulation](#containerize-a-trick-simulation)
-
-***
-
 ## Prerequisites:
 
 * Docker is installed on your machine.
@@ -382,4 +375,4 @@ trick-simcontrol localhost <port> &
 You can shut down the sim from the trick-simcontrol panel when you're done.
 or if you don't have Trick installed, just use: ```docker kill misterbill```.
 
-# THE END
+## THE END

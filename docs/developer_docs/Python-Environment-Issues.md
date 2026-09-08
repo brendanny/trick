@@ -3,9 +3,6 @@ title: "Python Environment in Trick"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Developer Docs](Developer-Docs-Home.md) → Python Environment Issues |
-|------------------------------------------------------------------|
-
 # Python Environment in Trick
 
 In the `./configure` step, Trick finds the Python environment that is used as the embedded interpreter to execute input files and events. 

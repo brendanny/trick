@@ -5,12 +5,6 @@ documentation_status: current
 
 # Trick Realtime Best Practices
 
-**Contents**
-
-* [Purpose](#Purpose)<br>
-* [Prerequisite Knowledge](#prerequisite-knowledge)<br>
-* [Do's, Don'ts and Wisdom](#guidelines)<br>
-
 <a id= introduction></a>
 
 ---

@@ -3,9 +3,6 @@ title: "Data Record"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Data Record |
-|------------------------------------------------------------------|
-
 Data Recording provides the capability to specify any number of data recording groups,
 each with an unlimited number of parameter references, and with each group recording
 at different frequencies to different files in different formats. 

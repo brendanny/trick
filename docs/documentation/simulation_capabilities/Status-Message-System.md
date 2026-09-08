@@ -3,9 +3,6 @@ title: "Status Message System"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Status Message System |
-|------------------------------------------------------------------|
-
 The Message Publisher publishes executive and/or model messages. A Message Subscriber gets the messages published by the Publisher.
 
 ## Message Publisher 

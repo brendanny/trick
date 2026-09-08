@@ -3,9 +3,6 @@ title: "Command Line Arguments"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Command Line Arguments |
-|------------------------------------------------------------------|
-
 
 The Trick::CommandLineArguments class stores the command line arguments specified
 by the user when starting the simulation.  The class provides routines to

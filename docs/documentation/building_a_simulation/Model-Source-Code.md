@@ -3,9 +3,6 @@ title: "Model Source Code"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Building a Simulation](Building-a-Simulation.md) → Model Source Code |
-|------------------------------------------------------------------|
-
 This section details the syntax for creating headers and source code that Trick can process.
 
 It also details the operation of the Trick Interface Code Generator (ICG) that processes headers, and the Module Interface Specification Processor (MIS) that processes source code.

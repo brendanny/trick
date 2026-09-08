@@ -8,10 +8,6 @@ documentation_status: current
 The following tables list all of the available unit prefixes, and many of the most
 commonly used units in simulations at the NASA, Johnson Space Center - Engineering Branch. 
 
-Tables of units are provided for measuring [time](#time), [length](#length),
-[angle](#angle), [mass](#mass), [force](#force), [volt](#volt), [current](#current),
-[resistance](#resistance), [temperature](#temperature), [energy](#energy),
-[power](#power), [pressure](#pressure), [volume](#volume), and [frequency](#frequency).
 Each of the rows in each of the tables contain a list of identifiers that refer to a
 particular unit. Each of the identifiers in a list is synonymous. Also, characters
 between brackets are optional. For example, "s", "second", "seconds" are treated as

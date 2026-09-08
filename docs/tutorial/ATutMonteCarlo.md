@@ -3,28 +3,7 @@ title: "Monte Carlo"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Monte Carlo |
-|--------------------------------------------------------|
-
 # Monte Carlo
-
-**Contents**
-
-* [What is Monte Carlo?](#what-is-monte-carlo)
-* [Example Task](#example-task)
-* [Input Files](#input-files)
-  - [Listing - **angle_value_list**](#listing-value-list)
-  - [Listing - **input.py**](#listing-input_1)
-* [Random Input Generation](#random-input-generation)
-  - [Listing - **input.py**](#listing-input-2)
-* [Optimization](#optimization)
-  - [Listing - **optimization.h**](#listing-optimization-h)
-  - [Listing - **optimization.c**](#listing-optimization-c)
-  - [Listing - **input.py**](#listing-input-3)
-  - [Listing - **S_Define**](#listing-s-define)
-
-***
-
 
 ## What is Monte Carlo?
 

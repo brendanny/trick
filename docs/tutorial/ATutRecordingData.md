@@ -3,9 +3,6 @@ title: "Recording Simulation Data"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Recording Simulation Data |
-|----------------------------------------------------------------------|
-
 <!-- Section -->
 
 ## Recording Simulation Data
@@ -66,5 +63,3 @@ to the top of the `input.py` file and then save it.
 
 After the simulation runs, data will be dumped into the `RUN_test` directory.
 The data, in this case, is recorded in binary form.
-
-[Next Page](ATutPlottingData.md)

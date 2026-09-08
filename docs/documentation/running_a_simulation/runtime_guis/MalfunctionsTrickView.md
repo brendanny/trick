@@ -3,9 +3,6 @@ title: "MalfunctionsTrickView"
 documentation_status: current
 ---
 
-| [Home](../../../index.md) → [Documentation Home](../../Documentation-Home.md) → [Running a Simulation](../Running-a-Simulation.md) → [Runtime GUIs](Runtime-GUIs.md) → Malfunctions |
-|------------------------------------------------------------------|
-
 ## Events/Malfunctions Trick View
 Events/Malfunctions Trick View (hereafter referred to as MTV) is a graphical user interface that has two main functions:
 

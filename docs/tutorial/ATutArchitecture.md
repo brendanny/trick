@@ -3,19 +3,9 @@ title: "Architecture of a Trick Simulation"
 documentation_status: current
 ---
 
-| [Home](../index.md) → [Tutorial Home](Tutorial.md) → Trick Simulation Architecture |
-|--------------------------------------------------------|
-
 <!-- Section -->
 
 ## Architecture of a Trick Simulation
-
-**Contents**
-
-* [The Simulation Definition File](#the-simulation-definition-file)<br>
-* [The Parts of an S_define](#the-parts-of-an-sdefine)<br>
-
-*** 
 
 We divided our non-Trick simulation code into: 
 
@@ -76,6 +66,3 @@ That is, it is one instance of our cannonball model. If we were to create a seco
 ```CannonSimObject``` then our simulation would contain two independently runnable cannonball models. 
 
 In the following sections we'll create the parts for a Trick-based cannonball simulation, and build it.
-
----
-[Next Page](ATutAnalyticSim.md)

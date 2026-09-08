@@ -3,22 +3,7 @@ title: "Realtime-Clock"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Simulation Capabilities](Simulation-Capabilities.md) → Realtime Clock |
-|------------------------------------------------------------------|
-
 # Realtime-Clock
-
-**Contents**
-
-* [Creating a Real-Time Clock Interface with Trick::Clock](#creating-a-clock)<br>
-* [Installing a Trick::Clock In Your Simulation](#installing-a-clock)<br>
-* [Example Implementation of a Trick::Clock](#example-implemntation)<br>
-
-***
-
-* [**Looking For The Current Simulation Time?**](#looking-for-sim-time)<br>
-
-***
 
 Every real-time simulation requires a clock to which its tasks can be synchronized. By default, a Trick simulation uses the local system clock, by calling *gettimeofday()*. When simulations running on different computers need to cooperate they need to be synchronized to the same clock. So, sometimes we want our simulation to synchronize a to an **external** clock rather than the local one. The ```Trick::Clock``` base class provides a way to create an interface between an external time source, and a real-time Trick simulation.
 

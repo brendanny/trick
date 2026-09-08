@@ -3,9 +3,6 @@ title: "Configure Civetweb"
 documentation_status: current
 ---
 
-| [Home](../../index.md) → [Documentation Home](../Documentation-Home.md) → [Web Server](Webserver.md) → Configuring Trick with Civetweb |
-|------------------------------------------------------------------|
-
 ## Configuring Trick with Civetweb
 To configure Trick to support the civetweb web server, you'll need to
 
