@@ -109,23 +109,38 @@ including implicit destructors, independently of the supplied graph digest.
 Partial-specialization display names use written arguments such as `Choice<T *>`;
 canonical identity remains separate.
 
-### First comparison with actual legacy metadata
+### Comparison with actual compiled legacy metadata
 
 On the reference x86_64 Linux target, the LLVM 17 CI lane also runs
 `tools/icg_baseline/differential.py` against three existing legacy snapshots:
 `anonymous-enum`, `deleted-constructor`, and `embedded`. It verifies the original
 source fingerprints and content-addressed legacy sidecars, extracts the actual
 headers, validates the facts, and compares record tables, field order/names,
-primitive types, offsets, and bitfield widths. The six embedded fields include
-the legacy storage-unit bit-start conversion to record-relative bit offsets.
+primitive types, offsets, bitfield widths, and enum tables (ordered labels, exact
+values, and unsigned flags). The six embedded fields include the legacy
+storage-unit bit-start conversion to record-relative bit offsets.
 
-Ignored records and private nested records are explicit, checked exclusions.
-Units and source annotations are shown together for review, but unit policy,
-enum-table emission, lifecycle wrappers, and generated execution are not yet
-compared. `comparison.json`, full facts, and diagnostics are CI artifacts.
-This is a deliberately restricted reader of those captured ATTRIBUTES rows,
-not a general C++ parser or a completed legacy backend. The template corpus and
-STL closure remain outstanding; no unsupported declaration is silently skipped.
+It also compiles the complete captured C++, after expanding its recorded source
+root, against the real Trick headers and `UnitsMap.cpp`, with C++17 and `-Werror`.
+The executable calls the generated initialization and size entry points and
+reads the actual `ATTRIBUTES` and `ENUM_ATTR` arrays. Six record sizes, six fields,
+and two enum tables are compared with facts and independent native `sizeof`,
+`alignof`, `offsetof`, bitfield storage measurements, and enum constants.
+Unexpected metadata, callbacks, indices, or sentinels fail the narrow probe.
+The same real probe and negative mutations run in every extractor test lane,
+including GCC 8.5/12 and Linux/macOS across LLVM 17–23.
+
+Ignored/private records and unnamed/private enums are explicit, checked
+exclusions. UnitsMap lookups must agree with compiled units, including `rad`;
+units and raw annotations remain side by side for review. This does not implement
+annotation resolution policy. Lifecycle allocation/destruction/deletion wrappers
+are compiled and linked but are not executed. General registry, template/STL,
+and simulation behavior remain separate gates.
+
+`comparison.json`, full facts/diagnostics, probe sources, compiler commands and
+logs, dependency hashes, and native observations are CI artifacts. This is a
+deliberately restricted evidence bridge for those snapshots, not a general C++
+parser or completed legacy backend. No unsupported declaration is silently skipped.
 
 ## Invocation contract
 

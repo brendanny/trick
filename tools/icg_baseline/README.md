@@ -212,6 +212,49 @@ Exit codes: `0` success/equal, `1` comparison differences, `2` invocation or
 incomplete/invalid evidence, `3` measured command failure. The original command
 exit status (including negative signal status) is retained in the report.
 
+## Compare captured metadata with extractor facts and native execution
+
+On the x86_64 Linux reference target, with the standalone rewrite extractor built:
+
+```sh
+python3 tools/icg_baseline/differential.py \
+  --extractor /tmp/trick-icg-build/trick-icg-extract \
+  --compiler "$(command -v g++)" \
+  --output /tmp/trick-native-comparison
+```
+
+This checks source and legacy-sidecar fingerprints for `anonymous-enum`,
+`deleted-constructor`, and `embedded`, validates fresh facts, and compares the
+captured record and enum tables. It then compiles and links the entire captured
+C++ with the real Trick headers, `UnitsMap.cpp`, and the Starter constructor.
+There is no substituted metadata ABI or mocked runtime implementation.
+
+The native executable calls generated initialization/size entry points and reads
+the actual tables. Record sizes/alignments, scalar sizes/offsets, unsigned bitfield
+positions/widths, and enum sizes/values/signedness are checked against independently
+measured native types and the facts. The bitfield probe is restricted to the
+audited standard-layout, trivially-copyable fixture on little-endian hosts.
+Sentinels and every currently unused metadata slot must retain their audited
+defaults. Changed size thunks or metadata outside the text reader's subset are
+regression-tested using compiled corruptions. Every extractor CI lane also runs
+these probes, including the GCC 8.5/12 host lanes and LLVM 17–23 on macOS/Linux.
+
+`comparison.json` is published only after all cases pass; stale success reports
+are removed before a new attempt. Each case retains materialized C++, the native
+probe, compiler version/target, exact compile/link/run argv and logs, non-system
+dependency hashes from compiler depfiles, executable digest, and observations.
+Installed system headers, runtime libraries, and compiler binary contents are not
+fingerprinted; this evidence is not a cache key. CI records package provenance
+separately. Use a native C++17 compiler for `--compiler` (default `g++`).
+
+The gate covers six emitted records, six fields, and two enum tables. It checks
+explicit record/enum policy exclusions and UnitsMap lookup agreement, without
+claiming a general annotation policy or registration-presence test (UnitsMap
+returns `1` for an unknown name). Allocation/destruction/deletion wrappers are
+compiled but not executed; their ownership semantics need a dedicated contract.
+Template/STL closure, broad registry behavior, and generated simulation behavior
+remain outstanding.
+
 ## Remaining Phase 0 work
 
 - Extend the configured template and I/O simulation capture/runtime lane to additional

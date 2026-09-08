@@ -1,0 +1,275 @@
+"""Compile actual legacy metadata and compare it with facts and native layout.
+
+This probe supports only the audited scalar/unsigned-bitfield/enum fixtures in
+differential.py. It links the real Trick UnitsMap implementation, without stubs.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import shlex
+import subprocess
+from pathlib import Path
+
+import baseline as b
+
+ROOT = Path(__file__).resolve().parents[2]
+HELPER = Path(__file__).with_name("native_probe.hh")
+KINDS = {
+    "int": "TRICK_INTEGER",
+    "unsigned int": "TRICK_UNSIGNED_INTEGER",
+    "double": "TRICK_DOUBLE",
+}
+
+
+def identifier(value: str) -> str:
+    if not re.fullmatch(r"[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*", value, re.ASCII):
+        raise ValueError(f"unsupported native probe identifier: {value!r}")
+    return value
+
+
+def source(document: dict, report: dict) -> str:
+    declarations = {
+        node["qualified_name"]: node
+        for node in document["declarations"]
+        if node["kind"] in ("record", "enum")
+    }
+    calls = []
+    for name, fields in report["records"].items():
+        identifier(name)
+        symbol = name.replace("::", "__")
+        native_fields = []
+        for field in fields:
+            member = identifier(field["name"])
+            type_name = f"decltype({name}::{member})"
+            if field["bit_width"] is None:
+                native_fields.append(
+                    f'{{"{member}", sizeof({type_name}), offsetof({name}, {member}) * CHAR_BIT, 0}}'
+                )
+            else:
+                if field["type"] != "unsigned int":
+                    raise ValueError("native bitfield probe supports unsigned int only")
+                native_fields.append(
+                    f'probe::bitfield<{name}, {type_name}>("{member}", '
+                    f"[]({name}& value, {type_name} bits) {{ value.{member} = bits; }})"
+                )
+        calls.append(
+            f"init_attr{symbol}_c_intf();\n"
+            f'probe::record<{name}>("{name}", "{symbol}", attr{symbol}, '
+            f"io_src_sizeof_{symbol}(), {{{', '.join(native_fields)}}});"
+        )
+    enum_calls = []
+    for name, rows in report["enums"].items():
+        identifier(name)
+        symbol = name.replace("::", "__")
+        if any(not -(2**31) <= int(row["value"]) < 2**31 for row in rows):
+            raise ValueError(
+                "native enum probe requires values representable by ENUM_ATTR.int"
+            )
+        values = [
+            identifier(name + "::" + item["name"])
+            for item in declarations[name]["enumerators"]
+        ]
+        enum_calls.append(
+            f'probe::enumeration<{name}>("{name}", enum{symbol}, '
+            f"io_src_sizeof_{symbol}(), {{{', '.join(values)}}});"
+        )
+    separator = '\nstd::cout << ",";\n'
+    return (
+        '#include "legacy.cpp"\n#include "native_probe.hh"\n'
+        'int main() {\ntry {\nstd::cout << "{\\"records\\":[";\n'
+        + separator.join(calls)
+        + '\nstd::cout << "],\\"enums\\":[";\n'
+        + separator.join(enum_calls)
+        + '\nstd::cout << "]}\\n";\nreturn 0;\n'
+        '} catch (const std::exception& error) { std::cerr << error.what() << "\\n"; return 1; }\n}\n'
+    )
+
+
+def validate(document: dict, report: dict, observed: dict) -> None:
+    declarations = {
+        node["qualified_name"]: node
+        for node in document["declarations"]
+        if node["kind"] in ("record", "enum")
+    }
+    if set(observed) != {"records", "enums"}:
+        raise ValueError("unexpected native observation sections")
+    for group in ("records", "enums"):
+        entries = observed[group]
+        if [item["name"] for item in entries] != list(report[group]):
+            raise ValueError(f"native {group} names/order differ")
+        for item in entries:
+            name = item["name"]
+            node = declarations[name]
+            for key, fact in (
+                ("size_bytes", "size_bits"),
+                ("legacy_size_bytes", "size_bits"),
+                ("alignment_bytes", "alignment_bits"),
+            ):
+                if item[key] * 8 != int(node[fact]):
+                    raise ValueError(f"{name}: native {key} differs from facts")
+            if group == "enums":
+                expected = [
+                    dict(row, native_value=row["value"]) for row in report[group][name]
+                ]
+                if (
+                    item["signed"] != node["underlying_signed"]
+                    or item["rows"] != expected
+                ):
+                    raise ValueError(
+                        f"{name}: compiled/native enum value, label, or signedness differs"
+                    )
+                continue
+            fields = report[group][name]
+            if len(item["fields"]) != len(fields) or len(item["native_fields"]) != len(
+                fields
+            ):
+                raise ValueError(f"{name}: compiled/native field count differs")
+            for field, row, native in zip(
+                fields, item["fields"], item["native_fields"], strict=True
+            ):
+                label = f"{name}::{field['name']}"
+                width = field["bit_width"] or 0
+                if native != dict(
+                    name=field["name"],
+                    size_bytes=row["size_bytes"],
+                    offset_bits=field["offset_bits"],
+                    width=width,
+                ):
+                    raise ValueError(f"{label}: native field size/offset/width differs")
+                if row["size_bytes"] <= 0 or row["offset_bytes"] < 0:
+                    raise ValueError(f"{label}: invalid compiled field storage")
+                kind = "TRICK_UNSIGNED_BITFIELD" if width else KINDS[field["type"]]
+                expected = dict(
+                    name=field["name"],
+                    type=field["type"],
+                    kind=kind,
+                    units=field["legacy_units"],
+                    units_map_units=field["legacy_units"],
+                    size_bytes=native["size_bytes"],
+                    offset_bytes=row["offset_bytes"],
+                    width=width,
+                    shift=row["shift"],
+                )
+                offset = row["offset_bytes"] * 8
+                if width:
+                    if row["shift"] < 0 or row["shift"] + width > row["size_bytes"] * 8:
+                        raise ValueError(f"{label}: invalid compiled bitfield storage")
+                    offset += row["size_bytes"] * 8 - row["shift"] - width
+                elif row["shift"]:
+                    raise ValueError(f"{label}: unexpected compiled scalar index")
+                if row != expected or offset != field["offset_bits"]:
+                    raise ValueError(f"{label}: compiled ATTRIBUTES differs")
+
+
+def capture(
+    document: dict, legacy: str, report: dict, case: dict, output: Path, compiler: Path
+) -> dict:
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    result_path = output / "native.json"
+    result_path.unlink(missing_ok=True)
+    if any(ch in str(ROOT) for ch in ('"', "\\", "\n", "\r")):
+        raise ValueError("repository path cannot be represented in a C++ include")
+    materialized = legacy.replace("${TRICK_ROOT}", str(ROOT))
+    if "${" in materialized:
+        raise ValueError("unresolved normalization token in legacy source")
+    (output / "legacy.cpp").write_text(materialized)
+    (output / "native_probe.hh").write_bytes(HELPER.read_bytes())
+    (output / "probe.cpp").write_text(source(document, report))
+    commands = []
+
+    def run(
+        arguments: list[str], label: str, timeout: int = 180
+    ) -> subprocess.CompletedProcess:
+        timed_out = False
+        try:
+            result = subprocess.run(
+                arguments, cwd=output, capture_output=True, timeout=timeout, check=False
+            )
+        except subprocess.TimeoutExpired as error:
+            timed_out = True
+            result = subprocess.CompletedProcess(
+                arguments, None, error.stdout or b"", error.stderr or b""
+            )
+        (output / f"{label}.stdout").write_bytes(result.stdout)
+        (output / f"{label}.stderr").write_bytes(result.stderr)
+        commands.append(
+            dict(
+                argv=arguments,
+                returncode=result.returncode,
+                timed_out=timed_out,
+                stdout=f"{label}.stdout",
+                stderr=f"{label}.stderr",
+            )
+        )
+        (output / "commands.json").write_text(json.dumps(commands, indent=2) + "\n")
+        if timed_out:
+            raise ValueError(f"native {label} timed out after {timeout}s")
+        if result.returncode:
+            raise ValueError(
+                f"native {label} failed ({result.returncode}): {result.stderr.decode(errors='replace')}"
+            )
+        return result
+
+    version = (
+        run([str(compiler), "--version"], "compiler-version").stdout.decode().strip()
+    )
+    target = (
+        run([str(compiler), "-dumpmachine"], "compiler-target").stdout.decode().strip()
+    )
+    sources = [
+        output / "probe.cpp",
+        ROOT / "trick_source/sim_services/UnitsMap/UnitsMap.cpp",
+    ]
+    if case["id"] == "anonymous-enum":
+        sources.append(ROOT / "test/SIM_anon_enum/models/starter.cpp")
+    objects = []
+    dependencies = {Path(__file__), HELPER}
+    for index, path in enumerate(sources):
+        obj = output / f"{index}.o"
+        dep = output / f"{index}.d"
+        run(
+            [
+                str(compiler),
+                "-std=c++17",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-I" + str(ROOT / "include"),
+                "-MMD",
+                "-MF",
+                str(dep),
+                "-c",
+                str(path),
+                "-o",
+                str(obj),
+            ],
+            f"compile-{index}",
+        )
+        dependencies.update(
+            output / name
+            for name in shlex.split(
+                dep.read_text().replace("\\\n", " ").split(":", 1)[1]
+            )
+        )
+        objects.append(str(obj))
+    executable = output / "probe"
+    run([str(compiler), *objects, "-o", str(executable)], "link")
+    result = run([str(executable)], "run", timeout=30)
+    observed = json.loads(result.stdout)
+    validate(document, report, observed)
+    evidence = dict(
+        compiler=str(compiler),
+        compiler_version=version,
+        compiler_target=target,
+        executable_sha256=b.digest(executable.read_bytes()),
+        observations=observed,
+        input_sha256={
+            str(path): b.digest(path.read_bytes()) for path in sorted(dependencies)
+        },
+        commands=commands,
+    )
+    result_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
+    return evidence

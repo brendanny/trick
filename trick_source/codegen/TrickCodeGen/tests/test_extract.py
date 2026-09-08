@@ -1502,31 +1502,45 @@ class ExtractTests(unittest.TestCase):
         partial = nodes["model::Choice<Element *>"]
         self.assertEqual(partial["pattern_spelling"], "model::Choice<Element *>")
 
-    def test_real_legacy_metadata_matches_fields_and_rejects_changed_layout(self):
+    def legacy_comparison(self, case_id):
         sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
         try:
             import differential
+            import native
         finally:
             sys.path.pop(0)
-        self.header.write_bytes(
-            (
-                ROOT / "test/SIM_test_ip/models/test_ip/include/EmbeddedClasses.hh"
-            ).read_bytes()
-        )
+        corpus = json.loads((differential.REFERENCE.parent / "corpus.json").read_text())
+        case = next(case for case in corpus["cases"] if case["id"] == case_id)
+        self.header.write_bytes((ROOT / case["header"]).read_bytes())
         document = self.success(self.invoke())
-        snapshot = differential.REFERENCE / "embedded/cold.json"
+        snapshot = differential.REFERENCE / case_id / "cold.json"
         artifacts = json.loads(snapshot.read_text())["artifacts"]
         metadata = next(
             item for item in artifacts.values() if item["group"] == "legacy-metadata"
         )
         legacy = differential.b.artifact_text(snapshot, metadata)
-        report = differential.compare(document, legacy, "embedded")
+        report = differential.compare(document, legacy, case_id)
+        return differential, native, document, legacy, report, case
+
+    def test_real_legacy_metadata_matches_fields_and_rejects_changed_layout(self):
+        differential, _, document, legacy, report, _ = self.legacy_comparison(
+            "embedded"
+        )
         self.assertEqual(sum(map(len, report["records"].values())), 6)
+        self.assertEqual(len(report["enums"]), 2)
         for before, after in (
             ("8, NULL", "9, NULL"),
             ("{{5, 27}", "{{4, 28}"),
             ('"d", "double"', '"d", "float"'),
             ("ATTRIBUTES attrTopClass[]", "UNRECOGNIZED attrTopClass[]"),
+            ('"TopClass::one", 0, 0x40000000', '"TopClass::one", 1, 0x40000000'),
+            ('"TopClass::one", 0, 0x40000000', '"TopClass::one", 0, 0x0'),
+            ('"TopClass::one"', '"TopClass::wrong"'),
+            ('{"", 0, 0x0}', '{"", 1, 0x0}'),
+            (
+                "ENUM_ATTR enumTopClass__PublicEnum[]",
+                "UNKNOWN enumTopClass__PublicEnum[]",
+            ),
         ):
             with self.subTest(before=before):
                 self.assertIn(before, legacy)
@@ -1534,6 +1548,98 @@ class ExtractTests(unittest.TestCase):
                     differential.compare(
                         document, legacy.replace(before, after), "embedded"
                     )
+
+    def test_compiled_legacy_metadata_matches_native_layout_and_facts(self):
+        if LAYOUT_COMPILER is None:
+            self.skipTest("native conformance requires --layout-compiler")
+        for case_id in ("anonymous-enum", "deleted-constructor", "embedded"):
+            with self.subTest(case=case_id):
+                _, native, document, legacy, report, case = self.legacy_comparison(
+                    case_id
+                )
+                evidence = native.capture(
+                    document, legacy, report, case, self.root / case_id, LAYOUT_COMPILER
+                )
+                observed = evidence["observations"]
+                self.assertEqual(len(observed["records"]), len(report["records"]))
+                self.assertTrue(evidence["input_sha256"])
+                self.assertTrue(
+                    all(command["returncode"] == 0 for command in evidence["commands"])
+                )
+                if case_id != "embedded":
+                    continue
+                record_index = next(
+                    i
+                    for i, item in enumerate(observed["records"])
+                    if item["name"] == "TopClass"
+                )
+                mutations = [
+                    (["records", record_index, "size_bytes"], 24),
+                    (["records", record_index, "legacy_size_bytes"], 24),
+                    (["records", record_index, "alignment_bytes"], 4),
+                    (["records", record_index, "fields", 2, "size_bytes"], 4),
+                    (["records", record_index, "fields", 2, "offset_bytes"], 9),
+                    (["records", record_index, "fields", 2, "units_map_units"], "1"),
+                    (["records", record_index, "fields", 0, "shift"], 26),
+                    (["records", record_index, "native_fields", 0, "width"], 4),
+                    (["records", record_index, "native_fields", 0, "offset_bits"], 1),
+                    (["enums", 0, "rows", 0, "native_value"], "3"),
+                    (["enums", 0, "rows", 0, "value"], "3"),
+                    (["enums", 0, "rows", 0, "mods"], 0),
+                    (["enums", 0, "signed"], True),
+                    (["enums", 0, "size_bytes"], 8),
+                    (["enums", 0, "rows"], []),
+                    (["records"], []),
+                ]
+                for path, value in mutations:
+                    with self.subTest(path=path):
+                        changed = copy.deepcopy(observed)
+                        target = changed
+                        for key in path[:-1]:
+                            target = target[key]
+                        self.assertNotEqual(target[path[-1]], value)
+                        target[path[-1]] = value
+                        with self.assertRaises(ValueError):
+                            native.validate(document, report, changed)
+                # A legitimately regenerated digest cannot mask a layout error
+                # in a future producer: compare the facts with native evidence.
+                changed = copy.deepcopy(document)
+                self.declarations(changed)["TopClass"]["size_bits"] = 192
+                changed["provenance"]["graph_digest"] = VALIDATOR.graph_digest(changed)
+                VALIDATOR.validate(SCHEMA, changed)
+                with self.assertRaisesRegex(ValueError, "native size_bytes"):
+                    native.validate(changed, report, observed)
+
+    def test_native_probe_rejects_bad_size_thunk_and_unmodeled_metadata(self):
+        if LAYOUT_COMPILER is None:
+            self.skipTest("native conformance requires --layout-compiler")
+        differential, native, document, legacy, report, case = self.legacy_comparison(
+            "embedded"
+        )
+        output = self.root / "native-failure"
+        output.mkdir()
+        for before, after, diagnostic in (
+            ("return sizeof(TopClass) ;", "return 1 ;", "native legacy_size_bytes"),
+            (
+                "NULL,  NULL, NULL, NULL, NULL, NULL, NULL, NULL",
+                '"unexpected",  NULL, NULL, NULL, NULL, NULL, NULL, NULL',
+                "unsupported compiled ATTRIBUTES metadata",
+            ),
+        ):
+            with self.subTest(before=before):
+                self.assertIn(before, legacy)
+                changed = legacy.replace(before, after)
+                # Both corruptions used to be invisible to the text comparison.
+                self.assertEqual(
+                    differential.compare(document, changed, "embedded"), report
+                )
+                (output / "native.json").write_text('{"stale": true}')
+                with self.assertRaisesRegex(ValueError, diagnostic):
+                    native.capture(
+                        document, changed, report, case, output, LAYOUT_COMPILER
+                    )
+                self.assertFalse((output / "native.json").exists())
+                self.assertTrue((output / "commands.json").is_file())
 
     def test_incomplete_record_special_member_states_are_unknown(self):
         self.header.write_text("struct Forward; void use(Forward*);\n")

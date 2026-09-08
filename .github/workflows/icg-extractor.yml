@@ -7,14 +7,28 @@ on:
       - 'trick_source/codegen/TrickCodeGen/**'
       - 'tools/icg_schema/**'
       - 'tools/icg_baseline/differential.py'
+      - 'tools/icg_baseline/baseline.py'
+      - 'tools/icg_baseline/native*'
       - 'tools/icg_baseline/legacy/**'
+      - 'include/trick/**'
+      - 'trick_source/sim_services/UnitsMap/UnitsMap.cpp'
+      - 'test/SIM_anon_enum/models/starter.*'
+      - 'test/SIM_delete_default_constructor/models/empty.h'
+      - 'test/SIM_test_ip/models/test_ip/include/EmbeddedClasses.hh'
       - '.github/workflows/icg-extractor.yml'
   pull_request:
     paths:
       - 'trick_source/codegen/TrickCodeGen/**'
       - 'tools/icg_schema/**'
       - 'tools/icg_baseline/differential.py'
+      - 'tools/icg_baseline/baseline.py'
+      - 'tools/icg_baseline/native*'
       - 'tools/icg_baseline/legacy/**'
+      - 'include/trick/**'
+      - 'trick_source/sim_services/UnitsMap/UnitsMap.cpp'
+      - 'test/SIM_anon_enum/models/starter.*'
+      - 'test/SIM_delete_default_constructor/models/empty.h'
+      - 'test/SIM_test_ip/models/test_ip/include/EmbeddedClasses.hh'
       - '.github/workflows/icg-extractor.yml'
   workflow_dispatch:
 
@@ -106,11 +120,12 @@ jobs:
               "build/icg-extract/$fixture.json"
           done
           python -m unittest discover -s tools/icg_schema -v
-      - name: Compare actual legacy ATTRIBUTES with extractor facts
+      - name: Compare compiled legacy metadata with facts and native layout
         if: matrix.os == 'ubuntu-24.04' && matrix.llvm == 17 && matrix.python == '3.11'
         run: |
           python tools/icg_baseline/differential.py \
             --extractor build/icg-extract/trick-icg-extract \
+            --compiler "$(command -v g++)" \
             --output build/icg-evidence/legacy-comparison
       - uses: actions/upload-artifact@v7
         if: always()

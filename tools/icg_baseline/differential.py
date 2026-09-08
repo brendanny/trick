@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Compare focused legacy ATTRIBUTES tables with validated extractor facts.
+"""Compare compiled legacy metadata with validated facts and native layouts.
 
-This deliberately recognizes only the scalar/bitfield rows in three captured
-headers. It is an evidence bridge, not a general C++ parser or legacy backend.
+This deliberately recognizes only the scalar/bitfield and enum tables in three
+captured headers. It is an evidence bridge, not a general C++ parser or backend.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -30,6 +31,13 @@ EXCLUSIONS = {
         "TopClass::PrivateEmbed": "private nested record",
     },
 }
+ENUM_EXCLUSIONS = {
+    "anonymous-enum": {"Starter::(anonymous enum)": "unnamed enum has no legacy table"},
+    "deleted-constructor": {},
+    "embedded": {"TopClass::PrivateEnum": "private nested enum"},
+}
+ENUM_TABLE = re.compile(r"^ENUM_ATTR enum(\w+)\[\] = \{\n(.*?)\n\};", re.M | re.S)
+ENUM_ROW = re.compile(r'\{"([^"\n]*)", (-?\d+), (0x[0-9a-fA-F]+|\d+)\},?\n?')
 TABLE = re.compile(r"^ATTRIBUTES attr(\w+)\[\] = \{\n(.*?)\} \};", re.M | re.S)
 ROW = re.compile(
     r'\{"([^"\n]*)", "([^"\n]*)", "([^"\n]*)", "", "",\s*"[^"\n]*",\s*'
@@ -72,6 +80,70 @@ def tables(text: str) -> dict:
     if len(result) != text.count("ATTRIBUTES attr") or not result:
         raise ValueError("missing or unrecognized legacy ATTRIBUTES table")
     return result
+
+
+def enum_tables(text: str) -> dict:
+    result = {}
+    for match in ENUM_TABLE.finditer(text):
+        symbol, body = match.groups()
+        rows = list(ENUM_ROW.finditer(body))
+        if (
+            not rows
+            or "".join(row.group() for row in rows) != body
+            or rows[-1].groups() != ("", "0", "0x0")
+        ):
+            raise ValueError(f"{symbol}: unsupported enum rows or sentinel")
+        if symbol in result or any(not row[1] for row in rows[:-1]):
+            raise ValueError(f"{symbol}: duplicate enum table or premature sentinel")
+        result[symbol] = [
+            {"label": row[1], "value": str(int(row[2])), "mods": int(row[3], 0)}
+            for row in rows[:-1]
+        ]
+    if len(result) != text.count("ENUM_ATTR enum"):
+        raise ValueError("unrecognized legacy enum table")
+    return result
+
+
+def compare_enums(document: dict, legacy: str, case_id: str) -> dict:
+    declarations = {node["id"]: node for node in document["declarations"]}
+    enums = {
+        node["qualified_name"].replace("::", "__"): node
+        for node in declarations.values()
+        if node["kind"] == "enum"
+    }
+    if len(enums) != sum(node["kind"] == "enum" for node in declarations.values()):
+        raise ValueError("ambiguous legacy enum name")
+    actual = enum_tables(legacy)
+    absent = {
+        node["qualified_name"] for key, node in enums.items() if key not in actual
+    }
+    if absent != set(ENUM_EXCLUSIONS[case_id]) or set(actual) - enums.keys():
+        raise ValueError(f"{case_id}: changed enum tables or policy exclusions")
+    report = {}
+    for symbol, rows in actual.items():
+        node = enums[symbol]
+        parent = declarations.get(node["semantic_parent_id"])
+        scope = (
+            node["qualified_name"]
+            if node["scoped"]
+            else parent["qualified_name"]
+            if parent
+            else ""
+        )
+        expected = [
+            {
+                "label": f"{scope}::{item['name']}" if scope else item["name"],
+                "value": item["value"],
+                "mods": 0 if node["underlying_signed"] else 0x40000000,
+            }
+            for item in node["enumerators"]
+        ]
+        if rows != expected:
+            raise ValueError(
+                f"{node['qualified_name']}: enum order, label, value, or signedness differs"
+            )
+        report[node["qualified_name"]] = rows
+    return report
 
 
 def compare(document: dict, legacy: str, case_id: str) -> dict:
@@ -135,16 +207,19 @@ def compare(document: dict, legacy: str, case_id: str) -> dict:
                 ],
             })
         report["records"][record["qualified_name"]] = compared
+    report["enums"] = compare_enums(document, legacy, case_id)
+    report["enum_policy_exclusions"] = ENUM_EXCLUSIONS[case_id]
     report["not_compared"] = [
         "unit/annotation policy",
-        "enum tables",
         "lifecycle wrappers",
-        "generated execution",
+        "general generated/runtime behavior",
     ]
     return report
 
 
-def capture(extractor: Path, output: Path) -> dict:
+def capture(extractor: Path, output: Path, compiler: Path) -> dict:
+    import native
+
     schema = json.loads(
         (
             ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
@@ -153,6 +228,7 @@ def capture(extractor: Path, output: Path) -> dict:
     provenance = json.loads((REFERENCE / "provenance.json").read_text())
     corpus = json.loads((REFERENCE.parent / "corpus.json").read_text())
     output.mkdir(parents=True, exist_ok=True)
+    (output / "comparison.json").unlink(missing_ok=True)
     reports = {}
     for case in corpus["cases"]:
         if case["id"] not in EXCLUSIONS:
@@ -197,7 +273,11 @@ def capture(extractor: Path, output: Path) -> dict:
         ]
         if len(metadata) != 1:
             raise ValueError("expected one digest-verified legacy metadata artifact")
-        report = compare(document, b.artifact_text(snapshot, metadata[0]), case["id"])
+        legacy = b.artifact_text(snapshot, metadata[0])
+        report = compare(document, legacy, case["id"])
+        report["native"] = native.capture(
+            document, legacy, report, case, output / case["id"], compiler
+        )
         report.update(
             source_sha256=source_digest,
             legacy_sha256=metadata[0]["sha256"],
@@ -217,5 +297,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--extractor", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--compiler",
+        default="g++",
+        help="C++17 simulation compiler for the native metadata probe",
+    )
     args = parser.parse_args()
-    capture(args.extractor.resolve(strict=True), args.output)
+    compiler = shutil.which(args.compiler)
+    if not compiler:
+        parser.error(f"C++ compiler not found: {args.compiler}")
+    capture(args.extractor.resolve(strict=True), args.output, Path(compiler).absolute())
