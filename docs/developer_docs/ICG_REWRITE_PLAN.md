@@ -716,16 +716,21 @@ Implement this in four reviewable increments:
    automatic reference refreshes and no normalization of layout, policy, or
    lifecycle differences.
 
-The core evidence increment is implemented: explicit file requests with root
-occurrences, physical comments, observed policy environment, structured concrete
-friends, typed declaration headers, and separate source/selection modules. The
-legacy differential runner now uses a multi-header synthetic input. Next review
-that evidence contract and implement the bounded Python resolver, including legacy
-comment association and eligibility characterization. Use the existing real
-embedded-class and template headers to characterize ignored types and the
-`TRICK_ICG` idiom, adding small positive/negative fixtures where needed. Successful
-template-header extraction remains a facts-coverage result; standard-container
-rejection probes do not establish STL generation support.
+The evidence increment and bounded Python resolver are implemented. Facts v12
+capture explicit file requests, physical comments, policy environment and friends.
+[Resolved policy v1](../../tools/icg_policy/README.md) now records selection,
+exclusions, units/I/O and operation-specific access with input/request identity.
+Thirty-three live legacy characterization cases and the three existing metadata headers
+check these decisions; native compilation distinguishes actual friend access from
+legacy prefix matching. General annotations/UDUNITS, compat15/automatic conditional
+policy, inheritance/templates/STL and offline path-policy replay remain outside
+this bounded profile. Typed record/callable extraction remains follow-up work.
+
+Next implement increment 3: consume validated resolved policy and generate the
+narrow metadata contract, retaining the existing immutable legacy/native evidence
+as the oracle. Then compare newly generated output through increment 4. Successful
+resolution and template-header extraction do not establish metadata or STL
+replacement parity.
 
 Exit criteria for this milestone are explicit selection/comment/friend decisions
 for the characterization cases and compiled old/new/native agreement for the

@@ -280,3 +280,13 @@ missing-deallocation regression. See its [scope and reproduction commands](lifec
 - Review the initial ADRs and measured thresholds before advancing Phase 1.
 
 See [the initial contract inventory](../../docs/developer_docs/ICG-Rewrite-Phase-0.md).
+
+## Bounded policy comparison
+
+The differential runner now also resolves [policy v1](../icg_policy/README.md)
+from validated facts, comparing record/enum selection and units/I/O against the
+three immutable legacy headers. Request and resolved documents accompany each
+report. Existing explicit expected exclusions remain independent checks; they
+are not inputs to the resolver. The reference lane additionally runs 33 live
+legacy policy characterization cases, preserving successful and failed evidence.
+New metadata emission is still pending.

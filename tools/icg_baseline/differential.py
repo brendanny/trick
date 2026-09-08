@@ -21,6 +21,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/icg_schema"))
 import validate as ir  # noqa: E402
 
+sys.path.insert(0, str(ROOT))
+from tools.icg_policy import characterize as policy_evidence  # noqa: E402
+from tools.icg_policy import resolve as policy  # noqa: E402
+
 REFERENCE = Path(__file__).resolve().parent / "legacy/reference"
 EXCLUSIONS = {
     "anonymous-enum": {},
@@ -301,6 +305,37 @@ def capture(extractor: Path, output: Path, compiler: Path) -> dict:
             raise ValueError("expected one digest-verified legacy metadata artifact")
         legacy = b.artifact_text(snapshot, metadata[0])
         report = compare(document, legacy, case["id"])
+        request = policy.request_for(document)
+        resolved = policy.resolve(document, request)
+        policy.validate(document, request, resolved)
+        if policy_evidence.observed(document, resolved) != policy_evidence.metadata(
+            legacy
+        ):
+            raise ValueError(
+                f"{case['id']}: resolved selection/units/I/O differs from legacy"
+            )
+        nodes = {node["id"]: node for node in document["declarations"]}
+        selected_enums = {
+            item["metadata"]["symbol"]
+            for item in resolved["declarations"]
+            if item["decision"] == "include"
+            and nodes[item["declaration_id"]]["kind"] == "enum"
+        }
+        if selected_enums != set(enum_tables(legacy)):
+            raise ValueError(
+                f"{case['id']}: resolved enum selection differs from legacy"
+            )
+        for suffix, value in (("request", request), ("resolved", resolved)):
+            (output / f"{case['id']}.{suffix}.json").write_text(
+                json.dumps(value, indent=2, sort_keys=True) + "\n"
+            )
+        report["resolved_policy"] = {
+            "digest": resolved["digest"],
+            "policy_version": resolved["policy_version"],
+        }
+        report["not_compared"][0] = (
+            "general annotation policy beyond the scalar profile"
+        )
         report["native"] = native.capture(
             document, legacy, report, case, output / case["id"], compiler
         )

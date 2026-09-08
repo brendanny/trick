@@ -1,0 +1,488 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "policy_version",
+    "facts",
+    "request",
+    "settings",
+    "input_digest",
+    "files",
+    "declarations",
+    "digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "legacy-metadata-policy"
+    },
+    "policy_version": {
+      "const": "scalar-metadata-1"
+    },
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "document_digest",
+        "input_digest",
+        "graph_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 12
+        },
+        "document_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "input_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "graph_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_ids",
+        "outputs",
+        "offset_mode",
+        "policy_version"
+      ],
+      "properties": {
+        "file_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^file:[a-f0-9]{64}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "outputs": {
+          "const": [
+            "attributes",
+            "enum-attributes"
+          ]
+        },
+        "offset_mode": {
+          "const": "numeric"
+        },
+        "policy_version": {
+          "const": "scalar-metadata-1"
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment",
+        "paths",
+        "ignore_types"
+      ],
+      "properties": {
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "TRICK_EXCLUDE": {
+              "type": "string"
+            },
+            "TRICK_ICG_EXCLUDE": {
+              "type": "string"
+            },
+            "TRICK_SYSTEM_ICG_EXCLUDE": {
+              "type": "string"
+            },
+            "TRICK_EXT_LIB_DIRS": {
+              "type": "string"
+            },
+            "TRICK_EXT_LIB_DIRS_OVERRIDES": {
+              "type": "string"
+            },
+            "TRICK_ICG_NOCOMMENT": {
+              "type": "string"
+            },
+            "TRICK_ICG_COMPAT15": {
+              "type": "string"
+            },
+            "TRICK_ICG_IGNORE_TYPES": {
+              "type": "string"
+            }
+          }
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "setting",
+              "spelled",
+              "resolved",
+              "kind"
+            ],
+            "properties": {
+              "setting": {
+                "type": "string"
+              },
+              "spelled": {
+                "type": "string"
+              },
+              "resolved": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "enum": [
+                  "file",
+                  "directory",
+                  "missing"
+                ]
+              }
+            }
+          }
+        },
+        "ignore_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "input_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file_id",
+          "excluded",
+          "rule",
+          "header_comment",
+          "no_comment",
+          "ignore_types",
+          "path_evidence",
+          "no_comment_rule"
+        ],
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "pattern": "^file:[a-f0-9]{64}$"
+          },
+          "excluded": {
+            "type": "boolean"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "header_comment": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "no_comment": {
+            "type": "boolean"
+          },
+          "ignore_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "path_evidence": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "no_comment_rule": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "declarations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "declaration_id",
+          "decision",
+          "rule",
+          "source",
+          "parent_id",
+          "metadata"
+        ],
+        "properties": {
+          "declaration_id": {
+            "type": "string",
+            "pattern": "^decl:[a-f0-9]{64}$"
+          },
+          "decision": {
+            "enum": [
+              "include",
+              "omit"
+            ]
+          },
+          "rule": {
+            "enum": [
+              "NOT_REQUESTED",
+              "NOT_METADATA_DECLARATION",
+              "FILE_EXCLUDED",
+              "PARENT_OMITTED",
+              "ICG_IGNORE_TYPES",
+              "INACCESSIBLE_NESTED_TYPE",
+              "UNNAMED_ENUM",
+              "INCOMPLETE_TYPE",
+              "REQUESTED_METADATA",
+              "IO_DISABLED",
+              "NUMERIC_OFFSET_METADATA"
+            ]
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/source"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^decl:[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "symbol",
+                  "init_function"
+                ],
+                "properties": {
+                  "symbol": {
+                    "type": "string"
+                  },
+                  "init_function": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type_id",
+                  "comment_index",
+                  "annotation",
+                  "access"
+                ],
+                "properties": {
+                  "type_id": {
+                    "type": "string",
+                    "pattern": "^type:[a-f0-9]{64}$"
+                  },
+                  "comment_index": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "annotation": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "units",
+                      "io",
+                      "rules",
+                      "diagnostics"
+                    ],
+                    "properties": {
+                      "units": {
+                        "type": "string"
+                      },
+                      "io": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 15
+                      },
+                      "rules": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "diagnostics": {
+                        "type": "array",
+                        "items": {
+                          "enum": [
+                            "LEGACY_UNKNOWN_IO_ZERO",
+                            "LEGACY_UNIT_ALIAS",
+                            "LEGACY_DASHDASH_IO",
+                            "LEGACY_INVALID_UNITS_DEFAULT"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "access": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "operation",
+                      "allowed",
+                      "rule",
+                      "friend_indices",
+                      "legacy_prefix_indices",
+                      "compatibility"
+                    ],
+                    "properties": {
+                      "operation": {
+                        "const": "member-access-in-init-attributes"
+                      },
+                      "allowed": {
+                        "type": "boolean"
+                      },
+                      "rule": {
+                        "enum": [
+                          "PUBLIC_MEMBER",
+                          "EXACT_INIT_FRIEND",
+                          "NO_ACCESS_GRANT"
+                        ]
+                      },
+                      "friend_indices": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "legacy_prefix_indices": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "compatibility": {
+                        "enum": [
+                          null,
+                          "LEGACY_PREFIX_IS_NOT_ACCESS"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v1.schema.json",
+  "title": "Bounded numeric-offset scalar legacy metadata policy v1",
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spelling",
+        "expansion",
+        "end",
+        "macro_expansion"
+      ],
+      "properties": {
+        "spelling": {
+          "$ref": "#/$defs/point"
+        },
+        "expansion": {
+          "$ref": "#/$defs/point"
+        },
+        "end": {
+          "$ref": "#/$defs/point"
+        },
+        "macro_expansion": {
+          "type": "boolean"
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_id",
+        "line",
+        "column",
+        "offset"
+      ],
+      "properties": {
+        "file_id": {
+          "$ref": "#/$defs/id"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z]+:[^\\s]+$"
+    }
+  }
+}

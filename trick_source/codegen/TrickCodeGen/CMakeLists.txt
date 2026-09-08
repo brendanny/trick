@@ -106,6 +106,10 @@ if(BUILD_TESTING)
         endif()
         list(APPEND ICG_TEST_ROOT_ARGS --lifecycle-leak-check)
     endif()
+    add_test(NAME icg_policy_integration
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/icg_policy/test_resolve.py"
+            --extractor "$<TARGET_FILE:trick-icg-extract>"
+            --compiler "${CMAKE_CXX_COMPILER}")
     add_test(NAME icg_extract_integration
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_extract.py"
             --extractor "$<TARGET_FILE:trick-icg-extract>"

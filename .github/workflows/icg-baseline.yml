@@ -5,6 +5,7 @@ on:
     branches: [master, icg-rewrite]
     paths:
       - 'tools/icg_baseline/**'
+      - 'tools/icg_policy/**'
       - 'trick_source/codegen/Interface_Code_Gen/**'
       - 'trick_source/sim_services/UdUnits/**'
       - 'include/trick/**'
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - 'tools/icg_baseline/**'
+      - 'tools/icg_policy/**'
       - 'trick_source/codegen/Interface_Code_Gen/**'
       - 'trick_source/sim_services/UdUnits/**'
       - 'include/trick/**'
@@ -41,6 +43,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+      - run: python -m pip install 'jsonschema>=4.18,<5'
+      - name: Test bounded policy rules
+        run: python -m unittest tools.icg_policy.test_resolve.RuleTests -v
       - name: Test evidence collector
         run: python -m unittest discover -s tools/icg_baseline -v
       - name: Validate regression corpus
@@ -70,6 +75,19 @@ jobs:
           cmake -S tools/icg_baseline/legacy -B build/legacy-baseline \
             -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm -DCMAKE_BUILD_TYPE=Release
           cmake --build build/legacy-baseline --parallel 2
+      - name: Build facts extractor for live policy characterization
+        run: |
+          python -m pip install 'jsonschema>=4.18,<5'
+          cmake -S trick_source/codegen/TrickCodeGen -B build/policy-extractor \
+            -DLLVM_DIR=/usr/lib/llvm-17/lib/cmake/llvm -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-Werror
+          cmake --build build/policy-extractor --parallel 2
+      - name: Compare policy decisions with unchanged legacy ICG
+        run: |
+          python tools/icg_policy/characterize.py \
+            --extractor build/policy-extractor/trick-icg-extract \
+            --legacy build/legacy-baseline/trick-ICG-baseline \
+            --udunits-xml /usr/share/xml/udunits/udunits2.xml \
+            --output build/policy-evidence
       - name: Capture cold, warm, and forced output against checked-in references
         run: |
           python tools/icg_baseline/legacy.py \
@@ -94,6 +112,7 @@ jobs:
           name: legacy-header-baseline-llvm17-linux
           path: |
             build/legacy-evidence
+            build/policy-evidence
             build/lifecycle-reference-evidence
             build/legacy-baseline/packages.txt
             build/legacy-baseline/build-info.txt

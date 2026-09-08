@@ -616,3 +616,23 @@ selection modules, accompany this increment. Record/callable builders and broade
 module separation remain follow-up work. There is still no resolved policy or
 rewrite-generated metadata; the differential runner continues to compile legacy
 output, now against facts requested through a multi-header synthetic input.
+
+### Bounded resolved policy v1
+
+The first Python consumer now has its own
+[closed JSON contract](../../../tools/icg_policy/resolved.schema.json) and
+[policy rules/evidence](../../../tools/icg_policy/README.md). It references facts
+v12 by full-document, input and graph digests and requires the caller's generation
+request. Relations use declaration IDs; comment/friend indices point into the
+unchanged source evidence. Complete input, effective environment/path settings and
+request participate in resolution identity. Extracted-facts schema v12 and the
+graph-digest algorithm are unchanged.
+
+Resolved schema v1 / `scalar-metadata-1` covers numeric-offset scalar metadata
+policy only. Structural validation is independent JSON Schema; semantic validation
+replays the policy rules before digest checking, while live legacy/native probes
+provide independent behavior evidence. Path settings are re-observed on validation;
+this is not yet a portable offline cache model. Future policy/schema changes must
+be versioned; consumers must resolve again rather than relabel prior decisions.
+General UDUNITS, descriptions, automatic compat15 policy, inheritance/templates/STL
+and newly generated metadata are not established by this contract.

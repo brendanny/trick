@@ -692,9 +692,10 @@ A third native probe compiles size/alignment and standard-layout field-offset
 assertions against concrete template instances. It runs in those same lanes.
 
 The next milestone remains a [facts-to-legacy-metadata vertical slice](../../../docs/developer_docs/ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata).
-File requests, physical comments, and friend evidence are now available. Next
-resolve explicit Python policy, then generate metadata for the existing narrow differential
-corpus and compile and execute that new output against the same legacy/native
+File requests, physical comments, and friend evidence now feed the
+[bounded Python policy resolver](../../../tools/icg_policy/README.md). Its versioned
+selection, units/I/O and operation-access decisions are checked against live legacy
+characterization and the existing three-header corpus. Next generate metadata for that corpus and compile and execute that new output against the same legacy/native
 observations. Current differential and configured simulation gates exercise
 legacy-generated code; they do not yet validate a rewrite emitter.
 
@@ -710,8 +711,8 @@ any production switch.
 Install `python3 -m pip install -r tools/icg_requirements.txt`, then run:
 
 ```sh
-ruff check tools/icg_baseline tools/icg_capability tools/icg_schema trick_source/codegen/TrickCodeGen/tests
-ruff format --check tools/icg_baseline tools/icg_capability tools/icg_schema trick_source/codegen/TrickCodeGen/tests
+ruff check tools/icg_baseline tools/icg_capability tools/icg_schema tools/icg_policy trick_source/codegen/TrickCodeGen/tests
+ruff format --check tools/icg_baseline tools/icg_capability tools/icg_schema tools/icg_policy trick_source/codegen/TrickCodeGen/tests
 ```
 
 `ruff.toml` requires Ruff 0.16.6 and preview formatting, matching the existing

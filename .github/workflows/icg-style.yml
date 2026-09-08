@@ -32,5 +32,5 @@ jobs:
       - run: python -m pip install -r tools/icg_requirements.txt
       - name: Check formatting and imports with the pinned configuration
         run: |
-          ruff format --check tools/icg_baseline tools/icg_capability tools/icg_schema trick_source/codegen/TrickCodeGen/tests
-          ruff check tools/icg_baseline tools/icg_capability tools/icg_schema trick_source/codegen/TrickCodeGen/tests
+          ruff format --check tools/icg_baseline tools/icg_capability tools/icg_schema tools/icg_policy trick_source/codegen/TrickCodeGen/tests
+          ruff check tools/icg_baseline tools/icg_capability tools/icg_schema tools/icg_policy trick_source/codegen/TrickCodeGen/tests
