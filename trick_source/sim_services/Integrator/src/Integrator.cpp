@@ -129,7 +129,12 @@ void Trick::Integrator::state_in (double* arg1, va_list argp) {
             next_arg = va_arg(argp, double*);
             i++;
         }
-        state_origin[i] = (double*)NULL;
+        // state_origin has num_state entries, with no extra sentinel slot.
+        // Retain the terminator for a partial load, but do not write past a
+        // full state vector (for example, a two-state RK4 integration).
+        if (i < num_state) {
+            state_origin[i] = (double*)NULL;
+        }
         if (verbosity) std::cout << std::endl;
     }
 }

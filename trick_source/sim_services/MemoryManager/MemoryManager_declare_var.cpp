@@ -46,7 +46,9 @@ void* Trick::MemoryManager::declare_var( TRICK_TYPE type,
     char* allocation_name;
     int n_elems;
     Language language;
-    TRICK_ALLOC_TYPE allocation_type;
+    // Every allocation path below uses calloc, including primitive/STL staging
+    // arrays. Their deletion recipe must not depend on an uninitialized enum.
+    TRICK_ALLOC_TYPE allocation_type = TRICK_ALLOC_MALLOC;
     void* address;
     ATTRIBUTES* sub_attr;
     ALLOC_INFO *new_alloc;
