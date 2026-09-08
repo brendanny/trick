@@ -9,7 +9,9 @@ import unittest
 ROOT = Path(__file__).resolve().parent
 
 class GeneratorTests(unittest.TestCase):
-    def generate(self, source, methods=()):
+    backend = "pybind"
+
+    def generate(self, source, methods=(), backend=None):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
@@ -20,7 +22,8 @@ class GeneratorTests(unittest.TestCase):
         output.mkdir()
         (output / "sentinel").write_text("preserve on failure")
         result = subprocess.run([sys.executable, str(ROOT / "generate.py"), "--header", str(root / "model.hh"),
-                                 "--policy", str(root / "policy.json"), "--output", str(output)], capture_output=True, text=True)
+                                 "--policy", str(root / "policy.json"), "--output", str(output),
+                                 "--backend", backend or self.backend], capture_output=True, text=True)
         return result, output
 
     def rejected(self, source, diagnostic, methods=()):
@@ -63,6 +66,24 @@ double change(double value); int change(int value);
 
     def test_rejects_multidimensional_array(self):
         self.rejected("struct Model { double value[2][3]; };", "unsupported field")
+
+class BoostGeneratorTests(GeneratorTests):
+    backend = "boost"
+
+
+class MetadataIndependenceTests(unittest.TestCase):
+    generate = GeneratorTests.generate
+
+    def test_backend_selection_preserves_declarations_and_metadata(self):
+        source = "struct Model { double value; /* kg */ };"
+        outputs = []
+        for backend in ("pybind", "boost"):
+            result, output = self.generate(source, backend=backend)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            outputs.append(output)
+        for name in ("generated.hh", "metadata.cpp", "declarations.json"):
+            self.assertEqual((outputs[0] / name).read_bytes(), (outputs[1] / name).read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

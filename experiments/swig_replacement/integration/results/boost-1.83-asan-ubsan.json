@@ -1,0 +1,203 @@
+{
+  "status": "fail",
+  "exit_code": 1,
+  "checks": [],
+  "platform": "Linux-6.18.35-x86_64-with-glibc2.39",
+  "python": "3.12.13",
+  "configured_backend": "boost",
+  "configured_binding_version": "1.83.0",
+  "libclang": "18.1.1",
+  "cxx_flags": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+  "build_type": "Debug",
+  "asan_options": "detect_leaks=0:halt_on_error=1",
+  "ubsan_options": "halt_on_error=1:print_stacktrace=1",
+  "input_file": "trick_sims/SIM_msd/RUN_bindings/input.py",
+  "input_sha256": "155b7e9f520d1a7e05b78a66098ab5098563b51223e593872110abe887a0a259",
+  "declarations": {
+    "version": 1,
+    "records": [
+      {
+        "name": "MSD",
+        "allocation": "new",
+        "source": "msd.hh",
+        "source_sha256": "b8c46d2cb9eb623312737477254c5131b3d925309bb3e7e17d2ed817a62b1d9d",
+        "fields": [
+          {
+            "name": "a",
+            "type": "double",
+            "units": "m/s2",
+            "kind": "double"
+          },
+          {
+            "name": "v",
+            "type": "double",
+            "units": "m/s",
+            "kind": "double"
+          },
+          {
+            "name": "x",
+            "type": "double",
+            "units": "m",
+            "kind": "double"
+          },
+          {
+            "name": "m",
+            "type": "double",
+            "units": "kg",
+            "kind": "double"
+          },
+          {
+            "name": "v_0",
+            "type": "double",
+            "units": "m/s",
+            "kind": "double"
+          },
+          {
+            "name": "x_0",
+            "type": "double",
+            "units": "m",
+            "kind": "double"
+          },
+          {
+            "name": "b",
+            "type": "double",
+            "units": "N.s/m",
+            "kind": "double"
+          },
+          {
+            "name": "k",
+            "type": "double",
+            "units": "N/m",
+            "kind": "double"
+          },
+          {
+            "name": "F",
+            "type": "double",
+            "units": "N",
+            "kind": "double"
+          }
+        ],
+        "constructors": [
+          [
+            {
+              "name": "_m",
+              "type": "double"
+            },
+            {
+              "name": "_k",
+              "type": "double"
+            },
+            {
+              "name": "_b",
+              "type": "double"
+            },
+            {
+              "name": "_F",
+              "type": "double"
+            },
+            {
+              "name": "_v_0",
+              "type": "double"
+            },
+            {
+              "name": "_x_0",
+              "type": "double"
+            }
+          ],
+          []
+        ],
+        "methods": [
+          {
+            "name": "default_data",
+            "result": "int",
+            "static": true,
+            "arguments": [
+              {
+                "name": "arg0",
+                "type": "MSD &"
+              }
+            ]
+          },
+          {
+            "name": "init",
+            "result": "int",
+            "static": false,
+            "arguments": []
+          },
+          {
+            "name": "shutdown",
+            "result": "int",
+            "static": false,
+            "arguments": []
+          },
+          {
+            "name": "state_deriv",
+            "result": "int",
+            "static": false,
+            "arguments": []
+          },
+          {
+            "name": "state_integ",
+            "result": "int",
+            "static": false,
+            "arguments": []
+          }
+        ]
+      },
+      {
+        "name": "BindingProbe",
+        "allocation": "trick_malloc",
+        "source": "models.hh",
+        "source_sha256": "21c4e0be89cb2f7e07d15cbf6a2e594aefbf4ff4943538423b354e6ea53321f0",
+        "fields": [
+          {
+            "name": "value",
+            "type": "double",
+            "units": "kg",
+            "kind": "double"
+          },
+          {
+            "name": "position",
+            "type": "double[3]",
+            "units": "m",
+            "kind": "array",
+            "count": 3
+          },
+          {
+            "name": "samples",
+            "type": "std::vector<double>",
+            "units": "m",
+            "kind": "vector"
+          }
+        ],
+        "constructors": [
+          []
+        ],
+        "methods": []
+      },
+      {
+        "name": "BindingDynamics",
+        "allocation": "new",
+        "source": "models.hh",
+        "source_sha256": "21c4e0be89cb2f7e07d15cbf6a2e594aefbf4ff4943538423b354e6ea53321f0",
+        "fields": [
+          {
+            "name": "msd",
+            "type": "MSD",
+            "units": "--",
+            "kind": "record"
+          }
+        ],
+        "constructors": [
+          []
+        ],
+        "methods": []
+      }
+    ],
+    "header_sha256": "21c4e0be89cb2f7e07d15cbf6a2e594aefbf4ff4943538423b354e6ea53321f0",
+    "policy_sha256": "865274bf19ae4a6e0409765883c54aa3ad9c0d28734cccc35e64e67345f6f2a4"
+  },
+  "binding_library": "libboost_python312.so.1.83.0",
+  "binding_library_sha256": "0d3f078749c2bed6b860f2c9d8b6a54bd8c057a60d08e9a17cc8fd4c877ed2b1",
+  "diagnostic": "<NATIVE_PREFIX>/include/boost/python/make_constructor.hpp:69:16: runtime error: constructor call on misaligned address 0x7fb054f28f54 for type 'struct holder', which requires 8 byte alignment\n0x7fb054f28f54: note: pointer points here\n  00 00 00 00 b0 7f 00 00  50 6a be d6 d5 55 00 00  10 00 00 00 00 00 00 00  00 d8 aa 15 c1 fe 01 00\n              ^ \n    #0 0x55d5d6a5f658 in void boost::python::detail::install_holder<binding::Handle<BindingProbe>*>::dispatch<std::unique_ptr<binding::Handle<BindingProbe>, std::default_delete<binding::Handle<BindingProbe> > > >(std::unique_ptr<binding::Handle<BindingProbe>, std::default_delete<binding::Handle<BindingProbe> > >, std::integral_constant<bool, false>) const <NATIVE_PREFIX>/include/boost/python/make_constructor.hpp:69\n    #1 0x55d5d6a5d933 in void boost::python::detail::install_holder<binding::Handle<BindingProbe>*>::dispatch<binding::Handle<BindingProbe> >(binding::Handle<BindingProbe>*, std::integral_constant<bool, true>) const <NATIVE_PREFIX>/include/boost/python/make_constructor.hpp:53\n    #2 0x55d5d6a5bef9 in boost::python::detail::install_holder<binding::Handle<BindingProbe>*>::operator()(binding::Handle<BindingProbe>*) const <NATIVE_PREFIX>/include/boost/python/make_constructor.hpp:40\n    #3 0x55d5d6a56eaa in _object* boost::python::detail::invoke<boost::python::detail::install_holder<binding::Handle<BindingProbe>*>, binding::Handle<BindingProbe>* (*)(boost::python::api::object), boost::python::arg_from_python<boost::python::api::object> >(boost::python::detail::invoke_tag_<false, false>, boost::python::detail::install_holder<binding::Handle<BindingProbe>*> const&, binding::Handle<BindingProbe>* (*&)(boost::python::api::object), boost::python::arg_from_python<boost::python::api::object>&) <NATIVE_PREFIX>/include/boost/python/detail/invoke.hpp:73\n    #4 0x55d5d6a49112 in boost::python::detail::caller_arity<1u>::impl<binding::Handle<BindingProbe>* (*)(boost::python::api::object), boost::python::detail::constructor_policy<boost::python::default_call_policies>, boost::mpl::vector2<binding::Handle<BindingProbe>*, boost::python::api::object> >::operator()(_object*, _object*) <NATIVE_PREFIX>/include/boost/python/detail/caller.hpp:233\n    #5 0x55d5d6a40bc6 in boost::python::objects::signature_py_function_impl<boost::python::detail::caller<binding::Handle<BindingProbe>* (*)(boost::python::api::object), boost::python::detail::constructor_policy<boost::python::default_call_policies>, boost::mpl::vector2<binding::Handle<BindingProbe>*, boost::python::api::object> >, boost::mpl::v_item<void, boost::mpl::v_item<boost::python::api::object, boost::mpl::v_mask<boost::mpl::vector2<binding::Handle<BindingProbe>*, boost::python::api::object>, 1>, 1>, 1> >::operator()(_object*, _object*) <NATIVE_PREFIX>/include/boost/python/object/py_function.hpp:64\n    #6 0x7fb0583c20bf in boost::python::objects::function::call(_object*, _object*) const (<NATIVE_PREFIX>/lib/x86_64-linux-gnu/libboost_python312.so.1.83.0+0x260bf) (BuildId: 6230b7a6cffaa92bec8c944f54364e2af2a39c69)\n    #7 0x7fb0583c24d3  (<NATIVE_PREFIX>/lib/x86_64-linux-gnu/libboost_python312.so.1.83.0+0x264d3) (BuildId: 6230b7a6cffaa92bec8c944f54364e2af2a39c69)\n    #8 0x7fb0583c0832 in boost::python::detail::exception_handler::operator()(boost::function0<void> const&) const (<NATIVE_PREFIX>/lib/x86_64-linux-gnu/libboost_python312.so.1.83.0+0x24832) (BuildId: 6230b7a6cffaa92bec8c944f54364e2af2a39c69)\n    #9 0x55d5d69e9b57 in boost::python::detail::translate_exception<std::out_of_range, void (*)(std::out_of_range const&)>::operator()(boost::python::detail::exception_handler const&, boost::function0<void> const&, void (*)(std::out_of_range const&)) const (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1b4b57) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #10 0x55d5d69e4a42 in bool boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::out_of_range const&)> >::operator()<bool, boost::python::detail::translate_exception<std::out_of_range, void (*)(std::out_of_range const&)>, boost::_bi::rrlist2<boost::python::detail::exception_handler const&, boost::function0<void> const&> >(boost::_bi::type<bool>, boost::python::detail::translate_exception<std::out_of_range, void (*)(std::out_of_range const&)>&, boost::_bi::rrlist2<boost::python::detail::exception_handler const&, boost::function0<void> const&>&, long) (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1afa42) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #11 0x55d5d69e211d in bool boost::_bi::bind_t<bool, boost::python::detail::translate_exception<std::out_of_range, void (*)(std::out_of_range const&)>, boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::out_of_range const&)> > >::operator()<boost::python::detail::exception_handler const&, boost::function0<void> const&>(boost::python::detail::exception_handler const&, boost::function0<void> const&) (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1ad11d) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #12 0x55d5d69df068 in boost::detail::function::function_obj_invoker2<boost::_bi::bind_t<bool, boost::python::detail::translate_exception<std::out_of_range, void (*)(std::out_of_range const&)>, boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::out_of_range const&)> > >, bool, boost::python::detail::exception_handler const&, boost::function0<void> const&>::invoke(boost::detail::function::function_buffer&, boost::python::detail::exception_handler const&, boost::function0<void> const&) (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1aa068) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #13 0x55d5d69e9433 in boost::python::detail::translate_exception<std::invalid_argument, void (*)(std::invalid_argument const&)>::operator()(boost::python::detail::exception_handler const&, boost::function0<void> const&, void (*)(std::invalid_argument const&)) const (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1b4433) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #14 0x55d5d69e467e in bool boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::invalid_argument const&)> >::operator()<bool, boost::python::detail::translate_exception<std::invalid_argument, void (*)(std::invalid_argument const&)>, boost::_bi::rrlist2<boost::python::detail::exception_handler const&, boost::function0<void> const&> >(boost::_bi::type<bool>, boost::python::detail::translate_exception<std::invalid_argument, void (*)(std::invalid_argument const&)>&, boost::_bi::rrlist2<boost::python::detail::exception_handler const&, boost::function0<void> const&>&, long) (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1af67e) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #15 0x55d5d69e1d41 in bool boost::_bi::bind_t<bool, boost::python::detail::translate_exception<std::invalid_argument, void (*)(std::invalid_argument const&)>, boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::invalid_argument const&)> > >::operator()<boost::python::detail::exception_handler const&, boost::function0<void> const&>(boost::python::detail::exception_handler const&, boost::function0<void> const&) (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1acd41) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #16 0x55d5d69deb08 in boost::detail::function::function_obj_invoker2<boost::_bi::bind_t<bool, boost::python::detail::translate_exception<std::invalid_argument, void (*)(std::invalid_argument const&)>, boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::invalid_argument const&)> > >, bool, boost::python::detail::exception_handler const&, boost::function0<void> const&>::invoke(boost::detail::function::function_buf\n... truncated ...\n(*)(std::exception const&)) const (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1b3d0f) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #18 0x55d5d69e42ba in bool boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::exception const&)> >::operator()<bool, boost::python::detail::translate_exception<std::exception, void (*)(std::exception const&)>, boost::_bi::rrlist2<boost::python::detail::exception_handler const&, boost::function0<void> const&> >(boost::_bi::type<bool>, boost::python::detail::translate_exception<std::exception, void (*)(std::exception const&)>&, boost::_bi::rrlist2<boost::python::detail::exception_handler const&, boost::function0<void> const&>&, long) (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1af2ba) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #19 0x55d5d69e1965 in bool boost::_bi::bind_t<bool, boost::python::detail::translate_exception<std::exception, void (*)(std::exception const&)>, boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::exception const&)> > >::operator()<boost::python::detail::exception_handler const&, boost::function0<void> const&>(boost::python::detail::exception_handler const&, boost::function0<void> const&) (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1ac965) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #20 0x55d5d69de4ca in boost::detail::function::function_obj_invoker2<boost::_bi::bind_t<bool, boost::python::detail::translate_exception<std::exception, void (*)(std::exception const&)>, boost::_bi::list3<boost::arg<1>, boost::arg<2>, boost::_bi::value<void (*)(std::exception const&)> > >, bool, boost::python::detail::exception_handler const&, boost::function0<void> const&>::invoke(boost::detail::function::function_buffer&, boost::python::detail::exception_handler const&, boost::function0<void> const&) (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x1a94ca) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n    #21 0x7fb0583bf824 in boost::python::handle_exception_impl(boost::function0<void>) (<NATIVE_PREFIX>/lib/x86_64-linux-gnu/libboost_python312.so.1.83.0+0x23824) (BuildId: 6230b7a6cffaa92bec8c944f54364e2af2a39c69)\n    #22 0x7fb0583bf95d  (<NATIVE_PREFIX>/lib/x86_64-linux-gnu/libboost_python312.so.1.83.0+0x2395d) (BuildId: 6230b7a6cffaa92bec8c944f54364e2af2a39c69)\n    #23 0x7fb0572fd40a in _PyObject_MakeTpCall (<PYTHON_BASE>/lib/libpython3.12.so.1.0+0x32540a)\n    #24 0x7fb057300ad6 in method_vectorcall.llvm.13162138995651417323 (<PYTHON_BASE>/lib/libpython3.12.so.1.0+0x328ad6)\n    #25 0x7fb05735733e in slot_tp_init (<PYTHON_BASE>/lib/libpython3.12.so.1.0+0x37f33e)\n    #26 0x7fb05734cdca in type_call (<PYTHON_BASE>/lib/libpython3.12.so.1.0+0x374dca)\n    #27 0x7fb0573b205f in _PyEval_EvalFrameDefault (<PYTHON_BASE>/lib/libpython3.12.so.1.0+0x3da05f)\n    #28 0x7fb0574d4626 in PyEval_EvalCode (<PYTHON_BASE>/lib/libpython3.12.so.1.0+0x4fc626)\n    #29 0x7fb05750cedf in run_mod.llvm.2799098986727098220 (<PYTHON_BASE>/lib/libpython3.12.so.1.0+0x534edf)\n    #30 0x7fb05750c7d9 in PyRun_SimpleStringFlags (<PYTHON_BASE>/lib/libpython3.12.so.1.0+0x5347d9)\n    #31 0x55d5d6a68faf in Trick::IPPython::parse(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) <TRICK_ROOT>/trick_source/sim_services/InputProcessor/IPPython.cpp:236\n    #32 0x55d5d69bbb2e in main <TRICK_ROOT>/experiments/swig_replacement/integration/main.cpp:54\n    #33 0x7fb055b1e1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: 274eec488d230825a136fa9c4d85370fed7a0a5e)\n    #34 0x7fb055b1e28a in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: 274eec488d230825a136fa9c4d85370fed7a0a5e)\n    #35 0x55d5d69b9b14 in _start (<TRICK_ROOT>/experiments/swig_replacement/build/boost-asan/integration/poc_msd+0x184b14) (BuildId: c61c56e92bf853aee3fa2e73bd45614f6ce5f867)\n\n"
+}

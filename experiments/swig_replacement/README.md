@@ -26,6 +26,8 @@ generated declarations/metadata/bindings, Python-to-MM ownership transfer, the
 actual `IPPython` lifecycle, and MSD integration with STL checkpoint/restart.
 The eight-backend comparison and its boundaries below remain the first-stage
 record; the follow-on has its own narrower coverage and results.
+An additional [Boost.Python backend](integration/BOOST_PYTHON.md) exercises that
+same integration path and documents both passing behavior and dependency failures.
 
 ## Reproduce
 

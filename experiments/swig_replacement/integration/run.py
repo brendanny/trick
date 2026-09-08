@@ -21,6 +21,9 @@ def main():
     opts = parser.parse_args()
     build = opts.build_dir.resolve()
     cache = (build / "CMakeCache.txt").read_text()
+    backend_match = re.search(r"^POC_INTEGRATION_BACKEND:STRING=(.*)$", cache, re.M)
+    backend = backend_match[1] if backend_match else "pybind"
+    binding_build = json.loads((build / "integration/binding-build.json").read_text())
     match = re.search(r"^UDUNITS_INCLUDE:PATH=(.*)$", cache, re.M)
     native = Path(match[1]).parent if match else Path("/usr")
     input_file = REPO / "trick_sims/SIM_msd/RUN_bindings/input.py"
@@ -46,21 +49,31 @@ def main():
     groups = [line.split("=", 1)[1] for line in log.splitlines() if line.startswith("INTEGRATION_CHECKS=")]
     result = json.loads(records[-1]) if records else {"status": "fail"}
     if code != 0 or not records or not groups: result["status"] = "fail"
+    if records and (result.get("backend") != backend or result.get("binding_version") != binding_build["version"]):
+        result["status"] = "fail"
+        log += f"\nConfigured backend/version {backend}/{binding_build['version']} differs from executable\n"
     result.update(exit_code=code, checks=json.loads(groups[-1]) if groups else [],
                   platform=platform.platform(), python=platform.python_version(),
-                  pybind11=importlib.metadata.version("pybind11"), libclang=importlib.metadata.version("libclang"),
+                  configured_backend=backend, configured_binding_version=binding_build["version"],
+                  libclang=importlib.metadata.version("libclang"),
                   cxx_flags=re.search(r"^CMAKE_CXX_FLAGS:STRING=(.*)$", cache, re.M)[1],
                   build_type=re.search(r"^CMAKE_BUILD_TYPE:STRING=(.*)$", cache, re.M)[1],
                   asan_options=env.get("ASAN_OPTIONS"), ubsan_options=env.get("UBSAN_OPTIONS"),
                   input_file=str(input_file.relative_to(REPO)), input_sha256=hashlib.sha256(input_file.read_bytes()).hexdigest(),
                   declarations=json.loads((build/"integration/generated/declarations.json").read_text()))
+    if binding_build["library"]:
+        library = Path(binding_build["library"])
+        result["binding_library"] = library.name
+        result["binding_library_sha256"] = hashlib.sha256(library.read_bytes()).hexdigest()
     if result["status"] == "fail":
-        result["diagnostic"] = log[-12000:]
+        diagnostic = log.replace(str(REPO), "<TRICK_ROOT>").replace(str(native), "<NATIVE_PREFIX>")
+        diagnostic = diagnostic.replace(sys.prefix, "<PYTHON_ENV>").replace(sys.base_prefix, "<PYTHON_BASE>")
+        result["diagnostic"] = diagnostic if len(diagnostic) <= 12000 else diagnostic[:8000] + "\n... truncated ...\n" + diagnostic[-4000:]
         print(log, file=sys.stderr)
     output = opts.output or build/"integration/results.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2)+'\n')
-    print(f"MSD integration: {result['status']} ({len(result['checks'])} contract groups)")
+    print(f"MSD integration ({backend}): {result['status']} ({len(result['checks'])} contract groups)")
     return 0 if result["status"] == "pass" else 1
 
 if __name__ == "__main__":

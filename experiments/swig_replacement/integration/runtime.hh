@@ -1,6 +1,7 @@
 #pragma once
 #include "trick/MemoryManager.hh"
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -56,5 +57,18 @@ template<class T> void adopt(const Handle<T>& object, const char* type, const st
     if (!info || !info->user_type_name || type != std::string(info->user_type_name))
         throw std::runtime_error("cannot adopt an interior object or a different root type");
     object.adopt(name);
+}
+// Both binding libraries own this handle; the shared State owns the native
+// model until adoption. Keep allocation and failure cleanup backend-independent.
+template<class T, class... Args> Handle<T> construct_native(
+    const char* type, TRICK_ALLOC_TYPE allocation, void (*destroy)(void*), Args... args) {
+    T* p = new T(args...);
+    std::shared_ptr<State> state;
+    try { state = make_state(p, type, Owner::python, allocation, destroy); }
+    catch (...) {
+        if (trick_MM->get_alloc_info_at(p)) trick_MM->delete_var(p);
+        destroy(p); throw;
+    }
+    return {state, 0};
 }
 }

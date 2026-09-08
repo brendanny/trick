@@ -12,6 +12,8 @@
 
 Trick::Integrator* trick_curr_integ = nullptr;
 extern double integration_stop_time;
+extern const char* integration_binding_backend;
+extern std::string integration_binding_version;
 // Command-line and termination service adapters for the standalone driver.
 // IPPython itself, including its GIL guards and restart/shutdown paths, is real.
 extern "C" int command_line_args_get_argc() { return 0; }
@@ -89,16 +91,24 @@ int main(int argc, char** argv) {
         require(model().shutdown() == 0, "model shutdown job failed");
         require(ip.parse(read(argv[6])) == 0, "cleanup contracts failed");
         binding::erase("dyn");
-        require(ip.parse("expect_error(lambda: dyn.msd.x)") == 0, "deleted root still accessible");
+        require(ip.parse("expect_error(lambda: dyn.msd.x)\n"
+                         "shutdown_probe = trick.BindingProbe()\n"
+                         "shutdown_alias = shutdown_probe.position\n"
+                         "del shutdown_probe\n"
+                         "shutdown_alias[0] = 1.0") == 0, "shutdown ownership setup failed");
+        require(binding::allocation_count() == 1 && probe_constructions() == probe_destructions() + 1,
+                "interior alias must retain the final Python-owned probe until finalization");
         require(ip.shutdown() == 0 && !Py_IsInitialized(), "IPPython did not finalize");
         require(binding::allocation_count() == 0, "MM allocations remain");
         require(probe_constructions() == probe_destructions(), "probe destructor imbalance");
         std::cout << std::setprecision(17) << "INTEGRATION_RESULT={\"status\":\"pass\",\"steps\":" << steps
+                  << ",\"backend\":\"" << integration_binding_backend << "\",\"binding_version\":\"" << integration_binding_version << "\""
                   << ",\"x\":" << final_x << ",\"v\":" << final_v
                   << ",\"analytic_x_error\":" << std::abs(final_x-expected_x)
                   << ",\"analytic_v_error\":" << std::abs(final_v-expected_v)
                   << ",\"restart_x_error\":" << std::abs(final_x-replay_x)
                   << ",\"restart_v_error\":" << std::abs(final_v-replay_v)
+                  << ",\"python_finalized\":true,\"finalize_owned_probe\":true,\"worker_parse\":true"
                   << ",\"remaining_allocations\":0,\"probe_constructions\":" << probe_constructions()
                   << ",\"probe_destructions\":" << probe_destructions() << "}\n";
         return 0;

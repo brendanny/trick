@@ -13,6 +13,7 @@ import subprocess
 import sys
 
 from clang import cindex as cx
+from emit_boost import emit_boost
 
 
 def compiler_includes(compiler):
@@ -127,10 +128,9 @@ def extract(header, policy, args):
             "policy_sha256": hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()}
 
 
-def emit(model, header_name):
+def emit(model, header_name, backend="pybind"):
     declarations = ['#pragma once', f'#include "{header_name}"', 'extern "C" {']
     metadata = ['#include "generated.hh"', '#include "trick/checkpoint_stl.hh"', '#include <cstdlib>', '#include <new>', '#include <type_traits>']
-    bindings = ['#include "generated.hh"', '#include "bindings.hh"', 'namespace binding {', 'void bind_generated(py::module_& m) {']
     for record in model["records"]:
         name = record["name"]
         fields = record["fields"]
@@ -168,6 +168,16 @@ def emit(model, header_name):
         metadata += ([f'  static_cast<{name}*>(p)->~{name}(); std::free(p);'] if record["allocation"] == "trick_malloc" else [f'  delete static_cast<{name}*>(p);'])
         metadata += ['}', f'void io_src_delete_{name}(void* p) {{ destroy_python_{name}(p); }}', '}']
 
+    declarations += ['}']
+    emitter = {"pybind": emit_pybind, "boost": emit_boost}[backend]
+    return {"generated.hh": '\n'.join(declarations)+'\n', "metadata.cpp": '\n'.join(metadata)+'\n',
+            "bindings.cpp": emitter(model)}
+
+
+def emit_pybind(model):
+    bindings = ['#include "generated.hh"', '#include "bindings.hh"', 'namespace binding {', 'void bind_generated(py::module_& m) {']
+    for record in model["records"]:
+        name, fields = record["name"], record["fields"]
         bindings += [f'  auto cls_{name} = py::class_<Handle<{name}>>(m, "{name}");']
         allocation = "TRICK_ALLOC_MALLOC" if record["allocation"] == "trick_malloc" else "TRICK_ALLOC_NEW"
         for ctor in record["constructors"]:
@@ -189,7 +199,7 @@ def emit(model, header_name):
             else:
                 count = field.get("count", 0)
                 view = f'view(h, &h.get()->{member}, {count}, {unit})'
-                bindings += [f'  cls_{name}.def_property("{member}", [](const Handle<{name}>& h) {{ return {view}; }}, [](const Handle<{name}>& h, py::iterable values) {{ {view}.assign(values); }});']
+                bindings += [f'  cls_{name}.def_property("{member}", [](const Handle<{name}>& h) {{ return {view}; }}, [](const Handle<{name}>& h, py::iterable values) {{ assign_values({view}, values); }});']
         for method in record["methods"]:
             params, call = [], []
             if not method["static"]:
@@ -203,9 +213,8 @@ def emit(model, header_name):
             target = name + '::' if method["static"] else 'self.get()->'
             definition = 'def_static' if method["static"] else 'def'
             bindings += [f'  cls_{name}.{definition}("{method["name"]}", []({", ".join(params)}) {{ return {target}{method["name"]}({", ".join(call)}); }});']
-    declarations += ['}']
     bindings += ['}', '}']
-    return {"generated.hh": '\n'.join(declarations)+'\n', "metadata.cpp": '\n'.join(metadata)+'\n', "bindings.cpp": '\n'.join(bindings)+'\n'}
+    return '\n'.join(bindings)+'\n'
 
 
 def main():
@@ -214,6 +223,7 @@ def main():
     parser.add_argument("--policy", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--compiler", default="c++")
+    parser.add_argument("--backend", choices=("pybind", "boost"), default="pybind")
     parser.add_argument("-I", dest="includes", action="append", default=[])
     opts = parser.parse_args()
     args = ['-x', 'c++', '-std=c++17', '-fparse-all-comments']
@@ -222,7 +232,7 @@ def main():
         args += ['-isystem', directory]
     try:
         model = extract(opts.header.resolve(), json.loads(opts.policy.read_text()), args)
-        generated = emit(model, opts.header.name)
+        generated = emit(model, opts.header.name, opts.backend)
     except ValueError as error:
         print(error, file=sys.stderr)
         return 1

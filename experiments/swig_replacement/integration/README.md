@@ -1,8 +1,13 @@
-# Generated pybind11 bindings through IPPython
+# Generated Python bindings through IPPython
 
 This follow-on to the eight-backend comparison closes selected integration gaps:
 model binding generation, Python-to-Trick ownership transfer, full MM STL restore,
 and execution through the actual `IPPython` implementation.
+
+The default backend is pybind11. A selectable [Boost.Python experiment](BOOST_PYTHON.md)
+uses the same declaration model, native ownership runtime, container views, MSD
+driver and nine integration contract groups. That report covers the dependency
+version constraint exposed by sanitizers and the interpreter-finalization result.
 
 It compiles the **unchanged MSD model sources** from `trick_sims/SIM_msd` and
 Trick's actual RK4 and integrator C interface. A new headless
@@ -29,15 +34,16 @@ ctest --test-dir build/msd --output-on-failure
 ```
 
 Use a separate build directory from the original comparison. The integration-only
-configuration needs pybind11 and libclang, without the other seven adapter
-toolchains. To include this lane in the comparison's build instead, configure
+configuration needs libclang and the selected binding library, without the other
+adapter toolchains. To include this lane in the comparison's build instead, configure
 with `-DPOC_BUILD_INTEGRATION=ON` and install both sets of requirements.
 
 The default `python integration/run.py` uses `build/msd`. `--build-dir` and
 `--output` override its locations. The runner sets up the embedded interpreter,
 loads the separate consumer module, and records diagnostics plus numerical and
 lifetime results. Generated C++, declaration JSON, logs and results stay in the
-build directory. CTest also runs eight generator boundary tests.
+build directory. CTest also runs 17 generator tests: eight boundary tests per
+backend and one check that backend selection preserves declarations and metadata.
 
 For dependencies under a separate prefix, add `-DCMAKE_PREFIX_PATH=/prefix` and
 put its Flex/Bison executables on `PATH`. Extracted Bison installations can also
@@ -53,7 +59,7 @@ a versioned declaration model, and emits two consumers of that model:
 
 * Trick `ATTRIBUTES`, `io_src_*` allocation/destruction hooks, and STL checkpoint,
   restore, cleanup and element-access callbacks.
-* pybind11 constructors, properties, selected method calls, named casts and
+* pybind11 or Boost.Python constructors, properties, selected method calls, named casts and
   ownership-transfer operations over checked model handles.
 
 The policy selects records, callable names and allocation recipes; field names,
@@ -72,6 +78,8 @@ Nested model, array, vector and cross-module handles all share that state. Every
 access checks the MM allocation ID; manager-owned handles also check the restore
 generation. Vector views resolve their container on every call, so vector growth
 does not leave a cached element pointer behind.
+The native value/view implementation in [`values.hh`](values.hh) and constructor
+cleanup in [`runtime.hh`](runtime.hh) are shared by both binding adapters.
 
 `trick.TMMName(object, "name")` explicitly transfers an existing Python-owned
 root to MM. Generated constructors also accept `TMMName="name"`. Failed naming
@@ -97,7 +105,7 @@ pointers escaping the checked-handle API.
 
 The executable compiles the repository's **actual** `InputProcessor.cpp` and
 `IPPython.cpp`. Its legacy-named `init_swig_modules` hook registers a pybind11
-builtin module instead. Generated `castAsTYPE` functions let the existing named
+builtin module instead (or the selected Boost.Python module). Generated `castAsTYPE` functions let the existing named
 variable refresh run unchanged. The test executes `init`, worker-thread `parse`,
 `restart`, and `shutdown`/Python finalization. Logging, command-line and termination
 services have small standalone adapters. Neither a SWIG runtime nor SWIG-generated

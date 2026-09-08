@@ -1,0 +1,4 @@
+# Boost.Python itself is a native dependency; install it for the selected Python.
+libclang==18.1.1
+cmake==4.4.3
+ninja==1.13.2
