@@ -225,7 +225,11 @@ python3 tools/icg_baseline/differential.py \
 
 This checks source and legacy-sidecar fingerprints for `anonymous-enum`,
 `deleted-constructor`, and `embedded`, validates fresh facts, and compares the
-captured record and enum tables. It then compiles and links the entire captured
+captured record and enum tables. All three headers are included in a synthetic
+`S_source.hh`; each comparison explicitly requests its model header and retains
+the selection evidence. The other included headers must not become metadata
+roots accidentally. This still compares legacy-generated C++, not rewrite output.
+It then compiles and links the entire captured
 C++ with the real Trick headers, `UnitsMap.cpp`, and the Starter constructor.
 There is no substituted metadata ABI or mocked runtime implementation.
 

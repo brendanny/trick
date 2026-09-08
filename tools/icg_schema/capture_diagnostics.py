@@ -49,6 +49,12 @@ CASES = {
         ["ICG_UNSUPPORTED_DECLARATION"],
     ),
     "invalid-encoding": (b"/* caf\xe9 */\nstruct A {};", 1, ["ICG_INVALID_ENCODING"]),
+    "unattached-encoding": (
+        b"// caf\xe9\n#pragma once\nstruct A {};",
+        1,
+        ["ICG_INVALID_ENCODING"],
+    ),
+    "selection-file": (b"struct A {};", 2, ["ICG_SELECTION_FILE"]),
     "parse-error": (b"struct A : Missing {};", 1, []),
     "paired-argument": (b"struct A {};", 2, ["ICG_ARGUMENT_VALUE"]),
     "warning": (b"#warning icg-warning\nstruct A {};", 0, []),
@@ -94,6 +100,11 @@ def capture(extractor: Path, output: Path) -> dict:
                     "--diagnostics-format=json",
                     "--source-root",
                     directory,
+                    *(
+                        ["--select-file", str(header.parent / "absent.hh")]
+                        if name == "selection-file"
+                        else []
+                    ),
                     str(header),
                     "--",
                     *(["-I", "-DSECRET=1"] if name == "paired-argument" else []),
@@ -106,7 +117,7 @@ def capture(extractor: Path, output: Path) -> dict:
             envelope = json.loads(result.stderr)
             if (
                 envelope["document_kind"] != "trick.icg.diagnostics"
-                or envelope["schema_version"] != 2
+                or envelope["schema_version"] != 3
             ):
                 raise ValueError(f"{name}: invalid diagnostics envelope")
             diagnostics = envelope["diagnostics"]

@@ -10,12 +10,22 @@ incomplete-record layout, and direct type cycles. Each array node represents one
 dimension, with CVR qualification on its element. Recursive record references are
 valid; a pointer/alias graph cannot refer to itself without a record boundary.
 
-Facts schema version 11 retains validation of the normalized `graph_digest` independently of
+Facts schema version 12 retains validation of the normalized `graph_digest` independently of
 the extractor. `graph_digest_version` and `identity_version` are required and
 currently 1; older facts versions and unknown fingerprint/identity versions fail.
 The projection retains all graph facts except file `path.spelled`/`path.real`,
 sorts top-level node arrays by ID, and excludes diagnostics and other provenance.
 It is output-equivalence evidence, not a production cache key or ABI assertion.
+
+Version 12 requires explicit selection provenance, observed policy environment,
+physical file comments, and record friend evidence. Validation checks selection
+references/scope, unique roots, comment byte spans/order/ownership, and friend
+target/signature consistency when the target is also published. External friend
+USRs do not require graph expansion. Structural mutation tests recompute the
+fingerprint before validation. Diagnostics now use envelope v3 because file nodes
+include comments. Prior facts require re-extraction; missing evidence cannot be
+replaced with empty arrays. The nine-fixture cross-version gate compares selection
+requests as well as graphs and twelve fail-closed diagnostic cases.
 
 Known capability prerequisites are checked in both directions: only bitfields
 may carry `BITFIELD_NOT_ADDRESSABLE`, attached to `field-address`, and all

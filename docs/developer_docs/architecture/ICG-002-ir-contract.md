@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 11; the independent diagnostics envelope is v2.
+current facts schema is version 12; the independent diagnostics envelope is v3.
 
 The document contains frontend facts only:
 
@@ -573,3 +573,46 @@ non-dependent alias sugar and declaration-only friends. Integration additionally
 extracts the real `SIM_test_templates/models/TemplateTest.hh` and retains negative
 friend-definition/template cases. `graph_digest_version` remains 1; digests change
 because their projection includes `schema_version`. Diagnostics remain v2.
+
+
+## Version 12: preserve evidence for legacy policy
+
+Extractor 0.12.0 adds `provenance.selection`, `provenance.policy_environment`,
+`files[].comments`, and concrete records' `friends`. The default remains main-file
+roots plus full supported dependency closure. Explicit repeated `--select-file`
+requests replace those roots; resolved file IDs and source-located root occurrences
+record the scope without interpreting Trick exclusions. Unobserved files are
+errors. Both the request and observed policy environment enter `input_digest`;
+only the selection evidence is additionally required equal by cross-version CI.
+
+Raw comments retain preprocessor-observed physical bytes and half-open source
+spans, deduplicated per file/offset and sorted by offset. They coexist with
+Clang-attached annotations. This does not claim coverage of unopened files or
+all inactive branches, or reproduce CommentSaver's association/precedence rules.
+Invalid UTF-8 fails even when no declaration owns the comment. Exclusion and
+no-comment environment values are recorded without applying policy.
+
+Friend evidence is owned by its complete concrete record. Target USRs and
+canonical return/parameter type USRs identify semantic targets and signature
+components without expanding unrelated implementation graphs. These are opaque
+Clang USRs, not owned declaration/type IDs or a persistent cache contract.
+Function evidence also carries void-return, variadic, method, CV/ref, language
+linkage, supported calling convention, and tri-state exception facts. Unsupported
+extended signature forms, friend definitions, and friend templates fail closed.
+The validator checks target kind/signature consistency when that USR also appears
+in the published graph. No frontend fact grants a backend access permission;
+matching-name and mismatched-overload native compile controls characterize the
+boundary for subsequent policy. Dependent pattern bodies remain unmodeled.
+
+This wire addition also changes diagnostics' shared file shape, so the independent
+envelope advances from v2 to v3. Consumers must re-extract older facts instead of
+relabeling v11 or filling unknown evidence with empty arrays. The v11 C++17 POD
+meaning is retained; declaration identity and graph-digest algorithm versions
+remain 1. File comments and friend evidence now participate in the graph digest,
+so v11/v12 graph digests are expected to differ.
+
+Typed owned declaration headers and friend builders, plus separate source and
+selection modules, accompany this increment. Record/callable builders and broader
+module separation remain follow-up work. There is still no resolved policy or
+rewrite-generated metadata; the differential runner continues to compile legacy
+output, now against facts requested through a multi-header synthetic input.

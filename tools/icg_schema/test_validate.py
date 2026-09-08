@@ -25,6 +25,152 @@ class ValidateTests(unittest.TestCase):
         value["provenance"]["graph_digest"] = ir.graph_digest(value)
         ir.validate(schema, value)
 
+    def test_selection_references_scope_and_duplicates_are_checked(self):
+        for mutation, message in (
+            (lambda s: s["file_ids"].append("file:missing"), "dangling reference"),
+            (
+                lambda s: s["roots"][0].update(declaration_id="decl:missing"),
+                "dangling reference",
+            ),
+            (
+                lambda s: s["roots"][0].update(declaration_id="decl:sample.value"),
+                "not a selectable",
+            ),
+            (
+                lambda s: s["roots"].append(copy.deepcopy(s["roots"][0])),
+                "duplicate selection",
+            ),
+        ):
+            with self.subTest(message=message):
+                document = copy.deepcopy(self.fixture)
+                mutation(document["provenance"]["selection"])
+                with self.assertRaisesRegex(ValueError, message):
+                    self.validate(self.schema, document)
+
+    def test_selection_main_file_and_root_locations_are_checked(self):
+        document = copy.deepcopy(self.fixture)
+        other = copy.deepcopy(document["files"][0])
+        other["id"] = "file:other"
+        other["path"]["portable"] = "other.hh"
+        document["files"].append(other)
+        document["provenance"]["selection"]["file_ids"] = ["file:other"]
+        with self.assertRaisesRegex(ValueError, "must select the translation unit"):
+            self.validate(self.schema, document)
+        document["provenance"]["selection"]["mode"] = "explicit-files"
+        with self.assertRaisesRegex(ValueError, "outside the requested files"):
+            self.validate(self.schema, document)
+
+    def raw_comment_document(self):
+        document = copy.deepcopy(self.fixture)
+        source = copy.deepcopy(document["declarations"][0]["source"])
+        source["end"].update(line=1, column=12, offset=11)
+        document["files"][0]["comments"] = [{"payload": "/* café */", "source": source}]
+        return document
+
+    def test_raw_comment_bytes_and_source_are_validated(self):
+        document = self.raw_comment_document()
+        self.validate(self.schema, document)
+        for mutation in (
+            lambda c: c.update(payload="/* cafe */"),
+            lambda c: c["source"]["end"].update(offset=99),
+            lambda c: c["source"].update(macro_expansion=True),
+            lambda c: c["source"]["expansion"].update(offset=1),
+        ):
+            changed = copy.deepcopy(document)
+            mutation(changed["files"][0]["comments"][0])
+            with self.assertRaisesRegex(ValueError, "raw comment"):
+                self.validate(self.schema, changed)
+
+    def test_raw_comments_cannot_overlap_or_reference_another_file(self):
+        document = self.raw_comment_document()
+        document["files"][0]["comments"] *= 2
+        with self.assertRaisesRegex(ValueError, "raw comment"):
+            self.validate(self.schema, document)
+        document = self.raw_comment_document()
+        other = copy.deepcopy(document["files"][0])
+        other["id"] = "file:other"
+        other["path"]["portable"] = "other.hh"
+        other["comments"] = []
+        document["files"].append(other)
+        document["files"][0]["comments"][0]["source"]["end"]["file_id"] = "file:other"
+        with self.assertRaisesRegex(ValueError, "raw comment"):
+            self.validate(self.schema, document)
+
+    def friend_document(self):
+        document = self.callable_document()
+        record, target = document["declarations"][0], document["declarations"][-1]
+        record["friends"] = [
+            {
+                "target_kind": "function",
+                "target_usr": target["usr"],
+                "target_qualified_name": target["qualified_name"],
+                "source": copy.deepcopy(record["source"]),
+                "signature": {
+                    "return_type_usr": "I",
+                    "parameter_type_usrs": ["I"],
+                    "returns_void": False,
+                    "variadic": False,
+                    "method": False,
+                    "language_linkage": "c++",
+                    "noexcept": "false",
+                    "calling_convention": "c",
+                    "const": False,
+                    "volatile": False,
+                    "ref_qualifier": "none",
+                },
+            }
+        ]
+        return document
+
+    def test_friend_signature_is_checked_against_published_target(self):
+        document = self.friend_document()
+        self.validate(self.schema, document)
+        for key, value in (
+            ("returns_void", True),
+            ("parameter_type_usrs", []),
+            ("variadic", True),
+            ("method", True),
+            ("language_linkage", "c"),
+            ("noexcept", "true"),
+            ("const", True),
+            ("volatile", True),
+            ("ref_qualifier", "lvalue"),
+        ):
+            changed = copy.deepcopy(document)
+            changed["declarations"][0]["friends"][0]["signature"][key] = value
+            with self.assertRaisesRegex(ValueError, "friend signature"):
+                self.validate(self.schema, changed)
+
+    def test_friend_kind_and_owner_are_checked(self):
+        document = self.friend_document()
+        friend = document["declarations"][0]["friends"][0]
+        friend.update(target_kind="record", signature=None)
+        with self.assertRaisesRegex(ValueError, "friend target kind"):
+            self.validate(self.schema, document)
+        document = self.friend_document()
+        document["declarations"][1]["friends"] = document["declarations"][0]["friends"]
+        with self.assertRaisesRegex(ValueError, "record owner"):
+            self.validate(self.schema, document)
+
+    def test_friend_external_target_does_not_require_a_graph_node(self):
+        document = self.friend_document()
+        document["declarations"][0]["friends"][0]["target_usr"] = "c:@F@external#I#"
+        self.validate(self.schema, document)
+
+    def test_v11_cannot_be_relabelled_without_new_evidence(self):
+        document = copy.deepcopy(self.fixture)
+        document["schema_version"] = 11
+        with self.assertRaises(ValidationError):
+            self.validate(self.schema, document)
+        document["schema_version"] = 12
+        del document["provenance"]["selection"]
+        with self.assertRaises(ValidationError):
+            self.validate(self.schema, document)
+        document = copy.deepcopy(self.fixture)
+        del document["declarations"][0]["friends"]
+        with self.assertRaisesRegex(ValueError, "friend evidence"):
+            self.validate(self.schema, document)
+
     def template_document(self, argument_kind="type", pack=False):
         document = copy.deepcopy(self.fixture)
         record, field = document["declarations"]
@@ -472,7 +618,8 @@ class ValidateTests(unittest.TestCase):
             lambda value: value.update(schema_version=8),
             lambda value: value.update(schema_version=9),
             lambda value: value.update(schema_version=10),
-            lambda value: value.update(schema_version=12),
+            lambda value: value.update(schema_version=11),
+            lambda value: value.update(schema_version=13),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)
@@ -627,6 +774,7 @@ class ValidateTests(unittest.TestCase):
             "nested_declaration_ids",
             "callable_ids",
             "special_members",
+            "friends",
             "bases",
             "virtual_base_offsets",
             "data_size_bits",

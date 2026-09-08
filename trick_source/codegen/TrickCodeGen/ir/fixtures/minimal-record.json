@@ -1,8 +1,8 @@
 {
-  "schema_version": 11,
+  "schema_version": 12,
   "document_kind": "trick.icg.extracted-facts",
   "provenance": {
-    "extractor_version": "0.10.0-synthetic-fixture",
+    "extractor_version": "0.12.0-synthetic-fixture",
     "frontend_api": "libtooling",
     "frontend_version": "17.0.6",
     "translation_unit": "file:fixture",
@@ -14,8 +14,42 @@
     "input_digest": "0000000000000000000000000000000000000000000000000000000000000000",
     "identity_version": 1,
     "graph_digest_version": 1,
-    "graph_digest": "396e08d6c87340f6d0e89c4c2381c98a2aad6719acc5303db207fe0eca7dfd69",
-    "environment": {}
+    "graph_digest": "0f74df76150ebb3b78d83500c2e1bb25e880dbf548c6348a0fa4e9755b85bf94",
+    "environment": {},
+    "selection": {
+      "mode": "main-file",
+      "required_facts": "supported-declaration-closure",
+      "file_ids": [
+        "file:fixture"
+      ],
+      "roots": [
+        {
+          "declaration_id": "decl:sample",
+          "source": {
+            "spelling": {
+              "file_id": "file:fixture",
+              "line": 1,
+              "column": 1,
+              "offset": 0
+            },
+            "expansion": {
+              "file_id": "file:fixture",
+              "line": 1,
+              "column": 1,
+              "offset": 0
+            },
+            "end": {
+              "file_id": "file:fixture",
+              "line": 3,
+              "column": 2,
+              "offset": 33
+            },
+            "macro_expansion": false
+          }
+        }
+      ]
+    },
+    "policy_environment": {}
   },
   "files": [
     {
@@ -28,7 +62,8 @@
       },
       "classification": "user",
       "digest": "0000000000000000000000000000000000000000000000000000000000000000",
-      "includes": []
+      "includes": [],
+      "comments": []
     }
   ],
   "types": [
@@ -58,9 +93,24 @@
       "identity_kind": "usr",
       "anonymous": false,
       "source": {
-        "spelling": {"file_id": "file:fixture", "line": 1, "column": 1, "offset": 0},
-        "expansion": {"file_id": "file:fixture", "line": 1, "column": 1, "offset": 0},
-        "end": {"file_id": "file:fixture", "line": 3, "column": 2, "offset": 33},
+        "spelling": {
+          "file_id": "file:fixture",
+          "line": 1,
+          "column": 1,
+          "offset": 0
+        },
+        "expansion": {
+          "file_id": "file:fixture",
+          "line": 1,
+          "column": 1,
+          "offset": 0
+        },
+        "end": {
+          "file_id": "file:fixture",
+          "line": 3,
+          "column": 2,
+          "offset": 33
+        },
         "macro_expansion": false
       },
       "access": "none",
@@ -81,21 +131,76 @@
       "data_size_bits": 32,
       "non_virtual_size_bits": 32,
       "non_virtual_alignment_bits": 32,
-      "field_ids": ["decl:sample.value"],
+      "field_ids": [
+        "decl:sample.value"
+      ],
       "nested_declaration_ids": [],
       "callable_ids": [],
       "special_members": [
-        {"kind": "default_constructor", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
-        {"kind": "copy_constructor", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
-        {"kind": "move_constructor", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
-        {"kind": "copy_assignment", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
-        {"kind": "move_assignment", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"},
-        {"kind": "destructor", "state": "implicit", "declaration_ids": [], "deleted": false, "trivial": true, "virtual": false, "noexcept": "true"}
+        {
+          "kind": "default_constructor",
+          "state": "implicit",
+          "declaration_ids": [],
+          "deleted": false,
+          "trivial": true,
+          "virtual": false,
+          "noexcept": "true"
+        },
+        {
+          "kind": "copy_constructor",
+          "state": "implicit",
+          "declaration_ids": [],
+          "deleted": false,
+          "trivial": true,
+          "virtual": false,
+          "noexcept": "true"
+        },
+        {
+          "kind": "move_constructor",
+          "state": "implicit",
+          "declaration_ids": [],
+          "deleted": false,
+          "trivial": true,
+          "virtual": false,
+          "noexcept": "true"
+        },
+        {
+          "kind": "copy_assignment",
+          "state": "implicit",
+          "declaration_ids": [],
+          "deleted": false,
+          "trivial": true,
+          "virtual": false,
+          "noexcept": "true"
+        },
+        {
+          "kind": "move_assignment",
+          "state": "implicit",
+          "declaration_ids": [],
+          "deleted": false,
+          "trivial": true,
+          "virtual": false,
+          "noexcept": "true"
+        },
+        {
+          "kind": "destructor",
+          "state": "implicit",
+          "declaration_ids": [],
+          "deleted": false,
+          "trivial": true,
+          "virtual": false,
+          "noexcept": "true"
+        }
       ],
       "annotations": [],
       "capabilities": [
-        {"name": "frontend-record-layout", "status": "supported", "reason_code": "SUPPORTED"}
-      ]
+        {
+          "name": "frontend-record-layout",
+          "status": "supported",
+          "reason_code": "SUPPORTED"
+        }
+      ],
+      "friends": []
     },
     {
       "id": "decl:sample.value",
@@ -106,9 +211,24 @@
       "identity_kind": "usr",
       "anonymous_member": false,
       "source": {
-        "spelling": {"file_id": "file:fixture", "line": 2, "column": 5, "offset": 20},
-        "expansion": {"file_id": "file:fixture", "line": 2, "column": 5, "offset": 20},
-        "end": {"file_id": "file:fixture", "line": 2, "column": 14, "offset": 29},
+        "spelling": {
+          "file_id": "file:fixture",
+          "line": 2,
+          "column": 5,
+          "offset": 20
+        },
+        "expansion": {
+          "file_id": "file:fixture",
+          "line": 2,
+          "column": 5,
+          "offset": 20
+        },
+        "end": {
+          "file_id": "file:fixture",
+          "line": 2,
+          "column": 14,
+          "offset": 29
+        },
         "macro_expansion": false
       },
       "access": "public",

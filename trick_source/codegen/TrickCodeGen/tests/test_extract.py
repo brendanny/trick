@@ -75,7 +75,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 11)
+        self.assertEqual(document["schema_version"], 12)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -83,7 +83,7 @@ class ExtractTests(unittest.TestCase):
 
     def report(self, result):
         report = json.loads(result.stderr)
-        self.assertEqual(report["schema_version"], 2)
+        self.assertEqual(report["schema_version"], 3)
         self.assertEqual(report["document_kind"], "trick.icg.diagnostics")
         ids = {node["id"] for node in report["files"]}
         for node in report["files"]:
@@ -2805,6 +2805,298 @@ enum PodTraits {
         self.assertEqual(nodes["Model"]["nested_declaration_ids"], [])
         self.assertNotIn("init_attrModel", nodes)
         self.assertNotIn("InputProcessor", nodes)
+        friends = nodes["Model"]["friends"]
+        self.assertEqual([f["target_kind"] for f in friends], ["record", "function"])
+        self.assertEqual(
+            [f["target_qualified_name"] for f in friends],
+            ["InputProcessor", "init_attrModel"],
+        )
+        self.assertTrue(all(f["source"]["macro_expansion"] for f in friends))
+        self.assertIsNone(friends[0]["signature"])
+        self.assertTrue(friends[1]["signature"]["returns_void"])
+        self.assertEqual(friends[1]["signature"]["parameter_type_usrs"], [])
+        self.assertFalse(friends[1]["signature"]["method"])
+
+    def test_explicit_file_selection_preserves_roots_and_dependency_boundaries(self):
+        (self.root / "dependency.hh").write_text(
+            "#pragma once\nstruct Dependency { int x; }; struct UnusedDependency {};\n"
+        )
+        (self.root / "first.hh").write_text(
+            '#include "dependency.hh"\nstruct First { Dependency d; };\n'
+        )
+        (self.root / "second.hh").write_text("struct UnreferencedModel { int y; };\n")
+        self.header.write_text(
+            '#include "first.hh"\n#include "second.hh"\nstruct Main {};\n'
+        )
+        default = self.success(self.invoke())
+        self.assertEqual(set(self.declarations(default)), {"Main"})
+        options = ["--select-file", "first.hh", "--select-file", "second.hh"]
+        document = self.success(self.invoke(options=options))
+        nodes = self.declarations(document)
+        self.assertIn("Dependency", nodes)
+        self.assertIn("UnreferencedModel", nodes)
+        self.assertNotIn("UnusedDependency", nodes)
+        self.assertNotIn("Main", nodes)
+        selected = document["provenance"]["selection"]
+        self.assertEqual(selected["mode"], "explicit-files")
+        self.assertEqual(
+            {r["declaration_id"] for r in selected["roots"]},
+            {nodes[n]["id"] for n in ("First", "UnreferencedModel")},
+        )
+        self.assertNotEqual(
+            default["provenance"]["input_digest"],
+            document["provenance"]["input_digest"],
+        )
+        (self.root / "alias.hh").symlink_to(self.root / "first.hh")
+        reordered = self.success(
+            self.invoke(
+                options=[
+                    "--select-file",
+                    "second.hh",
+                    "--select-file",
+                    "alias.hh",
+                    "--select-file",
+                    "first.hh",
+                ]
+            )
+        )
+        self.assertEqual(document, reordered)
+
+    def test_explicit_main_selection_changes_request_identity_only(self):
+        default = self.success(self.invoke())
+        explicit = self.success(self.invoke(options=["--select-file", "record.hh"]))
+        self.assertEqual(
+            default["provenance"]["graph_digest"],
+            explicit["provenance"]["graph_digest"],
+        )
+        self.assertNotEqual(
+            default["provenance"]["input_digest"],
+            explicit["provenance"]["input_digest"],
+        )
+
+    def test_policy_environment_is_evidence_and_does_not_apply_exclusions(self):
+        first = self.success(self.invoke())
+        environment = {
+            **os.environ,
+            "TRICK_ICG_IGNORE_TYPES": "Sample",
+            "TRICK_ICG_NOCOMMENT": str(self.root),
+        }
+        second = self.success(self.invoke(env=environment))
+        self.assertEqual(
+            second["provenance"]["policy_environment"]["TRICK_ICG_IGNORE_TYPES"],
+            "Sample",
+        )
+        self.assertEqual(
+            second["provenance"]["policy_environment"]["TRICK_ICG_NOCOMMENT"],
+            str(self.root),
+        )
+        self.assertEqual(first["declarations"], second["declarations"])
+        self.assertEqual(
+            first["provenance"]["graph_digest"], second["provenance"]["graph_digest"]
+        )
+        self.assertNotEqual(
+            first["provenance"]["input_digest"], second["provenance"]["input_digest"]
+        )
+
+    def test_friend_access_evidence_agrees_with_the_native_compiler(self):
+        if LAYOUT_COMPILER is None:
+            self.skipTest("pass --layout-compiler to check native friend access")
+        self.header.write_text(
+            "class Model { friend void init_attrModel(); int hidden; };\n"
+        )
+        document = self.success(self.invoke())
+        friend = self.declarations(document)["Model"]["friends"][0]
+        self.assertEqual(friend["target_qualified_name"], "init_attrModel")
+        self.assertTrue(friend["signature"]["returns_void"])
+        self.assertEqual(friend["signature"]["parameter_type_usrs"], [])
+        for declaration, permitted in (
+            ("void init_attrModel()", True),
+            ("void init_attrOther()", False),
+            ("void init_attrModel(int)", False),
+        ):
+            source = self.root / "access.cpp"
+            source.write_text(
+                f'#include "record.hh"\n{declaration} {{ Model value; value.hidden = 1; }}\n'
+            )
+            result = subprocess.run(
+                [str(LAYOUT_COMPILER), "-std=c++17", "-fsyntax-only", str(source)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode == 0, permitted, result.stderr)
+
+    def test_selection_rejects_missing_unobserved_and_flag_values(self):
+        (self.root / "unobserved.hh").write_text("struct Unobserved {};\n")
+        for options, code in (
+            (["--select-file", "missing.hh"], 2),
+            (["--select-file", "."], 2),
+            (["--select-file", "--source-root", str(self.root)], 2),
+            (["--select-file", "unobserved.hh"], 1),
+        ):
+            with self.subTest(options=options):
+                result = self.invoke(options=options)
+                self.failure(result, "ICG_SELECTION_FILE")
+                self.assertEqual(result.returncode, code)
+
+    def test_selection_never_masks_required_fact_or_parse_errors(self):
+        other = self.root / "other.hh"
+        other.write_text(
+            "extern int unrelated;\nstruct Required { static int unsupported; };\n"
+        )
+        self.header.write_text('#include "other.hh"\nstruct Main { int x; };\n')
+        self.success(self.invoke())
+        self.failure(
+            self.invoke(options=["--select-file", "other.hh"]),
+            "ICG_UNSUPPORTED_DECLARATION",
+        )
+        self.header.write_text(
+            '#include "other.hh"\nstruct Main { Required value; };\n'
+        )
+        self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
+        other.write_text("struct SyntaxError : nonexistent {};\n")
+        report = self.failure(self.invoke())
+        self.assertTrue(
+            any(d["code"].startswith("CLANG_") for d in report["diagnostics"])
+        )
+
+    def test_raw_comments_preserve_unattached_and_same_line_bytes(self):
+        payload = (
+            "/** PURPOSE: (selection evidence) ICG_IGNORE_TYPES: ((Ignored)) */\r\n"
+            "// café before a directive\r\n#pragma once\r\n"
+            "struct Sample {\r\n"
+            "int value; /* trick_units(m) */ /* second comment */\r\n"
+            "}; // trailing record comment\r\n"
+        ).encode("utf-8")
+        self.header.write_bytes(payload)
+        document = self.success(self.invoke())
+        comments = document["files"][0]["comments"]
+        self.assertEqual(len(comments), 5)
+        self.assertIn("ICG_IGNORE_TYPES", comments[0]["payload"])
+        self.assertEqual(comments[2]["payload"], "/* trick_units(m) */")
+        self.assertEqual(comments[3]["payload"], "/* second comment */")
+        for comment in comments:
+            source = comment["source"]
+            start, end = source["spelling"]["offset"], source["end"]["offset"]
+            self.assertEqual(payload[start:end], comment["payload"].encode("utf-8"))
+            self.assertFalse(source["macro_expansion"])
+        self.assertEqual(document, self.success(self.invoke()))
+
+    def test_unattached_comment_encoding_fails_closed(self):
+        self.header.write_bytes(b"// caf\xe9\n#pragma once\nstruct Sample {};\n")
+        self.failure(self.invoke(), "ICG_INVALID_ENCODING")
+
+    def test_raw_comments_preserve_line_splices(self):
+        payload = b"/\\\n* split opening */\n/* split ending *\\\n/\n#pragma once\nstruct Sample {};\n"
+        self.header.write_bytes(payload)
+        document = self.success(self.invoke())
+        comments = document["files"][0]["comments"]
+        self.assertEqual(len(comments), 2)
+        for comment in comments:
+            span = comment["source"]
+            self.assertEqual(
+                payload[span["spelling"]["offset"] : span["end"]["offset"]],
+                comment["payload"].encode(),
+            )
+
+    def test_policy_environment_encoding_fails_closed(self):
+        self.failure(
+            self.invoke(env={**os.environ, "TRICK_ICG_IGNORE_TYPES": "caf\udce9"}),
+            "ICG_INVALID_ENCODING",
+        )
+
+    def test_comments_from_reentered_files_are_not_duplicated(self):
+        (self.root / "comments.hh").write_text("/* repeated physical comment */\n")
+        self.header.write_text(
+            '#include "comments.hh"\n#include "comments.hh"\nstruct Sample {};\n'
+        )
+        document = self.success(self.invoke())
+        included = next(
+            f for f in document["files"] if f["path"]["portable"] == "comments.hh"
+        )
+        self.assertEqual(
+            [c["payload"] for c in included["comments"]],
+            ["/* repeated physical comment */"],
+        )
+
+    def test_friend_targets_distinguish_overloads_without_dependency_expansion(self):
+        (self.root / "friends.hh").write_text(
+            "struct InputProcessor { static int unsupported; };\n"
+        )
+        self.header.write_text(
+            '#include "friends.hh"\nnamespace N { struct Model {\n'
+            "friend class ::InputProcessor;\nfriend void init_attrModel();\n"
+            "friend int init_attrModel(int);\nfriend int init_attrModel(double);\n"
+            "int value; }; }\n"
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertNotIn("InputProcessor", nodes)
+        friends = nodes["N::Model"]["friends"]
+        self.assertEqual(len({f["target_usr"] for f in friends}), 4)
+        self.assertEqual(
+            {f["target_qualified_name"] for f in friends[1:]}, {"N::init_attrModel"}
+        )
+        self.assertTrue(friends[1]["signature"]["returns_void"])
+        self.assertFalse(friends[2]["signature"]["returns_void"])
+        self.assertNotEqual(
+            friends[2]["signature"]["parameter_type_usrs"],
+            friends[3]["signature"]["parameter_type_usrs"],
+        )
+        self.assertEqual(nodes["N::Model"]["callable_ids"], [])
+
+    def test_friend_method_and_special_member_signature_evidence(self):
+        self.header.write_text(
+            "struct Accessor { Accessor(); ~Accessor(); void touch() const & noexcept; };\n"
+            "class Model { friend Accessor::Accessor(); friend Accessor::~Accessor(); "
+            "friend void Accessor::touch() const & noexcept; int hidden; };\n"
+        )
+        document = self.success(self.invoke())
+        friends = self.declarations(document)["Model"]["friends"]
+        self.assertEqual(len(friends), 3)
+        self.assertTrue(all(f["signature"]["method"] for f in friends))
+        self.assertTrue(all(f["signature"]["returns_void"] for f in friends))
+        self.assertTrue(friends[-1]["signature"]["const"])
+        self.assertEqual(friends[-1]["signature"]["ref_qualifier"], "lvalue")
+        self.assertEqual(friends[-1]["signature"]["noexcept"], "true")
+
+    def test_real_header_selection_and_policy_evidence(self):
+        embedded = ROOT / "test/SIM_test_ip/models/test_ip/include/EmbeddedClasses.hh"
+        template = ROOT / "test/SIM_test_templates/models/TemplateTest.hh"
+        self.header.write_text(f'#include "{embedded}"\n#include "{template}"\n')
+        document = self.success(
+            self.invoke(
+                options=[
+                    "--path-root",
+                    f"trick={ROOT}",
+                    "--select-file",
+                    str(embedded),
+                    "--select-file",
+                    str(template),
+                ]
+            )
+        )
+        nodes = self.declarations(document)
+        # Evidence deliberately retains the types that legacy policy excludes.
+        self.assertIn("IgnoreType1", nodes)
+        self.assertIn("TopClass::PrivateEmbed", nodes)
+        files = {f["path"]["real"]: f for f in document["files"]}
+        self.assertTrue(
+            any(
+                "ICG_IGNORE_TYPES" in c["payload"]
+                for c in files[str(embedded)]["comments"]
+            )
+        )
+        self.assertTrue(
+            any(
+                "trick_units(r)" in c["payload"]
+                for c in files[str(embedded)]["comments"]
+            )
+        )
+        self.assertEqual(
+            {f["target_qualified_name"] for f in nodes["TemplateTest"]["friends"]},
+            {"InputProcessor", "init_attrTemplateTest"},
+        )
 
     def test_friend_definitions_and_templates_remain_fail_closed(self):
         for member in (

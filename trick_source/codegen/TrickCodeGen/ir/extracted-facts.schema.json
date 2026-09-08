@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v11.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v12.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 11},
+    "schema_version": {"const": 12},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -57,7 +57,9 @@
         "input_digest",
         "identity_version",
         "graph_digest_version",
-        "graph_digest"
+        "graph_digest",
+        "selection",
+        "policy_environment"
       ],
       "properties": {
         "extractor_version": {"type": "string", "minLength": 1},
@@ -84,6 +86,16 @@
         "environment": {
           "type": "object",
           "additionalProperties": {"type": "string"}
+        },
+        "selection": {
+          "$ref": "#/$defs/selection"
+        },
+        "policy_environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Observed legacy policy environment; recorded but not applied by the extractor."
         }
       }
     },
@@ -101,7 +113,7 @@
     "file": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "path", "classification", "digest", "includes"],
+      "required": ["id", "path", "classification", "digest", "includes", "comments"],
       "properties": {
         "id": {"$ref": "#/$defs/id"},
         "path": {"$ref": "#/$defs/path"},
@@ -110,6 +122,12 @@
         "includes": {
           "type": "array",
           "items": {"$ref": "#/$defs/include"}
+        },
+        "comments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/raw_comment"
+          }
         }
       }
     },
@@ -488,7 +506,13 @@
         "defaulted": {"type": "boolean"},
         "explicit": {"type": "boolean"},
         "annotations": {"type": "array", "items": {"$ref": "#/$defs/annotation"}},
-        "capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}}
+        "capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}},
+        "friends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/friend"
+          }
+        }
       }
     },
     "diagnostic": {
@@ -502,6 +526,208 @@
         "source": {"anyOf": [{"$ref": "#/$defs/source"}, {"type": "null"}]},
         "fixits": {"type": "array", "items": {"type": "string"}}
       }
+    },
+    "raw_comment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "payload",
+        "source"
+      ],
+      "properties": {
+        "payload": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      }
+    },
+    "selection_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declaration_id",
+        "source"
+      ],
+      "properties": {
+        "declaration_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "required_facts",
+        "file_ids",
+        "roots"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "main-file",
+            "explicit-files"
+          ]
+        },
+        "required_facts": {
+          "const": "supported-declaration-closure"
+        },
+        "file_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/selection_root"
+          }
+        }
+      }
+    },
+    "friend_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "return_type_usr",
+        "parameter_type_usrs",
+        "returns_void",
+        "variadic",
+        "method",
+        "language_linkage",
+        "noexcept",
+        "calling_convention",
+        "const",
+        "volatile",
+        "ref_qualifier"
+      ],
+      "properties": {
+        "return_type_usr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameter_type_usrs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "returns_void": {
+          "type": "boolean"
+        },
+        "variadic": {
+          "type": "boolean"
+        },
+        "method": {
+          "type": "boolean"
+        },
+        "language_linkage": {
+          "enum": [
+            "c",
+            "c++",
+            "none"
+          ]
+        },
+        "noexcept": {
+          "enum": [
+            "true",
+            "false",
+            "unknown"
+          ]
+        },
+        "calling_convention": {
+          "const": "c"
+        },
+        "const": {
+          "type": "boolean"
+        },
+        "volatile": {
+          "type": "boolean"
+        },
+        "ref_qualifier": {
+          "enum": [
+            "none",
+            "lvalue",
+            "rvalue"
+          ]
+        }
+      }
+    },
+    "friend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_kind",
+        "target_usr",
+        "target_qualified_name",
+        "source",
+        "signature"
+      ],
+      "properties": {
+        "target_kind": {
+          "enum": [
+            "record",
+            "function"
+          ]
+        },
+        "target_usr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_qualified_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/friend_signature"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "target_kind": {
+                "const": "record"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "signature": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "signature": {
+                "$ref": "#/$defs/friend_signature"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

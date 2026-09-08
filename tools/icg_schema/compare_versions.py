@@ -23,6 +23,7 @@ FIXTURES = (
     "callables",
     "templates",
     "linkage",
+    "evidence",
 )
 
 
@@ -55,6 +56,7 @@ def compare(schema: dict, lanes: dict[int, Path]) -> dict:
                 "target_triple": provenance["target_triple"],
                 "language_standard": provenance["language_standard"],
                 "graph_digest": provenance["graph_digest"],
+                "selection": provenance["selection"],
             }
             if reference is None:
                 reference = observed

@@ -7,6 +7,7 @@ import argparse
 import copy
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -142,6 +143,37 @@ def validate_graph(document: dict) -> None:
         for point in ("spelling", "expansion", "end"):
             require(value[point]["file_id"], files, f"{context}.{point}")
 
+    selection = document["provenance"]["selection"]
+    selected_files = selection["file_ids"]
+    if selected_files != sorted(set(selected_files)):
+        raise ValueError("selection files must be unique and sorted")
+    for identifier in selected_files:
+        require(identifier, files, "selection.file_ids")
+    if selection["mode"] == "main-file" and selected_files != [
+        document["provenance"]["translation_unit"]
+    ]:
+        raise ValueError("main-file selection must select the translation unit")
+    selected_occurrences = set()
+    for root in selection["roots"]:
+        require(root["declaration_id"], declarations, "selection.roots")
+        source(root["source"], "selection.roots")
+        if root["source"]["expansion"]["file_id"] not in selected_files:
+            raise ValueError("selection root is outside the requested files")
+        if declarations[root["declaration_id"]]["kind"] not in {
+            "record",
+            "class_template",
+            "enum",
+            "alias",
+            "callable",
+            "namespace",
+            "namespace_alias",
+        }:
+            raise ValueError("selection root is not a selectable declaration")
+        key = json.dumps(root, sort_keys=True)
+        if key in selected_occurrences:
+            raise ValueError("duplicate selection root occurrence")
+        selected_occurrences.add(key)
+
     type_references = ("canonical_id", "pointee_id", "element_id", "result_id")
     declaration_references = ("declaration_id",)
     for node in types.values():
@@ -250,6 +282,33 @@ def validate_graph(document: dict) -> None:
             source(annotation["source"], f"{context}.annotations")
 
     for file in files.values():
+        previous_end = -1
+        for comment in file["comments"]:
+            location = comment["source"]
+            source(location, f"{file['id']}.comments")
+            begin, end = location["spelling"], location["end"]
+            payload = comment["payload"]
+            # Translation-phase line splices may split a physical delimiter.
+            # Keep the payload untouched; normalize only this lexical check.
+            logical = re.sub(r"\\[ \t\v\f]*(?:\r\n|\r|\n)", "", payload)
+            if (
+                any(
+                    location[key]["file_id"] != file["id"]
+                    for key in ("spelling", "expansion", "end")
+                )
+                or location["macro_expansion"]
+                or begin != location["expansion"]
+                or end["offset"] - begin["offset"] != len(payload.encode("utf-8"))
+                or begin["offset"] < previous_end
+                or not (
+                    logical.startswith("//")
+                    or (logical.startswith("/*") and logical.endswith("*/"))
+                )
+            ):
+                raise ValueError(
+                    "raw comment has invalid physical span, bytes, or ordering"
+                )
+            previous_end = end["offset"]
         for include in file["includes"]:
             require(include["file_id"], files, f"{file['id']}.includes")
             source(include["source"], f"{file['id']}.includes")
@@ -258,6 +317,80 @@ def validate_graph(document: dict) -> None:
             source(diagnostic["source"], f"diagnostics[{index}]")
 
     for node in declarations.values():
+        if "friends" in node and node["kind"] != "record":
+            raise ValueError("friend evidence requires a record owner")
+        if node["kind"] == "record":
+            if "friends" not in node:
+                raise ValueError("record requires friend evidence")
+            if not node.get("complete") and node["friends"]:
+                raise ValueError("incomplete record cannot contain friend declarations")
+        for friend in node.get("friends", []):
+            source(friend["source"], f"{node['id']}.friends")
+            signature = friend["signature"]
+            # A target may intentionally be outside the extraction closure.
+            # Cross-check any matching published declaration without requiring
+            # traversal of an unrelated friend's implementation.
+            for target in declarations.values():
+                if target["usr"] != friend["target_usr"]:
+                    continue
+                if friend["target_kind"] == "record":
+                    if target["kind"] not in ("record", "class_template"):
+                        raise ValueError(
+                            "friend target kind disagrees with its declaration"
+                        )
+                elif target["kind"] != "callable":
+                    raise ValueError(
+                        "friend target kind disagrees with its declaration"
+                    )
+                else:
+                    if (
+                        not {
+                            "return_type_id",
+                            "parameters",
+                            "variadic",
+                            "language_linkage",
+                            "callable_kind",
+                            "noexcept",
+                            "calling_convention",
+                            "const",
+                            "volatile",
+                            "ref_qualifier",
+                        }
+                        <= target.keys()
+                    ):
+                        raise ValueError("friend target is missing callable facts")
+                    result = types.get(target["return_type_id"])
+                    canonical = types[result["canonical_id"]] if result else None
+                    if (
+                        len(signature["parameter_type_usrs"])
+                        != len(target["parameters"])
+                        or signature["returns_void"]
+                        != bool(
+                            target["callable_kind"] in ("constructor", "destructor")
+                            or (
+                                canonical
+                                and canonical["kind"] == "builtin"
+                                and canonical["spelling"] == "void"
+                            )
+                        )
+                        or signature["variadic"] != target["variadic"]
+                        or signature["language_linkage"] != target["language_linkage"]
+                        or signature["method"]
+                        != (target["callable_kind"] != "function")
+                        or any(
+                            signature[key] != target[key]
+                            for key in (
+                                "noexcept",
+                                "calling_convention",
+                                "const",
+                                "volatile",
+                                "ref_qualifier",
+                            )
+                        )
+                    ):
+                        raise ValueError(
+                            "friend signature disagrees with its declaration"
+                        )
         for enumerator in node.get("enumerators", []):
             source(enumerator["source"], f"{node['id']}.enumerators")
             for annotation in enumerator["annotations"]:

@@ -229,6 +229,17 @@ def capture(extractor: Path, output: Path, compiler: Path) -> dict:
     corpus = json.loads((REFERENCE.parent / "corpus.json").read_text())
     output.mkdir(parents=True, exist_ok=True)
     (output / "comparison.json").unlink(missing_ok=True)
+    # A real ICG input is synthetic: eligible headers are included, rather than
+    # parsed independently as the main file. Select one audited header per
+    # comparison while all three are present in the same translation unit.
+    synthetic = output / "S_source.hh"
+    synthetic.write_text(
+        "".join(
+            f'#include "{ROOT / case["header"]}"\n'
+            for case in corpus["cases"]
+            if case["id"] in EXCLUSIONS
+        )
+    )
     reports = {}
     for case in corpus["cases"]:
         if case["id"] not in EXCLUSIONS:
@@ -243,7 +254,11 @@ def capture(extractor: Path, output: Path, compiler: Path) -> dict:
                 "--source-root",
                 str(ROOT),
                 "--diagnostics-format=json",
+                "--path-root",
+                f"evidence={output.resolve()}",
+                "--select-file",
                 str(header),
+                str(synthetic.resolve()),
                 "--",
             ],
             capture_output=True,
@@ -254,6 +269,17 @@ def capture(extractor: Path, output: Path, compiler: Path) -> dict:
         result.check_returncode()
         document = json.loads(result.stdout)
         ir.validate(schema, document)
+        selection = document["provenance"]["selection"]
+        selected_files = [
+            node for node in document["files"] if node["id"] in selection["file_ids"]
+        ]
+        if (
+            selection["mode"] != "explicit-files"
+            or len(selected_files) != 1
+            or selected_files[0]["path"]["real"] != str(header.resolve())
+            or not selection["roots"]
+        ):
+            raise ValueError("differential extraction lost its requested header roots")
         inputs = [
             node
             for node in document["files"]
@@ -283,6 +309,7 @@ def capture(extractor: Path, output: Path, compiler: Path) -> dict:
             legacy_sha256=metadata[0]["sha256"],
             graph_digest=document["provenance"]["graph_digest"],
             frontend_version=document["provenance"]["frontend_version"],
+            selection=selection,
         )
         reports[case["id"]] = report
     if set(reports) != set(EXCLUSIONS):

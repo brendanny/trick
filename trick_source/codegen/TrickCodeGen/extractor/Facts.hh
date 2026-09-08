@@ -9,7 +9,7 @@
 
 namespace trick::icg
 {
-    inline constexpr int FactsSchemaVersion         = 11;
+    inline constexpr int FactsSchemaVersion         = 12;
     inline constexpr int DeclarationIdentityVersion = 1;
     inline constexpr int GraphDigestVersion         = 1;
 

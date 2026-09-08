@@ -616,7 +616,8 @@ This sequence creates usable evidence early and prevents the project from becomi
 
 ### 20.1 Next milestone: generate and execute legacy metadata
 
-Status: planned; the current extractor emits facts, not replacement metadata.
+Status: core policy input evidence implemented in facts v12; resolved policy and
+replacement metadata remain pending.
 This milestone responds to the architectural review at `6a50207`, checked against
 `eea673ae`. The intervening identity/failure-path and macOS test-environment fixes
 do not close the selection, annotation, friendship, or generation gaps below.
@@ -715,7 +716,12 @@ Implement this in four reviewable increments:
    automatic reference refreshes and no normalization of layout, policy, or
    lifecycle differences.
 
-The evidence increment is the next implementation task. Use the existing real
+The core evidence increment is implemented: explicit file requests with root
+occurrences, physical comments, observed policy environment, structured concrete
+friends, typed declaration headers, and separate source/selection modules. The
+legacy differential runner now uses a multi-header synthetic input. Next review
+that evidence contract and implement the bounded Python resolver, including legacy
+comment association and eligibility characterization. Use the existing real
 embedded-class and template headers to characterize ignored types and the
 `TRICK_ICG` idiom, adding small positive/negative fixtures where needed. Successful
 template-header extraction remains a facts-coverage result; standard-container

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(trick_icg_extract VERSION 0.11.0 LANGUAGES C CXX)
+project(trick_icg_extract VERSION 0.12.0 LANGUAGES C CXX)
 
 # Deliberately standalone: the legacy ICG remains the production build path.
 find_package(LLVM REQUIRED CONFIG)
@@ -24,6 +24,7 @@ endif()
 configure_file(extractor/Config.hh.in generated/Config.hh @ONLY)
 
 add_executable(trick-icg-extract extractor/main.cpp extractor/Facts.cpp
+    extractor/Sources.cpp extractor/Selection.cpp extractor/Evidence.cpp
     extractor/TypeNode.cpp extractor/TypeGraph.cpp extractor/DeclarationIdentity.cpp extractor/TemplateFacts.cpp)
 set_target_properties(trick-icg-extract PROPERTIES
     CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)

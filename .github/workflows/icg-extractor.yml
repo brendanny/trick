@@ -122,8 +122,14 @@ jobs:
             --output build/icg-evidence/diagnostics
       - name: Capture and validate facts fixtures
         run: |
-          for fixture in record structured contexts enums-bitfields inheritance callables templates linkage; do
+          for fixture in record structured contexts enums-bitfields inheritance callables templates linkage evidence; do
+            selection=()
+            if [ "$fixture" = evidence ]; then
+              selection=(--select-file trick_source/codegen/TrickCodeGen/tests/fixtures/evidence/model.hh
+                         --select-file trick_source/codegen/TrickCodeGen/tests/fixtures/evidence/other.hh)
+            fi
             build/icg-extract/trick-icg-extract \
+              "${selection[@]}" \
               "trick_source/codegen/TrickCodeGen/tests/fixtures/$fixture.hh" -- \
               > "build/icg-extract/$fixture.json"
             python tools/icg_schema/validate.py \

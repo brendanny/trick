@@ -1,7 +1,10 @@
 #include "ClangCompat.hh"
 #include "Config.hh"
 #include "DeclarationIdentity.hh"
+#include "Evidence.hh"
 #include "Facts.hh"
+#include "Selection.hh"
+#include "Sources.hh"
 #include "TemplateFacts.hh"
 #include "TypeGraph.hh"
 
@@ -17,6 +20,7 @@
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendActions.h"
+#include "clang/Index/USRGeneration.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
@@ -40,13 +44,8 @@ namespace
     using trick::icg::Facts;
     using trick::icg::serialize;
 
-    std::string realPath(llvm::StringRef path)
-    {
-        llvm::SmallString<256> result;
-        if (llvm::sys::fs::real_path(path, result))
-            return { };
-        return result.str().str();
-    }
+    using trick::icg::realPath;
+    using trick::icg::Sources;
 
     std::string qualifiedDisplayName(const clang::NamedDecl* decl, const clang::PrintingPolicy& policy)
     {
@@ -95,113 +94,6 @@ namespace
             }
         return name;
     }
-
-    class Sources
-    {
-            Facts& facts;
-            std::map<std::string, std::string> roots;
-            std::set<std::string> unmapped;
-
-        public:
-            Sources(Facts& facts, std::map<std::string, std::string> roots)
-                : facts(facts)
-                , roots(std::move(roots))
-            {
-            }
-
-            std::string file(clang::SourceManager& sm, clang::FileID fid)
-            {
-                const auto entry = sm.getFileEntryRefForID(fid);
-                if (!entry)
-                    return { }; // built-in/command-line buffers have no physical file
-                std::string spelled = entry->getName().str();
-                std::string real    = realPath(spelled);
-                if (real.empty())
-                    real = spelled;
-                std::string portable;
-                std::string rootName;
-                size_t matched = 0;
-                for (const auto& root : roots)
-                {
-                    const auto prefix = root.second.back() == '/' ? root.second : root.second + "/";
-                    if (prefix.size() > matched && llvm::StringRef(real).starts_with(prefix))
-                    {
-                        rootName = root.first;
-                        portable = real.substr(prefix.size());
-                        matched  = prefix.size();
-                    }
-                }
-                if (rootName.empty())
-                {
-                    if (unmapped.insert(real).second)
-                        facts.diagnose("error", "ICG_UNMAPPED_FILE",
-                                       "No named path root contains " + spelled + "; configure --path-root NAME=DIR");
-                    return { };
-                }
-                std::string id = "file:" + digest(rootName + ":" + portable);
-                if (!facts.files.count(id))
-                {
-                    bool invalid  = false;
-                    auto contents = sm.getBufferData(fid, &invalid);
-                    if (invalid)
-                        facts.diagnose("error", "ICG_INPUT_READ", "Cannot read " + spelled);
-                    facts.files.emplace(
-                        id,
-                        Object {
-                            { "id",             id                                                                    },
-                            { "path",
-                             Object { { "spelled", spelled },
-                                       { "real", real },
-                                       { "root", rootName },
-                                       { "portable", portable } }                                                     },
-                            { "classification", sm.isInSystemHeader(sm.getLocForStartOfFile(fid)) ? "system" : "user" },
-                            { "digest",         digest(contents)                                                      },
-                            { "includes",       Array { }                                                             }
-                    });
-                }
-                return id;
-            }
-
-            Value point(clang::SourceManager& sm, clang::SourceLocation loc)
-            {
-                if (loc.isInvalid() || !loc.isFileID())
-                    return nullptr;
-                auto id = file(sm, sm.getFileID(loc));
-                if (id.empty())
-                    return nullptr;
-                return Object {
-                    { "file_id", id                              },
-                    { "line",    sm.getSpellingLineNumber(loc)   },
-                    { "column",  sm.getSpellingColumnNumber(loc) },
-                    { "offset",  sm.getFileOffset(loc)           }
-                };
-            }
-
-            Value source(clang::SourceManager& sm, clang::SourceRange range, const clang::LangOptions* lang = nullptr)
-            {
-                if (range.isInvalid())
-                    return nullptr;
-                auto begin = range.getBegin();
-                auto end   = sm.getExpansionLoc(range.getEnd());
-                if (lang)
-                {
-                    auto after = clang::Lexer::getLocForEndOfToken(end, 0, sm, *lang);
-                    if (after.isValid())
-                        end = after;
-                }
-                auto spelling  = point(sm, sm.getSpellingLoc(begin));
-                auto expansion = point(sm, sm.getExpansionLoc(begin));
-                auto finish    = point(sm, end);
-                if (spelling.kind() == Value::Null || expansion.kind() == Value::Null || finish.kind() == Value::Null)
-                    return nullptr;
-                return Object {
-                    { "spelling",        std::move(spelling)  },
-                    { "expansion",       std::move(expansion) },
-                    { "end",             std::move(finish)    },
-                    { "macro_expansion", begin.isMacroID()    }
-                };
-            }
-    };
 
     class Diagnostics : public clang::DiagnosticConsumer
     {
@@ -316,6 +208,7 @@ namespace
             Facts& facts;
             Sources& sources;
             clang::CompilerInstance& compiler;
+            trick::icg::Selection& selection;
             clang::ASTContext* context = nullptr;
             std::unique_ptr<trick::icg::TypeGraph> types;
             std::unique_ptr<trick::icg::DeclarationIdentity> identities;
@@ -469,21 +362,19 @@ namespace
                 clang::PrintingPolicy policy(ctx.getLangOpts());
                 trick::icg::compat::anonymousNamesWithoutLocations(policy);
                 policy.SuppressInlineNamespace = false;
-                Object node {
-                    { "id", declarationID(decl) },
-                    { "kind", kind },
-                    { "name", decl->getNameAsString() },
-                    { "qualified_name", qualifiedDisplayName(decl, policy) },
-                    { "usr", identity.usr.empty() ? Value(nullptr) : Value(identity.usr) },
-                    { "identity_kind", identity.fromSource ? "source" : "usr" },
-                    { "source", std::move(location) },
-                    { "access", access(decl->getAccess()) },
-                    { "origin", ctx.getSourceManager().isInSystemHeader(decl->getLocation()) ? "system" : "user" },
-                    { "definition", true },
-                    { "canonical_declaration_id", declarationID(decl) },
-                    { "annotations", annotations(ctx, decl) },
-                    { "capabilities", Array { } }
-                };
+                auto node = trick::icg::DeclarationHeader { identity.id,
+                                                            kind,
+                                                            decl->getNameAsString(),
+                                                            qualifiedDisplayName(decl, policy),
+                                                            identity.usr,
+                                                            access(decl->getAccess()),
+                                                            ctx.getSourceManager().isInSystemHeader(decl->getLocation())
+                                                                ? "system"
+                                                                : "user",
+                                                            identity.fromSource,
+                                                            std::move(location),
+                                                            annotations(ctx, decl) }
+                                .json();
                 auto semantic = parentID(decl->getDeclContext());
                 auto lexical  = parentID(decl->getLexicalDeclContext());
                 if (!semantic.empty())
@@ -525,49 +416,6 @@ namespace
                     return;
                 node["target_namespace_id"] = std::move(target);
                 publish(decl, std::move(node));
-            }
-
-            void selectMainFile(clang::ASTContext& ctx, const clang::DeclContext* scope)
-            {
-                auto& sm = ctx.getSourceManager();
-                for (const auto* decl : scope->decls())
-                {
-                    if (decl->isImplicit())
-                        continue;
-                    if (const auto* ns = llvm::dyn_cast<clang::NamespaceDecl>(decl))
-                        selectMainFile(ctx, ns);
-                    if (const auto* linkage = llvm::dyn_cast<clang::LinkageSpecDecl>(decl))
-                    {
-                        selectMainFile(ctx, linkage);
-                        continue;
-                    }
-                    // Explicit instantiation directives may live only in the
-                    // primary template's specialization set, not scope->decls().
-                    // The primary itself may come from an included header.
-                    if (const auto* pattern = llvm::dyn_cast<clang::ClassTemplateDecl>(decl))
-                        for (const auto* instance : pattern->specializations())
-                            if (clang::isTemplateExplicitInstantiationOrSpecialization(
-                                    instance->getSpecializationKind())
-                                && sm.isWrittenInMainFile(sm.getExpansionLoc(instance->getPointOfInstantiation())))
-                                request(instance);
-                    if (!sm.isWrittenInMainFile(sm.getExpansionLoc(decl->getLocation())))
-                        continue;
-                    if (const auto* instance = trick::icg::compat::explicitInstantiation(decl))
-                    {
-                        if (llvm::isa<clang::CXXRecordDecl>(instance))
-                            request(instance);
-                        else
-                            unsupported(ctx, decl, "Only class explicit instantiation directives are supported");
-                        continue;
-                    }
-                    if (llvm::isa<clang::CXXRecordDecl, clang::EnumDecl, clang::TypedefNameDecl, clang::NamespaceDecl,
-                                  clang::NamespaceAliasDecl, clang::FunctionDecl, clang::ClassTemplateDecl>(decl))
-                        request(llvm::cast<clang::NamedDecl>(decl));
-                    else if (!llvm::isa<clang::EmptyDecl, clang::StaticAssertDecl>(decl))
-                        unsupported(ctx, decl,
-                                    "Only records, class templates, enums, aliases, callables, and namespaces are "
-                                    "extracted in this slice");
-                }
             }
 
             void classTemplate(clang::ASTContext& ctx, const clang::NamedDecl* decl)
@@ -995,6 +843,7 @@ namespace
                 node["nested_declaration_ids"] = Array { };
                 node["callable_ids"]           = Array { };
                 node["special_members"]        = specialMembers(ctx, decl);
+                node["friends"]                = Array { };
                 if (!decl->isCompleteDefinition())
                 {
                     node["size_bits"]                  = nullptr;
@@ -1025,10 +874,8 @@ namespace
                         continue;
                     if (const auto* friendship = llvm::dyn_cast<clang::FriendDecl>(member))
                     {
-                        // Declaration-only friends do not add record members.
-                        // Tolerate the TRICK_ICG idiom without inferring access
-                        // grants or traversing a friend's unrelated dependency
-                        // graph. Definitions and templates remain fail-closed.
+                        // Preserve target/signature evidence without adding the
+                        // target's implementation to this declaration closure.
                         const auto* type     = friendship->getFriendType();
                         const auto* function = llvm::dyn_cast_or_null<clang::FunctionDecl>(friendship->getFriendDecl());
                         const bool concreteType
@@ -1041,9 +888,83 @@ namespace
                         {
                             unsupported(ctx, member,
                                         "Only concrete type and non-template function friend declarations "
-                                        "without definitions are supported; access grants are not modeled");
+                                        "without definitions are supported; access policy is not resolved");
                             unsupportedMembers = true;
+                            continue;
                         }
+                        const clang::NamedDecl* target = function ? static_cast<const clang::NamedDecl*>(function)
+                                                                  : type->getType()->getAsCXXRecordDecl();
+                        llvm::SmallString<128> usr;
+                        auto location
+                            = sources.source(ctx.getSourceManager(), friendship->getSourceRange(), &ctx.getLangOpts());
+                        if (!target || clang::index::generateUSRForDecl(target->getCanonicalDecl(), usr) || usr.empty()
+                            || location.kind() == Value::Null)
+                        {
+                            unsupported(ctx, member, "Friend target requires a semantic USR and physical source");
+                            unsupportedMembers = true;
+                            continue;
+                        }
+                        clang::PrintingPolicy policy(ctx.getLangOpts());
+                        trick::icg::compat::anonymousNamesWithoutLocations(policy);
+                        policy.SuppressInlineNamespace = false;
+                        trick::icg::FriendEvidence evidence { function ? "function" : "record", usr.str().str(),
+                                                              qualifiedDisplayName(target, policy), std::move(location),
+                                                              std::nullopt };
+                        if (function)
+                        {
+                            const auto* proto = function->getType()->getAs<clang::FunctionProtoType>();
+                            if (!proto || proto->getCallConv() != clang::CC_C || proto->getMethodQuals().hasRestrict()
+                                || proto->getMethodQuals().hasNonFastQualifiers() || proto->getHasRegParm()
+                                || proto->hasExtParameterInfos() || proto->getCmseNSCallAttr())
+                            {
+                                unsupported(ctx, member,
+                                            "Friend signatures require the C calling convention and CV/ref qualifiers");
+                                unsupportedMembers = true;
+                                continue;
+                            }
+                            auto typeUSR = [&](clang::QualType value)
+                            {
+                                llvm::SmallString<128> result;
+                                if (clang::index::generateUSRForType(value.getCanonicalType(), ctx, result)
+                                    || result.empty())
+                                {
+                                    unsupported(ctx, member, "Friend signature type requires a semantic USR");
+                                    unsupportedMembers = true;
+                                }
+                                return result.str().str();
+                            };
+                            std::string linkage;
+                            switch (function->getLanguageLinkage())
+                            {
+                            case clang::CLanguageLinkage:
+                                linkage = "c";
+                                break;
+                            case clang::CXXLanguageLinkage:
+                                linkage = "c++";
+                                break;
+                            case clang::NoLanguageLinkage:
+                                linkage = "none";
+                                break;
+                            }
+                            trick::icg::FriendSignature signature { typeUSR(function->getReturnType()),
+                                                                    { },
+                                                                    function->getReturnType()->isVoidType(),
+                                                                    function->isVariadic(),
+                                                                    llvm::isa<clang::CXXMethodDecl>(function),
+                                                                    std::move(linkage),
+                                                                    exceptionFact(function),
+                                                                    proto->isConst(),
+                                                                    proto->isVolatile(),
+                                                                    proto->getRefQualifier() == clang::RQ_LValue
+                                                                        ? "lvalue"
+                                                                        : proto->getRefQualifier() == clang::RQ_RValue
+                                                                        ? "rvalue"
+                                                                        : "none" };
+                            for (const auto* parameter : function->parameters())
+                                signature.parameterTypeUSRs.push_back(typeUSR(parameter->getType()));
+                            evidence.signature = std::move(signature);
+                        }
+                        node.getArray("friends")->emplace_back(evidence.json());
                         continue;
                     }
                     if (const auto* function = llvm::dyn_cast<clang::FunctionDecl>(member))
@@ -1201,10 +1122,12 @@ namespace
             }
 
         public:
-            Consumer(Facts& facts, Sources& sources, clang::CompilerInstance& compiler)
+            Consumer(Facts& facts, Sources& sources, clang::CompilerInstance& compiler,
+                     trick::icg::Selection& selection)
                 : facts(facts)
                 , sources(sources)
                 , compiler(compiler)
+                , selection(selection)
             {
             }
             void HandleTranslationUnit(clang::ASTContext& ctx) override
@@ -1236,7 +1159,10 @@ namespace
                     [this, &ctx](const clang::Decl* decl, const std::string& message)
                     { unsupported(ctx, decl, message); });
                 facts.provenance["target_triple"] = ctx.getTargetInfo().getTriple().str();
-                selectMainFile(ctx, ctx.getTranslationUnitDecl());
+                selection.run(
+                    ctx, [this](const clang::NamedDecl* decl) { return request(decl); },
+                    [this, &ctx](const clang::Decl* decl, const std::string& message)
+                    { unsupported(ctx, decl, message); });
                 // A worklist closes record/alias references without recursively
                 // expanding self-referential records during type interning.
                 for (size_t index = 0; index < pending.size(); ++index)
@@ -1280,17 +1206,39 @@ namespace
     {
             Facts& facts;
             Sources& sources;
+            trick::icg::Selection& selection;
+
+            std::unique_ptr<trick::icg::Comments> comments;
 
         public:
-            Action(Facts& facts, Sources& sources)
+            Action(Facts& facts, Sources& sources, trick::icg::Selection& selection)
                 : facts(facts)
                 , sources(sources)
+                , selection(selection)
             {
             }
             std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance& ci, llvm::StringRef) override
             {
+                comments = std::make_unique<trick::icg::Comments>(facts, sources);
+                ci.getPreprocessor().addCommentHandler(comments.get());
                 ci.getPreprocessor().addPPCallbacks(std::make_unique<Includes>(facts, sources, ci));
-                return std::make_unique<Consumer>(facts, sources, ci);
+                return std::make_unique<Consumer>(facts, sources, ci, selection);
+            }
+            void EndSourceFileAction() override
+            {
+                if (comments)
+                    getCompilerInstance().getPreprocessor().removeCommentHandler(comments.get());
+                for (auto& file : facts.files)
+                {
+                    auto& raw = *file.second.getArray("comments");
+                    std::sort(
+                        raw.begin(), raw.end(),
+                        [](const auto& a, const auto& b)
+                        {
+                            return a.getAsObject()->getObject("source")->getObject("spelling")->getInteger("offset")
+                                < b.getAsObject()->getObject("source")->getObject("spelling")->getInteger("offset");
+                        });
+                }
             }
     };
 
@@ -1298,16 +1246,18 @@ namespace
     {
             Facts& facts;
             Sources& sources;
+            trick::icg::Selection& selection;
 
         public:
-            Factory(Facts& facts, Sources& sources)
+            Factory(Facts& facts, Sources& sources, trick::icg::Selection& selection)
                 : facts(facts)
                 , sources(sources)
+                , selection(selection)
             {
             }
             std::unique_ptr<clang::FrontendAction> create() override
             {
-                return std::make_unique<Action>(facts, sources);
+                return std::make_unique<Action>(facts, sources, selection);
             }
     };
 
@@ -1348,7 +1298,7 @@ namespace
             for (const auto& entry : facts.files)
                 files.emplace_back(Object(entry.second));
             llvm::errs() << serialize(Object {
-                { "schema_version", 2                        },
+                { "schema_version", 3                        },
                 { "document_kind",  "trick.icg.diagnostics"  },
                 { "files",          std::move(files)         },
                 { "diagnostics",    Array(facts.diagnostics) }
@@ -1388,6 +1338,7 @@ int main(int argc, const char** argv)
     bool jsonDiagnostics = false;
     bool separator       = false;
     std::vector<std::string> arguments;
+    std::set<std::string> selectedPaths;
     for (int i = 1; i < argc; ++i)
     {
         std::string arg(argv[i]);
@@ -1397,6 +1348,21 @@ int main(int argc, const char** argv)
             separator = true;
         else if (arg == "--diagnostics-format=json")
             jsonDiagnostics = true;
+        else if (arg == "--select-file")
+        {
+            if (i + 1 == argc || argv[i + 1][0] == '-' || !argv[i + 1][0])
+                facts.diagnose("error", "ICG_SELECTION_FILE", "Expected a non-flag file path for --select-file");
+            else
+            {
+                const std::string spelled(argv[++i]);
+                auto selected = realPath(spelled);
+                if (selected.empty() || !llvm::sys::fs::is_regular_file(selected))
+                    facts.diagnose("error", "ICG_SELECTION_FILE",
+                                   "Selected file must be an existing regular file: " + spelled);
+                else
+                    selectedPaths.insert(std::move(selected));
+            }
+        }
         else if (arg == "--source-root" && i + 1 < argc)
             root = argv[++i];
         else if (arg == "--path-root" && i + 1 < argc)
@@ -1415,7 +1381,7 @@ int main(int argc, const char** argv)
         else if (arg == "--help")
         {
             llvm::outs() << "Usage: trick-icg-extract [--source-root DIR] [--path-root NAME=DIR] "
-                            "[--diagnostics-format=json] HEADER -- [CLANG FLAGS]\n"
+                            "[--select-file HEADER] [--diagnostics-format=json] HEADER -- [CLANG FLAGS]\n"
                             "C++17, one input, stdout facts; diagnostics on stderr. See TrickCodeGen/README.md.\n";
             return 0;
         }
@@ -1450,7 +1416,8 @@ int main(int argc, const char** argv)
 
     Sources sources(facts, roots);
     Diagnostics diagnostics(facts, sources);
-    Factory factory(facts, sources);
+    trick::icg::Selection selection(facts, sources, std::move(selectedPaths));
+    Factory factory(facts, sources, selection);
     std::vector<std::string> flags { "-x",
                                      "c++",
                                      "-std=c++17",
@@ -1495,7 +1462,21 @@ int main(int argc, const char** argv)
         pathRoots[entry.first] = entry.second;
     facts.provenance["path_roots"]  = std::move(pathRoots);
     facts.provenance["environment"] = std::move(environment);
-    int result                      = tool.run(&factory);
+    Object policyEnvironment;
+    for (const auto* name :
+         { "TRICK_ICG_EXCLUDE", "TRICK_SYSTEM_ICG_EXCLUDE", "TRICK_EXCLUDE", "TRICK_EXT_LIB_DIRS",
+           "TRICK_EXT_LIB_DIRS_OVERRIDES", "TRICK_ICG_NOCOMMENT", "TRICK_ICG_COMPAT15", "TRICK_ICG_IGNORE_TYPES" })
+        if (const auto* value = std::getenv(name))
+        {
+            if (!llvm::json::isUTF8(value))
+                facts.diagnose("error", "ICG_INVALID_ENCODING",
+                               "Policy environment is not valid UTF-8: " + std::string(name));
+            else
+                policyEnvironment[name] = std::string(value);
+        }
+    // Recorded for the future resolver, not applied by frontend extraction.
+    facts.provenance["policy_environment"] = std::move(policyEnvironment);
+    int result                             = tool.run(&factory);
     if (result && !facts.failed)
         facts.diagnose("error", "ICG_FRONTEND_FAILED", "Clang invocation did not complete");
     if (!facts.failed && !facts.provenance.getString("translation_unit"))

@@ -93,6 +93,13 @@ class CompareVersionsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "differs from LLVM 17"):
             comparison.compare(self.schema, self.lanes)
 
+    def test_different_selection_request_fails_even_with_equal_graph(self):
+        self.mutate(
+            lambda d: d["provenance"]["selection"].update(mode="explicit-files")
+        )
+        with self.assertRaisesRegex(ValueError, "differs from LLVM 17"):
+            comparison.compare(self.schema, self.lanes)
+
     def test_stale_digest_is_rejected(self):
         self.mutate(lambda d: d["types"][0].update(spelling="changed"), refresh=False)
         with self.assertRaisesRegex(ValueError, "graph_digest does not match"):

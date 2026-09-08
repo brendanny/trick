@@ -53,12 +53,12 @@ selects `clang-cpp` plus LLVM; `COMPONENTS` selects the imported `clangTooling` 
 `clangIndex` targets and their dependencies. The latter exercises the changed
 Clang 22/23 link graph. Some distributions, including Rocky, ship only the
 combined library. Each Linux/macOS artifact records exact package versions,
-driver/LLVM versions, CMake configuration, test logs, and all eight facts fixtures.
+driver/LLVM versions, CMake configuration, test logs, and all nine facts fixtures.
 These are tested package combinations, not a GCC 8.5 × LLVM 17–23 runtime/ABI
 guarantee. Installation/distribution policy and broader generated-operation
 conformance remain separate gates.
 
-Two comparison jobs require all seven versions' eight fixtures, validate each
+Two comparison jobs require all seven versions' nine fixtures, validate each
 document and its digest independently, and compare complete `graph_digest` values
 against LLVM 17 on the same platform and target. Missing/duplicate fixtures,
 mislabeled frontends, different targets, and any changed graph fact fail the job.
@@ -67,10 +67,11 @@ spellings, declaration IDs, source evidence, layouts, annotations, and capabilit
 are all compared. Linux and macOS targets are not equated. The comparison report
 and full input artifacts are retained; an equal graph is not a parse-cache key.
 
-The same jobs also require ten independently captured diagnostic cases:
+The same jobs also require twelve independently captured diagnostic cases:
 static members, friend definitions, member/variable/alias templates, invalid UTF-8, a parse
 error, a malformed paired argument, a successful warning, and template aliases
-reached after an unrelated declaration failure. Compare exit codes,
+reached after an unrelated declaration failure, unattached invalid UTF-8 comments,
+and invalid file-selection requests. Compare exit codes,
 empty stdout on failure, exact extractor-owned `ICG_` code sets, and Clang
 severity/count classifications. Numeric `CLANG_` IDs remain frontend-specific and
 are retained in raw stderr artifacts rather than equated across releases. The
@@ -223,14 +224,14 @@ applies. No code-generation options are silently stripped: other options, respon
 files, compiler plugins, alternate dialects, and extra source inputs are rejected.
 This is **not yet the GCC argument classifier** or a compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-11 facts document
+Successful extraction writes one deterministic, schema-version-12 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction
 unless promoted by a supplied diagnostic flag.
 
 By default diagnostics are human-readable on stderr. `--diagnostics-format=json`
-writes a single stderr envelope containing `schema_version: 2`,
+writes a single stderr envelope containing `schema_version: 3`,
 `document_kind: "trick.icg.diagnostics"`, `files`, and `diagnostics`, including on
 failure. The file and diagnostic nodes use the same definitions as the facts
 schema; source locations resolve against that envelope's files. Success also
@@ -249,6 +250,43 @@ links distinguish out-of-line record definitions from their owning scope.
 Unreferenced included siblings are not selected; a referenced unsupported
 declaration fails the whole extraction. This is dependency closure, not Trick
 selection policy.
+
+Repeat `--select-file HEADER` before the input/separator to select included
+physical files explicitly, for example:
+
+```sh
+build/icg-extract/trick-icg-extract --source-root "$PWD" \
+  --select-file models/First.hh --select-file models/Second.hh \
+  S_source.hh -- -Iinclude
+```
+
+Paths resolve from the working directory, must be existing regular files observed
+in the translation unit, and deduplicate symlink aliases. An unobserved request
+fails with `ICG_SELECTION_FILE`; it never becomes an empty successful selection.
+Explicit selection replaces the default main-file selection. Unreferenced records
+in requested headers are roots; unrelated included siblings are still omitted.
+`provenance.selection` records the mode, sorted file IDs, source-located root
+occurrences, and the required `supported-declaration-closure` fact profile. That
+profile retains all current supported facts and rejects unsupported required
+members/types. It is not yet a metadata-only or opaque-STL extraction profile.
+Parse errors anywhere remain fatal. The request participates in `input_digest`,
+and CI also compares selection evidence across LLVM versions.
+
+Every physical file has a `comments` array containing unique preprocessor-delivered
+comment spans in byte-offset order, including unattached file directives and
+same-line field comments. Payloads retain their exact UTF-8 bytes, including line
+splices and CRLF; spans are half-open physical character ranges. This is the set
+of comments observed during preprocessing, not an independent scan of inactive
+branches or unopened files. Existing declaration-attached annotations remain
+separate. No file/line association, directive grammar, units conversion, or
+no-comment rule is applied here. Invalid comment bytes fail with
+`ICG_INVALID_ENCODING`, including comments that attach to no declaration.
+
+`provenance.policy_environment` records the legacy exclusion, external-library,
+ignore-types, compatibility, and no-comment variables listed in the
+[Phase 0 inventory](../../../docs/developer_docs/ICG-Rewrite-Phase-0.md#inputs-that-need-to-stay-auditable).
+These values are UTF-8 checked and fingerprinted but **not applied** by extraction.
+The future Python resolver must decide their meaning explicitly.
 
 Named, inline, nested, reopened, and anonymous namespaces are supported. A namespace
 has one canonical node, sorted `declaration_ids` for its selected semantic children,
@@ -370,12 +408,15 @@ Extractor 0.9.0 advances facts to schema 9 for class-template signatures and
 concrete specializations. Extractor 0.10.0 advances facts to schema 10 for
 language-linkage contexts, fail-closed annotation encoding, and written versus
 inherited callable defaults. The synthetic minimal fixture is migrated; the reader
-rejects versions 1 through 10. Extractor 0.11.0 advances facts to schema 11 to
+rejects versions 1 through 11. Extractor 0.11.0 advances facts to schema 11 to
 distinguish C++17 `pod` from the earlier TR1/layout query. Both interpretations
 were emitted as v10 before this correction; v10 documents must be re-extracted,
 not relabeled. Identity and graph-digest algorithm versions remain 1.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
-in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
+in force. Extractor 0.12.0 adds request, raw-comment, and friend evidence in facts v12.
+The diagnostics envelope advances to v3 because its file nodes also gain the
+required `comments` array. Older facts must be re-extracted; empty arrays would
+assert that evidence was observed absent rather than unavailable.
 
 `provenance.identity_version: 1` replaces the earlier unversioned source recipe,
 including Clang-internal kind strings, with owned tags and an explicit version in
@@ -506,10 +547,21 @@ facts can be consumed and validated without Clang or Sema.
 
 Concrete type and non-template function friend declarations without definitions
 are accepted, including Trick's `friend class InputProcessor` / `init_attr*`
-idiom. They add no record members or dependency edges. Friendship/access grants
-are not modeled, and private/protected access facts remain unchanged; generated
-access still requires future policy resolution. Friend definitions/templates and
-unsupported dependent forms in concrete records fail closed. The real
+idiom. Complete concrete records now preserve a source-ordered `friends` array.
+Each entry records the target kind, semantic USR, qualified display name, and
+spelling/expansion source. Function signatures retain canonical return/parameter
+type USRs, void-return/variadic/method facts, CV/ref qualifiers, language linkage,
+and tri-state `noexcept`. The supported ABI calling convention is `c` (Clang's
+ordinary C/C++ convention); other conventions and extended qualifiers fail closed.
+
+Friend targets deliberately add no record members or dependency edges. Their USRs
+can identify declarations outside the graph and are not `decl:` references or
+persistent cache IDs. Type USRs are opaque canonical signature evidence, not new
+type-graph nodes; spelling/default/parameter-name history is not modeled here.
+No access grant is inferred. The validator cross-checks matching published target
+kinds and signature properties. A native compile probe checks matching friendship
+against wrong-name and wrong-overload controls. Friend definitions/templates and
+unsupported dependent forms in concrete records still fail closed. The real
 [`TemplateTest.hh`](../../../test/SIM_test_templates/models/TemplateTest.hh)
 now extracts with all five model fields and their concrete template dependencies.
 This does not establish legacy template parity or general STL support.
@@ -526,7 +578,8 @@ pattern capabilities; it does not redo C++ template deduction or overload resolu
 Physical input files, their bytes' SHA-256 digests, and resolved include directives
 are recorded through preprocessor callbacks. Forced includes are tracked as inputs
 even when their directive comes from Clang's synthetic command-line buffer.
-Only dependency declarations and their contexts enter from included headers. Every
+By default only dependency declarations and their contexts enter from included
+headers; `--select-file` can request included headers explicitly. Every
 physical file must match a named path root. `source` comes from `--source-root`
 (default: current directory); `resource-dir` defaults to the matching Clang
 installation. Repeat `--path-root NAME=DIR` for `sysroot`, `build`, or vendor roots.
@@ -627,7 +680,7 @@ the older `-Wextra` category: only the native probe enables a diagnostic pragma
 scoped to that one fixture declaration. Other warnings remain errors; extraction
 does not enable this fixture exception.
 When invoking `tests/test_extract.py` directly, pass `--layout-compiler /path/to/c++`;
-omitting it explicitly skips the three native probe tests. The probes require a native compiler,
+omitting it explicitly skips the native probe tests. The probes require a native compiler,
 not a cross-compiled executable.
 
 A second native probe compiles standard type-trait assertions against the focused
@@ -638,9 +691,9 @@ including GCC 8.5/12. They do not establish general generated-operation parity.
 A third native probe compiles size/alignment and standard-layout field-offset
 assertions against concrete template instances. It runs in those same lanes.
 
-The next milestone is a [facts-to-legacy-metadata vertical slice](../../../docs/developer_docs/ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata).
-First preserve the selection, file/field comment, and friend evidence needed by
-explicit Python policy; then generate metadata for the existing narrow differential
+The next milestone remains a [facts-to-legacy-metadata vertical slice](../../../docs/developer_docs/ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata).
+File requests, physical comments, and friend evidence are now available. Next
+resolve explicit Python policy, then generate metadata for the existing narrow differential
 corpus and compile and execute that new output against the same legacy/native
 observations. Current differential and configured simulation gates exercise
 legacy-generated code; they do not yet validate a rewrite emitter.
