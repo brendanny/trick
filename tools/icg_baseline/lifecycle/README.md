@@ -23,6 +23,13 @@ destructor permits the placement expression but fails `is_default_constructible`
 Raw POD allocation must not turn a deleted default constructor into a supported
 C++ construction capability. Reasons are retained in `lifecycle.json`.
 
+The `pod` fact uses the C++17 language trait, matching `std::is_pod`, rather than
+Clang's older TR1/layout classification. Those queries disagree on Darwin for
+the deleted-constructor case. A header-only regression compares facts with
+`__is_pod` under Linux, x86-64 Darwin, and ARM64 Darwin targets, including deleted,
+private, explicit/defaulted, and nontrivial constructors. The native probe keeps
+the independent standard-library trait check.
+
 Instrumented definitions record constructor/destructor events out of line.
 Expected values and event order belong to these digest-checked definitions;
 the facts do not claim to extract bodies or evaluate initializers. Address

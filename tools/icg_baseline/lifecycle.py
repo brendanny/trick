@@ -164,14 +164,17 @@ def validate(document: dict, observed: dict) -> dict:
         difference = "\n".join(
             difflib.unified_diff(
                 json.dumps(expected_records, indent=2, sort_keys=True).splitlines(),
-                json.dumps(observed.get("records"), indent=2, sort_keys=True).splitlines(),
+                json.dumps(
+                    observed.get("records"), indent=2, sort_keys=True
+                ).splitlines(),
                 fromfile="facts",
                 tofile="native probe",
                 lineterm="",
             )
         )
         raise ValueError(
-            "lifecycle symbols or exact-operation traits differ from facts:\n" + difference
+            "lifecycle symbols or exact-operation traits differ from facts:\n"
+            + difference
         )
 
     def event(kind, value, offset=0):

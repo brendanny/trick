@@ -1063,9 +1063,11 @@ namespace
                 }
                 if (unsupportedMembers)
                     return;
-                const auto& layout      = ctx.getASTRecordLayout(decl);
-                node["abstract"]        = decl->isAbstract();
-                node["pod"]             = decl->isPOD();
+                const auto& layout = ctx.getASTRecordLayout(decl);
+                node["abstract"]   = decl->isAbstract();
+                // The declaration query uses TR1/layout rules, which can
+                // disagree with the language trait (notably on Darwin).
+                node["pod"]             = trick::icg::compat::declarationType(ctx, decl).isPODType(ctx);
                 node["standard_layout"] = decl->isStandardLayout();
                 node["trivial"]         = decl->isTrivial();
                 node["size_bits"] = trick::icg::unsignedInteger(static_cast<uint64_t>(layout.getSize().getQuantity())

@@ -427,7 +427,10 @@
         "record_tag": {"enum": ["class", "struct", "union"]},
         "complete": {"type": "boolean"},
         "abstract": {"type": "boolean"},
-        "pod": {"type": "boolean"},
+        "pod": {
+          "type": "boolean",
+          "description": "POD under the recorded language standard (currently C++17), not the older TR1/layout classification."
+        },
         "standard_layout": {"type": "boolean"},
         "trivial": {"type": "boolean"},
         "size_bits": {"$ref": "#/$defs/optional_unsigned"},

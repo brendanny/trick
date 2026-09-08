@@ -1643,6 +1643,45 @@ class ExtractTests(unittest.TestCase):
                 self.assertFalse((output / "native.json").exists())
                 self.assertTrue((output / "commands.json").is_file())
 
+    def test_pod_uses_language_traits_on_linux_and_darwin_targets(self):
+        self.header.write_text("""
+struct Deleted { Deleted() = delete; int value; };
+class Private { Private() = default; public: int value; };
+struct Explicit { explicit Explicit() = default; int value; };
+struct Defaulted { Defaulted() = default; int value; };
+struct NonTrivial { NonTrivial(); int value; };
+enum PodTraits {
+    DeletedPod = __is_pod(Deleted), PrivatePod = __is_pod(Private),
+    ExplicitPod = __is_pod(Explicit), DefaultedPod = __is_pod(Defaulted),
+    NonTrivialPod = __is_pod(NonTrivial)
+};
+""")
+        # No platform headers: exercise the Darwin ABI even on a Linux host.
+        # CXXRecordDecl::isPOD() is a TR1/layout query; it can disagree with
+        # the C++17 language trait for deleted/private/defaulted constructors.
+        for target in (
+            "x86_64-unknown-linux-gnu",
+            "x86_64-apple-darwin",
+            "arm64-apple-darwin",
+        ):
+            with self.subTest(target=target):
+                nodes = self.declarations(
+                    self.success(self.invoke(["--target=" + target]))
+                )
+                traits = {
+                    item["name"]: bool(int(item["value"]))
+                    for item in nodes["PodTraits"]["enumerators"]
+                }
+                for name in (
+                    "Deleted",
+                    "Private",
+                    "Explicit",
+                    "Defaulted",
+                    "NonTrivial",
+                ):
+                    self.assertEqual(nodes[name]["pod"], traits[name + "Pod"], name)
+                    self.assertEqual(nodes[name]["pod"], name != "NonTrivial", name)
+
     def lifecycle_comparison(self):
         if LAYOUT_COMPILER is None:
             self.skipTest("lifecycle conformance requires --layout-compiler")
