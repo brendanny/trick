@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "records": [
+    {"name": "MSD", "allocation": "new", "methods": ["default_data", "init", "state_deriv", "state_integ", "shutdown"]},
+    {"name": "BindingProbe", "allocation": "trick_malloc", "methods": []},
+    {"name": "BindingDynamics", "allocation": "new", "methods": []}
+  ]
+}

@@ -1,0 +1,219 @@
+{
+  "status": "pass",
+  "steps": 200,
+  "x": 0.12159218043788746,
+  "v": -1.0891980937431993,
+  "analytic_x_error": 7.5250607134425e-10,
+  "analytic_v_error": 3.158879380293911e-09,
+  "restart_x_error": 0,
+  "restart_v_error": 0,
+  "remaining_allocations": 0,
+  "probe_constructions": 8,
+  "probe_destructions": 8,
+  "exit_code": 0,
+  "checks": [
+    "generated_nested_fields_units_and_cross_module_identity",
+    "python_owner_retained_by_interior_view_and_destroyed_once",
+    "adoption_aliases_units_vector_growth_and_failed_assignment",
+    "failed_adoption_preserves_python_ownership",
+    "failed_named_constructor_reclaims_storage",
+    "named_constructor_delete_and_name_reuse",
+    "ordinary_new_adoption_and_method_invalidation",
+    "real_mm_stl_checkpoint_and_ippython_restart_invalidation",
+    "invalid_checkpoint_state_and_error_translation"
+  ],
+  "platform": "Linux-6.18.35-x86_64-with-glibc2.39",
+  "python": "3.12.13",
+  "pybind11": "3.1.0",
+  "libclang": "18.1.1",
+  "cxx_flags": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+  "build_type": "Debug",
+  "asan_options": "detect_leaks=0:halt_on_error=1",
+  "ubsan_options": "halt_on_error=1:print_stacktrace=1",
+  "input_file": "trick_sims/SIM_msd/RUN_bindings/input.py",
+  "input_sha256": "155b7e9f520d1a7e05b78a66098ab5098563b51223e593872110abe887a0a259",
+  "declarations": {
+    "version": 1,
+    "records": [
+      {
+        "name": "MSD",
+        "allocation": "new",
+        "source": "msd.hh",
+        "source_sha256": "b8c46d2cb9eb623312737477254c5131b3d925309bb3e7e17d2ed817a62b1d9d",
+        "fields": [
+          {
+            "name": "a",
+            "type": "double",
+            "units": "m/s2",
+            "kind": "double"
+          },
+          {
+            "name": "v",
+            "type": "double",
+            "units": "m/s",
+            "kind": "double"
+          },
+          {
+            "name": "x",
+            "type": "double",
+            "units": "m",
+            "kind": "double"
+          },
+          {
+            "name": "m",
+            "type": "double",
+            "units": "kg",
+            "kind": "double"
+          },
+          {
+            "name": "v_0",
+            "type": "double",
+            "units": "m/s",
+            "kind": "double"
+          },
+          {
+            "name": "x_0",
+            "type": "double",
+            "units": "m",
+            "kind": "double"
+          },
+          {
+            "name": "b",
+            "type": "double",
+            "units": "N.s/m",
+            "kind": "double"
+          },
+          {
+            "name": "k",
+            "type": "double",
+            "units": "N/m",
+            "kind": "double"
+          },
+          {
+            "name": "F",
+            "type": "double",
+            "units": "N",
+            "kind": "double"
+          }
+        ],
+        "constructors": [
+          [
+            {
+              "name": "_m",
+              "type": "double"
+            },
+            {
+              "name": "_k",
+              "type": "double"
+            },
+            {
+              "name": "_b",
+              "type": "double"
+            },
+            {
+              "name": "_F",
+              "type": "double"
+            },
+            {
+              "name": "_v_0",
+              "type": "double"
+            },
+            {
+              "name": "_x_0",
+              "type": "double"
+            }
+          ],
+          []
+        ],
+        "methods": [
+          {
+            "name": "default_data",
+            "result": "int",
+            "static": true,
+            "arguments": [
+              {
+                "name": "arg0",
+                "type": "MSD &"
+              }
+            ]
+          },
+          {
+            "name": "init",
+            "result": "int",
+            "static": false,
+            "arguments": []
+          },
+          {
+            "name": "shutdown",
+            "result": "int",
+            "static": false,
+            "arguments": []
+          },
+          {
+            "name": "state_deriv",
+            "result": "int",
+            "static": false,
+            "arguments": []
+          },
+          {
+            "name": "state_integ",
+            "result": "int",
+            "static": false,
+            "arguments": []
+          }
+        ]
+      },
+      {
+        "name": "BindingProbe",
+        "allocation": "trick_malloc",
+        "source": "models.hh",
+        "source_sha256": "21c4e0be89cb2f7e07d15cbf6a2e594aefbf4ff4943538423b354e6ea53321f0",
+        "fields": [
+          {
+            "name": "value",
+            "type": "double",
+            "units": "kg",
+            "kind": "double"
+          },
+          {
+            "name": "position",
+            "type": "double[3]",
+            "units": "m",
+            "kind": "array",
+            "count": 3
+          },
+          {
+            "name": "samples",
+            "type": "std::vector<double>",
+            "units": "m",
+            "kind": "vector"
+          }
+        ],
+        "constructors": [
+          []
+        ],
+        "methods": []
+      },
+      {
+        "name": "BindingDynamics",
+        "allocation": "new",
+        "source": "models.hh",
+        "source_sha256": "21c4e0be89cb2f7e07d15cbf6a2e594aefbf4ff4943538423b354e6ea53321f0",
+        "fields": [
+          {
+            "name": "msd",
+            "type": "MSD",
+            "units": "--",
+            "kind": "record"
+          }
+        ],
+        "constructors": [
+          []
+        ],
+        "methods": []
+      }
+    ],
+    "header_sha256": "21c4e0be89cb2f7e07d15cbf6a2e594aefbf4ff4943538423b354e6ea53321f0",
+    "policy_sha256": "865274bf19ae4a6e0409765883c54aa3ad9c0d28734cccc35e64e67345f6f2a4"
+  }
+}
