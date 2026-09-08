@@ -80,6 +80,7 @@ defaults, malformed-input behavior, and precedence still need differential tests
 | Command timing, CPU/RSS, bytes/files/churn | Implemented; no production performance claim |
 | Actual normalized legacy output baselines | Four existing headers / 12 checked-in snapshots, a focused lifecycle header / three snapshots, plus configured `SIM_test_templates` and `SIM_test_io` cold/warm/forced/rebuilt captures; [header references](../../tools/icg_baseline/legacy/README.md), [lifecycle reference](../../tools/icg_baseline/lifecycle/README.md), and [full-build scope](../../tools/icg_baseline/runtime/README.md). Full-build golden promotion, broader simulations, and minimum stacks remain pending |
 | Legacy metadata versus extracted facts | Three fingerprinted headers: six record tables/sizes, six fields, two enum tables, and explicit record/enum exclusions. Actual captured C++ compiles against real Trick headers/UnitsMap; initialization/size entry points, compiled metadata, and independent native layouts/enum constants agree with facts. Compiler/dependency evidence and negative mutations are retained. Annotation policy, general lifecycle emission, template/STL coverage, and broader generated behavior remain pending |
+| Rewrite-generated legacy metadata | Pending; current compiled differential and configured simulation evidence executes legacy output. The [next milestone](ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata) adds source/selection/friend evidence, explicit resolved policy, and a narrow emitter tested against those observations |
 | Small/medium/large representative corpus | Focused cases selected; medium/large selection pending |
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |
@@ -106,6 +107,9 @@ implemented, together with enum, bitfield, and inheritance/base-layout facts.
 Callable facts and implicit special-member summaries are now implemented as well.
 Class-template signature metadata and concrete specialization graphs are implemented;
 language-linkage blocks and written/inherited callable defaults are now explicit.
-Dependent bodies and function/alias templates remain. The next priority is obtaining
-broader configured simulation/runtime baseline evidence and closing the
-remaining Phase 0 gates. This does not authorize switching the production ICG.
+Dependent bodies and function/alias templates remain. The next priority is a
+[facts-to-legacy-metadata vertical slice](ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata),
+with broader real-header selection/comment/friend evidence and compiled execution
+of newly generated output. Broader configured simulation/runtime baselines and
+the remaining Phase 0 gates are still required. This does not authorize switching
+the production ICG.

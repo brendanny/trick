@@ -223,7 +223,7 @@ applies. No code-generation options are silently stripped: other options, respon
 files, compiler plugins, alternate dialects, and extra source inputs are rejected.
 This is **not yet the GCC argument classifier** or a compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-10 facts document
+Successful extraction writes one deterministic, schema-version-11 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction
@@ -638,9 +638,19 @@ including GCC 8.5/12. They do not establish general generated-operation parity.
 A third native probe compiles size/alignment and standard-layout field-offset
 assertions against concrete template instances. It runs in those same lanes.
 
-Next extend dependent template modeling and remaining declaration kinds. Legacy
-differential baselines and the remaining Phase 0 gates still need
-completion before any production switch.
+The next milestone is a [facts-to-legacy-metadata vertical slice](../../../docs/developer_docs/ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata).
+First preserve the selection, file/field comment, and friend evidence needed by
+explicit Python policy; then generate metadata for the existing narrow differential
+corpus and compile and execute that new output against the same legacy/native
+observations. Current differential and configured simulation gates exercise
+legacy-generated code; they do not yet validate a rewrite emitter.
+
+Typed declaration builders and smaller source, selection, record, and callable
+modules should accompany this work, with mechanical refactors preserving fixture
+graphs and failure behavior. Broader template/STL support remains necessary, but
+new frontend coverage should serve a named corpus or generator requirement.
+The remaining Phase 0 and replacement-parity gates still need completion before
+any production switch.
 
 ## Python style
 

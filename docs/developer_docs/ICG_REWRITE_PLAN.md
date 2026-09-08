@@ -411,7 +411,7 @@ Exit gate: the compatibility contract and representative corpus are reviewed; no
 
 Deliverables:
 
-- C++17 extractor built against LLVM/Clang 17 using the Phase 0-selected libclang or LibTooling API;
+- C++17 extractor using the accepted LibTooling API, with LLVM/Clang 17 as the floor and tested version adapters;
 - exact/recorded compiler-argument normalization and compilation-database support;
 - owned IR schema and serializers/readers;
 - records, enums, aliases, structured types, inheritance, fields/bitfields/arrays, source provenance, comments/annotations, includes, and diagnostics;
@@ -607,12 +607,134 @@ Keep early reviews small and behavior-neutral:
 4. Add the structured type graph, declaration identity, source/file/include model, and serializer. **Core implemented:** owned structural types, canonical alias/record links, nested/referenced declaration closure, named file roots, namespace contexts/aliases, anonymous declaration identity/storage, non-template overload identity, and graph validation. Class-template specializations now include canonical argument identity and signature/pack metadata; broader type kinds and dependent template bodies remain.
 5. Add records/enums/fields/inheritance/layout and annotation normalization with fixture parity. **Incremental frontend facts implemented:** records/fields, scoped/unnamed/opaque enums with exact values, bitfield widths/offsets/padding, single/multiple/virtual base graphs with complete-object virtual offsets, non-template callable signatures/defaults/redeclarations/overrides and language linkage, implicit special-member declaration-state summaries, class-template primary/partial signatures and concrete specialization arguments/layout, transparent `extern "C"` contexts, and UTF-8-validated raw annotations. Focused native size/alignment/public base-path, special-member trait, and concrete-template layout probes run in host CI, including GCC 8.5/12. Full implicit signatures, annotation policy/normalization, full GCC generated-operation conformance, and legacy fixture parity remain.
 6. Add the Python 3.11 package, IR reader/validator, `extract`/`inspect`/`doctor`, and deterministic writer.
-7. Add a minimal legacy emitter for one class, then grow it capability by capability behind normalized differential tests.
+7. Add a minimal legacy emitter for one class, then grow it capability by capability behind normalized differential tests. **Next milestone:** the [bounded implementation sequence below](#201-next-milestone-generate-and-execute-legacy-metadata) prioritizes required source evidence and resolved policy before further general extractor expansion.
 8. Add dual-generation of selected simulations; do not switch authoritative output yet.
 9. Add build manifest/cache/Make adapter and the `trick-ICG` compatibility wrapper.
 10. Start S_define and binding streams only once the IR used by the legacy vertical slice is reviewed and versioned.
 
 This sequence creates usable evidence early and prevents the project from becoming another long-lived replacement that cannot be integrated until every runtime subsystem is also rewritten.
+
+### 20.1 Next milestone: generate and execute legacy metadata
+
+Status: planned; the current extractor emits facts, not replacement metadata.
+This milestone responds to the architectural review at `6a50207`, checked against
+`eea673ae`. The intervening identity/failure-path and macOS test-environment fixes
+do not close the selection, annotation, friendship, or generation gaps below.
+Legacy ICG remains authoritative. Completing this bounded slice is evidence
+toward Phase 2, not completion of Phase 0 or permission for a production cutover.
+
+The existing [differential bridge](../../tools/icg_baseline/differential.py) and
+[native probe](../../tools/icg_baseline/native.py) compile and execute captured
+legacy output. Their hardcoded corpus exclusions are independent test
+expectations, not a general selection or annotation implementation. The next
+claim to establish is that **newly generated C++**, derived from validated facts
+and explicit policy, produces those same observed metadata tables.
+
+Implement this in four reviewable increments:
+
+1. **Capture the evidence policy needs.** Start with a synthetic `S_source.hh`
+   that includes two eligible model headers and a dependency header, using real
+   regression headers where possible. Compare eligible declarations and emitted
+   symbols with legacy ICG, including unreferenced records in included user files.
+   Keep the main-file extraction contract available while specifying a separate,
+   explicit request scope and required fact categories for generation. A path
+   root is provenance, not permission to generate everything under that path.
+
+   Preserve file-level and field-adjacent comments with raw text, source ranges,
+   ordering, and spelling/expansion provenance, alongside existing declaration
+   attachments. Characterize the legacy file/line lookup before choosing an
+   association rule; attached comments alone are insufficient. Capture friend
+   declarations as structured evidence with the owning record, friend kind,
+   semantic target/signature, and source. Forward targets must not require
+   traversal of an unrelated friend's full implementation. Evidence of friendship
+   is distinct from permission for a particular generated operation.
+
+   Introduce typed common declaration/source builders and separate the source
+   and selection traversal from `main.cpp` as these paths are touched. Move record
+   and callable extraction into focused modules before expanding them further.
+   Mechanical refactors must preserve existing graphs and diagnostics; new wire
+   evidence needs an explicit schema revision and ICG-002 migration notes. Keep
+   the independent Python validator rather than relying only on C++ builders.
+
+2. **Resolve a bounded legacy policy in Python.** Give the resolved model its own
+   versioned contract. Record the generation request, policy version, effective
+   exclusion/no-comment settings, and source evidence for every selection,
+   omission, units/I/O decision, and operation-specific access decision. Use
+   declaration IDs for relationships, not display-name matching. Input identity
+   must include the request and policy inputs so facts captured for a narrower
+   scope cannot satisfy a broader request accidentally.
+
+   Establish comment/directive precedence from legacy observations, covering
+   `ICG`, `trick_parse`, `ICG_IGNORE_TYPES`, and the relevant environment inputs
+   listed in the [Phase 0 inventory](ICG-Rewrite-Phase-0.md#inputs-that-need-to-stay-auditable).
+   Test legacy trailing comments, no-comment modes, malformed annotations, unit
+   aliases, and I/O defaults. Preserve observed compatibility behavior with named
+   rules and diagnostics; do not silently substitute a cleaner interpretation.
+   Friend policy must distinguish the actual target and signature from a similar
+   `init_attr` spelling, and compile the proposed private/protected operation to
+   establish that C++ permits it. Any discrepancy with legacy name matching is
+   an explicit compatibility finding, not an inferred blanket access grant.
+
+   An irrelevant declaration may be omitted only under a recorded request rule.
+   An unsupported required field, type, or operation remains an error with no
+   generated output; Clang parse errors remain fatal regardless of selection.
+   Missing evidence must not be relabeled as a policy exclusion. Exercise both
+   sides of this boundary with globals, static members, and unsupported callable
+   types adjacent to otherwise supported records. Define any opaque dependency
+   contract explicitly before using it to avoid STL implementation details.
+
+3. **Generate the narrow metadata contract.** Start with one public scalar record
+   from the existing captures, then cover `anonymous-enum`, `deleted-constructor`,
+   and `embedded`: six record tables/sizes, six fields, and two enum tables, with
+   the observed exclusions. Consume only the validated resolved model. Emit
+   `ATTRIBUTES`, `ENUM_ATTR`, their sentinels, initialization entry points including
+   C-interface wrappers, and size entry points against the existing runtime ABI.
+   Preserve names/linkage, ordering, scalar/bitfield representation, units, and
+   access/I/O behavior; derive exclusions from policy rather than copying fixture
+   names from the comparison harness.
+
+   Add a case that compiles private-field access through a matching `TRICK_ICG`
+   friend and negative controls without that friendship. Unsupported requests
+   must publish no candidate source. Output must be deterministic and written
+   atomically without rewriting identical content. Record the intentionally
+   unimplemented lifecycle/STL/registry/SIE/build outputs so this emitter cannot
+   be mistaken for a complete per-header replacement.
+
+4. **Execute candidate output through the differential gate.** Extend the harness
+   to accept candidate generated sources, retaining the captured legacy sources
+   as immutable evidence. Compile old and new sources in separate executables to
+   avoid duplicate symbols, using the same real Trick headers and `UnitsMap.cpp`.
+   Compare initialized tables, entry-point presence/linkage and results with both
+   legacy observations and independent native layouts/enum values. Do not let
+   expected values come solely from the generator's own policy or layout logic.
+
+   Require negative mutations of emitted offsets, enum values, units/I/O, omitted
+   entries, and access behavior to fail the comparison. Validate resolved-model
+   rule mutations with a recomputed digest so the checksum does not mask missing
+   semantic checks. Preserve artifacts and diagnostics for all failures; no
+   automatic reference refreshes and no normalization of layout, policy, or
+   lifecycle differences.
+
+The evidence increment is the next implementation task. Use the existing real
+embedded-class and template headers to characterize ignored types and the
+`TRICK_ICG` idiom, adding small positive/negative fixtures where needed. Successful
+template-header extraction remains a facts-coverage result; standard-container
+rejection probes do not establish STL generation support.
+
+Exit criteria for this milestone are explicit selection/comment/friend decisions
+for the characterization cases and compiled old/new/native agreement for the
+three metadata cases plus the friend-access case. Run new generated-operation
+checks on GCC 8.5/12 and the Linux/macOS reference lanes. Preserve the LLVM 17–23
+fixture-graph and fail-closed diagnostic comparisons as frontend regression gates.
+Report each case as compared, rejected with a reason, or not covered; an empty
+candidate output is never a successful comparison for selected records.
+
+After this gate, widen to template/STL metadata and the existing lifecycle and
+MemoryManager contracts, requiring each backend operation to predict and match
+observed behavior. Medium/large corpus selection, general annotation precedence,
+restart/ownership coverage, and the remaining ADRs stay open. Replacement bindings,
+S_define migration, production cache/build integration, and runtime metadata v2
+retain their separate milestones.
 
 ## 21. Primary references
 
