@@ -111,7 +111,11 @@ The combined `std::vector<int>` / `std::string` rejection probe now runs alongsi
 each container alone and reversed include/member order, against actual standard
 library headers: the host's libstdc++ on Linux and the selected LLVM package's
 libc++ on Homebrew. CMake explicitly selects that libc++ include directory for
-the container probe, keeping it separate from path-root mapping. These probes
+the container probe and supplies the configured macOS SDK as `-isysroot` (using
+`xcrun` to resolve the SDK when needed). Both are separate from path-root mapping.
+LLVM 19/20's embedded driver did not otherwise find the SDK's C headers; matching
+libc++ headers alone did not supply `mbstate_t`, `ldiv_t`, or wide-character APIs.
+The probe requires those headers to parse before it can test ICG rejection. These probes
 still require explicit unsupported-declaration
 errors and empty stdout; they do not claim successful STL extraction. The earlier
 vector-only probe did not establish this combined-container behavior.

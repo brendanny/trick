@@ -27,6 +27,7 @@ SPEC.loader.exec_module(VALIDATOR)
 EXTRACTOR: Path
 PATH_ROOTS: list[str] = []
 STDLIB_INCLUDE: Path | None = None
+STDLIB_SYSROOT: Path | None = None
 LAYOUT_COMPILER: Path | None = None
 LLVM_MAJOR: int | None = None
 LIFECYCLE_SANITIZERS = False
@@ -2705,8 +2706,13 @@ enum PodTraits {
                 # Map all physical paths so unrelated
                 # missing-root diagnostics cannot make the assertion vacuous.
                 flags = ["-isystem", str(STDLIB_INCLUDE)] if STDLIB_INCLUDE else []
+                options = ["--source-root", self.root.anchor]
+                if STDLIB_SYSROOT:
+                    flags.extend(["-isysroot", str(STDLIB_SYSROOT)])
+                    if STDLIB_SYSROOT != Path(self.root.anchor):
+                        options.extend(["--path-root", f"sysroot={STDLIB_SYSROOT}"])
                 report = self.failure(
-                    self.invoke(flags, options=["--source-root", self.root.anchor]),
+                    self.invoke(flags, options=options),
                     "ICG_UNSUPPORTED_DECLARATION",
                 )
                 codes = {d["code"] for d in report["diagnostics"]}
@@ -3029,6 +3035,7 @@ if __name__ == "__main__":
     parser.add_argument("--extractor", required=True, type=Path)
     parser.add_argument("--path-root", action="append", default=[])
     parser.add_argument("--stdlib-include", type=Path)
+    parser.add_argument("--stdlib-sysroot", type=Path)
     parser.add_argument("--layout-compiler", type=layout_compiler_path)
     parser.add_argument("--llvm-major", type=int, choices=range(17, 24))
     parser.add_argument("--lifecycle-sanitizers", action="store_true")
@@ -3038,6 +3045,9 @@ if __name__ == "__main__":
     PATH_ROOTS = args.path_root
     STDLIB_INCLUDE = (
         args.stdlib_include.resolve(strict=True) if args.stdlib_include else None
+    )
+    STDLIB_SYSROOT = (
+        args.stdlib_sysroot.resolve(strict=True) if args.stdlib_sysroot else None
     )
     LAYOUT_COMPILER = args.layout_compiler
     LLVM_MAJOR = args.llvm_major
