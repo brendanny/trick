@@ -59,6 +59,16 @@ if(BUILD_TESTING)
     get_target_property(ICG_TEST_LINK_LIBRARIES trick-icg-extract LINK_LIBRARIES)
     target_link_libraries(icg-compat-test PRIVATE ${ICG_TEST_LINK_LIBRARIES})
     add_test(NAME icg_compat_invalid_linkage COMMAND icg-compat-test)
+    add_executable(icg-type-owner-test tests/test_type_owner.cpp
+        extractor/Facts.cpp extractor/TypeNode.cpp extractor/TypeGraph.cpp)
+    set_target_properties(icg-type-owner-test PROPERTIES
+        CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+    target_include_directories(icg-type-owner-test SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
+    target_include_directories(icg-type-owner-test PRIVATE extractor "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    get_target_property(ICG_TEST_COMPILE_OPTIONS trick-icg-extract COMPILE_OPTIONS)
+    target_compile_options(icg-type-owner-test PRIVATE ${ICG_TEST_COMPILE_OPTIONS})
+    target_link_libraries(icg-type-owner-test PRIVATE ${ICG_TEST_LINK_LIBRARIES})
+    add_test(NAME icg_type_missing_owner COMMAND icg-type-owner-test)
     # Homebrew's stddef.h goes through libc++ wrappers outside the resource dir.
     # Map that separate root explicitly in tests, as a caller must do in practice.
     set(ICG_TEST_ROOT_ARGS "")

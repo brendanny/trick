@@ -143,13 +143,21 @@ namespace trick::icg
             if (const auto* named = llvm::dyn_cast<clang::NamedDecl>(parentDecl);
                 named && llvm::isa<clang::NamespaceDecl, clang::CXXRecordDecl>(named))
             {
-                const auto& parentIdentity  = get(named);
-                parentID                    = parentIdentity.id;
-                value.fromSource           |= parentIdentity.fromSource;
+                const auto& parentIdentity = get(named);
+                // An earlier extraction failure can prevent a specialization
+                // from acquiring an identity. Its members must not hash an
+                // empty parent: different instances share source locations.
+                if (parentIdentity.id.empty())
+                    return identities.emplace(decl, std::move(value)).first->second;
+                parentID          = parentIdentity.id;
+                value.fromSource |= parentIdentity.fromSource;
             }
             else
+            {
                 facts.diagnose("error", "ICG_UNSUPPORTED_CONTEXT",
                                "Declaration identity requires a namespace or record context");
+                return identities.emplace(decl, std::move(value)).first->second;
+            }
         }
         if (value.fromSource)
         {

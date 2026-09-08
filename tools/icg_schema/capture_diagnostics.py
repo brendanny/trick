@@ -13,10 +13,18 @@ from pathlib import Path
 
 import validate as ir
 
-# Separate TUs ensure one rejected construct cannot mask another becoming accepted.
+# Separate TUs isolate rejection contracts; failed-parent-identity deliberately
+# combines an earlier rejection with later template dependencies.
 CASES = {
     "static-member": (
         b"struct A { static int value; };",
+        1,
+        ["ICG_UNSUPPORTED_DECLARATION"],
+    ),
+    "failed-parent-identity": (
+        b"template<class T> struct A { using ref = int&; };\n"
+        b"struct Broken { static int bad; };\n"
+        b"using Int = A<int>::ref; using Char = A<char>::ref;\n",
         1,
         ["ICG_UNSUPPORTED_DECLARATION"],
     ),

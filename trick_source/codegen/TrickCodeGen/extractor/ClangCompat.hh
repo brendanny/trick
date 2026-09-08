@@ -24,6 +24,8 @@ namespace trick::icg::compat
     inline const clang::TypedefNameDecl* instantiatedAlias(clang::Sema& sema, const clang::TypedefNameDecl* alias,
                                                            const clang::Decl* owner)
     {
+        if (!owner)
+            return nullptr;
         if (!alias->getDeclContext()->isDependentContext())
             return alias;
         const auto* named = llvm::dyn_cast<clang::NamedDecl>(owner);

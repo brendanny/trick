@@ -2649,6 +2649,67 @@ enum PodTraits {
         self.assertEqual(nodes["Model::a"]["type_id"], nodes["Model::b"]["type_id"])
         self.assertNotEqual(nodes["Model::a"]["type_id"], nodes["Model::c"]["type_id"])
 
+    def test_failed_parent_identity_does_not_fabricate_member_collisions(self):
+        pattern = (
+            "template<class T> struct A { using ref = int&; "
+            "template<class U> struct Rebind { using other = U&; }; };\n"
+        )
+        broken = "struct Broken { static int bad; };\n"
+        uses = (
+            "using Int = A<int>::ref; using Char = A<char>::ref;\n"
+            "using ReInt = A<int>::Rebind<int>::other; "
+            "using ReChar = A<char>::Rebind<char>::other;\n"
+        )
+        # Order matters to the old bug: a prior failure leaves an empty parent
+        # ID, which used to be hashed with a member's shared source location.
+        for source in (pattern + broken + uses, pattern + uses + broken):
+            with self.subTest(source=source):
+                self.header.write_text(source)
+                report = self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
+                self.assertEqual(
+                    [d["code"] for d in report["diagnostics"]],
+                    ["ICG_UNSUPPORTED_DECLARATION"],
+                )
+        # The same graph without an unrelated failure has distinct real IDs,
+        # including through a second level of template member ownership.
+        self.header.write_text(pattern + uses)
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        for left, right in (
+            ("A<int>::ref", "A<char>::ref"),
+            ("A<int>::Rebind<int>::other", "A<char>::Rebind<char>::other"),
+        ):
+            self.assertNotEqual(nodes[left]["id"], nodes[right]["id"])
+            self.assertNotEqual(
+                nodes[left]["semantic_parent_id"], nodes[right]["semantic_parent_id"]
+            )
+
+    def test_standard_container_combinations_fail_without_identity_collisions(self):
+        for headers, fields in (
+            (("vector",), "std::vector<int> values;"),
+            (("string",), "std::string text;"),
+            (("vector", "string"), "std::vector<int> values; std::string text;"),
+            (("string", "vector"), "std::string text; std::vector<int> values;"),
+        ):
+            with self.subTest(headers=headers):
+                self.header.write_text(
+                    "".join(f"#include <{header}>\n" for header in headers)
+                    + f"struct Containers {{ {fields} }};\n"
+                )
+                # This rejection probe intentionally reaches the host's real
+                # libstdc++/libc++ closure. Map all physical paths so unrelated
+                # missing-root diagnostics cannot make the assertion vacuous.
+                report = self.failure(
+                    self.invoke(options=["--source-root", self.root.anchor]),
+                    "ICG_UNSUPPORTED_DECLARATION",
+                )
+                codes = {d["code"] for d in report["diagnostics"]}
+                self.assertNotIn("ICG_IDENTITY_COLLISION", codes)
+                self.assertNotIn("ICG_IDENTITY_PREVIOUS", codes)
+                self.assertFalse(
+                    any(code.startswith("CLANG_") for code in codes), report
+                )
+
     def test_nondependent_template_aliases_bind_to_each_concrete_owner(self):
         for alias in ("using ref = int&;", "typedef int& ref;"):
             with self.subTest(alias=alias):

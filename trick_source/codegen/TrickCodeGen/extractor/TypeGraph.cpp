@@ -20,6 +20,13 @@ namespace trick::icg
 
     std::string TypeGraph::get(clang::QualType value, const clang::Decl* owner)
     {
+        // Fail at the public boundary, before alias resolution or callbacks
+        // that use the owner's source range. No fabricated source is attached.
+        if (!owner)
+        {
+            facts.diagnose("error", "ICG_TYPE_OWNER", "Type extraction requires an owning declaration");
+            return { };
+        }
         const auto key = std::make_pair(value.getAsOpaquePtr(), owner);
         auto known     = interned.find(key);
         if (known != interned.end())

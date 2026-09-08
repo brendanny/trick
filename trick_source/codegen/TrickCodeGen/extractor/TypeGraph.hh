@@ -33,6 +33,8 @@ namespace trick::icg
             TypeGraph(Facts& facts, clang::ASTContext& context, clang::Sema& sema,
                       std::function<std::string(const clang::NamedDecl*)> requestDeclaration,
                       std::function<void(const clang::Decl*, const std::string&)> unsupported);
+            // A missing owner is a diagnosed adapter error, never an anonymous
+            // context in which otherwise valid type facts may be interned.
             std::string get(clang::QualType type, const clang::Decl* owner);
     };
 

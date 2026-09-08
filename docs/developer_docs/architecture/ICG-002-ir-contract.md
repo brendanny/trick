@@ -532,6 +532,33 @@ Type memoization includes the use's owner so two specializations cannot reuse a
 pattern alias resolved in the other's context. This corrects previously rejected
 inputs without changing the ID recipe; `identity_version` remains 1.
 
+An identity is unavailable if any required parent identity is unavailable. Do not
+hash a child using an empty parent or fall back to an unrelated USR recipe. An
+earlier unsupported declaration can prevent a specialization's argument identity
+from being constructed; continuing to hash its members created secondary,
+misleading collision reports. The reduction is a static-member rejection followed
+by aliases to two instances of one template. This also explains the six combined
+`std::vector<int>` / `std::string` collision reports at `6a502071`; the vector-only
+probe did not cover that failure order. Propagating failure preserves the original
+unsupported diagnostics and empty stdout, without suppressing genuine collision
+checking for identities whose inputs are complete. Tests cover reversed order,
+nested template members, and the same graph without the unrelated failure.
+
+Type extraction requires a non-null owning declaration, even for a builtin type.
+A missing owner produces `ICG_TYPE_OWNER` with `source: null` before interning or
+calling dependency/source callbacks. Alias resolution and the unsupported-type
+source callback separately guard the null case. This is an adapter error, not a
+new synthetic declaration context.
+
+The consumer requires a live Sema for alias instantiation lookup as well as
+implicit special-member declaration and evaluation. `ContextRAII` scopes and
+restores the active semantic context during lookup. A read-only serialized AST
+without Sema is not a supported extraction input; any future AST/PCH caching path
+must restore compatible frontend/Sema state and account for its version and
+configuration. Caching and consuming the owned JSON facts does not require Sema.
+These failure-path corrections do not change the v11 facts meaning, identity
+recipe, graph-digest algorithm, or diagnostics envelope version.
+
 Concrete type and non-template function **friend declarations without definitions**
 are tolerated in records, including the `TRICK_MM_FRIENDS` idiom. They introduce
 no record fields, nested types, or member callables. This slice does not emit

@@ -67,9 +67,10 @@ spellings, declaration IDs, source evidence, layouts, annotations, and capabilit
 are all compared. Linux and macOS targets are not equated. The comparison report
 and full input artifacts are retained; an equal graph is not a parse-cache key.
 
-The same jobs also require nine independently captured diagnostic cases:
+The same jobs also require ten independently captured diagnostic cases:
 static members, friend definitions, member/variable/alias templates, invalid UTF-8, a parse
-error, a malformed paired argument, and a successful warning. Compare exit codes,
+error, a malformed paired argument, a successful warning, and template aliases
+reached after an unrelated declaration failure. Compare exit codes,
 empty stdout on failure, exact extractor-owned `ICG_` code sets, and Clang
 severity/count classifications. Numeric `CLANG_` IDs remain frontend-specific and
 are retained in raw stderr artifacts rather than equated across releases. The
@@ -104,6 +105,18 @@ modes, experimental evaluators, warning-policy files, or profiling flags.
 Invalid semantic linkage now produces `ICG_INVALID_LINKAGE` with source evidence;
 it cannot become `"none"`. Identity collisions identify both names and source
 ranges (`ICG_IDENTITY_COLLISION` and `ICG_IDENTITY_PREVIOUS`) and publish no facts.
+Failed parent identities propagate to their children: hashing an empty parent
+would manufacture collisions between members whose template source is shared.
+The combined `std::vector<int>` / `std::string` rejection probe now runs alongside
+each container alone and reversed include/member order, against the host's actual
+libstdc++ or libc++. These probes still require explicit unsupported-declaration
+errors and empty stdout; they do not claim successful STL extraction. The earlier
+vector-only probe did not establish this combined-container behavior.
+
+A separate CTest uses a real parsed template to exercise missing type owners.
+`TypeGraph::get` rejects a null owner with `ICG_TYPE_OWNER` before alias resolution,
+dependency callbacks, or interning; the diagnostic has no fabricated source.
+The alias adapter and unsupported-type source callback also guard null owners.
 The validator reconstructs nearest virtual override targets from base paths,
 including implicit destructors, independently of the supplied graph digest.
 Partial-specialization display names use written arguments such as `Choice<T *>`;
@@ -479,6 +492,10 @@ instantiated signature is rebound through Sema to its concrete alias declaration
 aliases and qualifiers are preserved, and type memoization is scoped to the use's
 owner. The version-comparison fixture exercises two such instances, and focused
 tests cover typedef chains, parameters, partial specializations, and nested scopes.
+Alias rebinding and implicit-member evaluation require a live Sema. Read-only
+consumption of a serialized AST without that frontend state is not supported;
+a future AST/PCH cache must restore a compatible frontend/Sema environment. Owned
+facts can be consumed and validated without Clang or Sema.
 
 Concrete type and non-template function friend declarations without definitions
 are accepted, including Trick's `friend class InputProcessor` / `init_attr*`

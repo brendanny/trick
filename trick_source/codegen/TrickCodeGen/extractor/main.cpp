@@ -1226,7 +1226,8 @@ namespace
                     {
                         facts.diagnose(
                             "error", "ICG_UNSUPPORTED_TYPE", message,
-                            sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts()));
+                            decl ? sources.source(ctx.getSourceManager(), decl->getSourceRange(), &ctx.getLangOpts())
+                                 : Value(nullptr));
                     });
                 templates = std::make_unique<trick::icg::TemplateFacts>(
                     ctx, *types, [this](const clang::NamedDecl* decl) { return request(decl); },
