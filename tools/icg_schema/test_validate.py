@@ -471,13 +471,23 @@ class ValidateTests(unittest.TestCase):
             lambda value: value.update(schema_version=7),
             lambda value: value.update(schema_version=8),
             lambda value: value.update(schema_version=9),
-            lambda value: value.update(schema_version=11),
+            lambda value: value.update(schema_version=10),
+            lambda value: value.update(schema_version=12),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)
             mutation(document)
             with self.assertRaises(ValidationError):
                 self.validate(self.schema, document)
+
+    def test_v10_pod_documents_require_reextraction_even_with_fresh_digest(self):
+        for pod in (False, True):
+            document = copy.deepcopy(self.fixture)
+            document["schema_version"] = 10
+            document["declarations"][0]["pod"] = pod
+            document["provenance"]["graph_digest"] = ir.graph_digest(document)
+            with self.assertRaises(ValidationError):
+                ir.validate(self.schema, document)
 
     def test_graph_rejects_duplicate_and_dangling_ids(self):
         duplicate = copy.deepcopy(self.fixture)

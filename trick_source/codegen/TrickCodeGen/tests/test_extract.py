@@ -73,7 +73,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 10)
+        self.assertEqual(document["schema_version"], 11)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -584,7 +584,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_all_unsupported_members_are_reported_in_one_run(self):
         self.header.write_text(
-            "struct Sample {\nfriend struct Friend;\nstatic int value;\ntemplate<class T> void run(T);\ntemplate<class T> Sample(T);\n};\n"
+            "struct Sample {\nfriend void run() {}\nstatic int value;\ntemplate<class T> void run(T);\ntemplate<class T> Sample(T);\n};\n"
         )
         report = self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
         lines = {
@@ -2648,6 +2648,125 @@ enum PodTraits {
         nodes = self.declarations(document)
         self.assertEqual(nodes["Model::a"]["type_id"], nodes["Model::b"]["type_id"])
         self.assertNotEqual(nodes["Model::a"]["type_id"], nodes["Model::c"]["type_id"])
+
+    def test_nondependent_template_aliases_bind_to_each_concrete_owner(self):
+        for alias in ("using ref = int&;", "typedef int& ref;"):
+            with self.subTest(alias=alias):
+                self.header.write_text(
+                    f"template<class T> struct A {{ {alias} using chain = ref; "
+                    "ref get(); void set(ref value); chain again(); };\n"
+                    "struct M { A<int> a; A<char> b; };\n"
+                )
+                document = self.success(self.invoke())
+                nodes = self.declarations(document)
+                types = {t["id"]: t for t in document["types"]}
+                self.assertEqual(nodes["A"]["kind"], "class_template")
+                for parent in ("A<int>", "A<char>"):
+                    ref = nodes[parent + "::ref"]
+                    chain = nodes[parent + "::chain"]
+                    self.assertEqual(ref["semantic_parent_id"], nodes[parent]["id"])
+                    self.assertEqual(ref["identity_kind"], "source")
+                    self.assertIn(ref["id"], nodes[parent]["nested_declaration_ids"])
+                    for type_id in (
+                        nodes[parent + "::get"]["return_type_id"],
+                        nodes[parent + "::set"]["parameters"][0]["type_id"],
+                        chain["underlying_type_id"],
+                    ):
+                        self.assertEqual(types[type_id]["declaration_id"], ref["id"])
+                    returned = types[nodes[parent + "::again"]["return_type_id"]]
+                    self.assertEqual(returned["declaration_id"], chain["id"])
+                self.assertNotEqual(
+                    nodes["A<int>::ref"]["id"], nodes["A<char>::ref"]["id"]
+                )
+                self.assertEqual(self.invoke().stdout, self.invoke().stdout)
+                with tempfile.TemporaryDirectory() as relocated:
+                    shutil.copy2(self.header, Path(relocated) / self.header.name)
+                    moved = self.success(
+                        self.invoke(cwd=relocated, options=["--source-root", relocated])
+                    )
+                self.assertEqual(
+                    document["provenance"]["graph_digest"],
+                    moved["provenance"]["graph_digest"],
+                )
+
+    def test_nondependent_aliases_in_partial_and_nested_template_contexts(self):
+        self.header.write_text(
+            "template<class T> struct A;\n"
+            "template<class T> struct A<T*> { using number = int; const number* get(); "
+            "struct Inner { using ref = number&; ref get(); }; Inner inner; };\n"
+            "template<class T> struct Outer { using number = int; "
+            "template<class U> struct Inner { number get(); }; };\n"
+            "struct M { A<int*> a; A<char*> b; Outer<int>::Inner<char> c; Outer<char>::Inner<int> d; };\n"
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        types = {t["id"]: t for t in document["types"]}
+        for parent in ("A<int *>", "A<char *>"):
+            pointer = types[nodes[parent + "::get"]["return_type_id"]]
+            alias = types[pointer["pointee_id"]]
+            self.assertTrue(alias["qualifiers"]["const"])
+            self.assertEqual(alias["declaration_id"], nodes[parent + "::number"]["id"])
+            returned = types[nodes[parent + "::Inner::get"]["return_type_id"]]
+            self.assertEqual(
+                returned["declaration_id"], nodes[parent + "::Inner::ref"]["id"]
+            )
+        for outer, inner in (("int", "char"), ("char", "int")):
+            returned = types[
+                nodes[f"Outer<{outer}>::Inner<{inner}>::get"]["return_type_id"]
+            ]
+            self.assertEqual(
+                returned["declaration_id"], nodes[f"Outer<{outer}>::number"]["id"]
+            )
+
+    def test_declaration_only_friends_preserve_member_access(self):
+        self.header.write_text(
+            "#define TRICK_FRIENDS(name) friend class InputProcessor; friend void init_attr##name();\n"
+            "class Model { TRICK_FRIENDS(Model) int hidden; protected: int guarded; public: int visible; };\n"
+        )
+        document = self.success(self.invoke())
+        nodes = self.declarations(document)
+        self.assertEqual(nodes["Model::hidden"]["access"], "private")
+        self.assertEqual(nodes["Model::guarded"]["access"], "protected")
+        self.assertEqual(nodes["Model::visible"]["access"], "public")
+        self.assertEqual(nodes["Model"]["callable_ids"], [])
+        self.assertEqual(nodes["Model"]["nested_declaration_ids"], [])
+        self.assertNotIn("init_attrModel", nodes)
+        self.assertNotIn("InputProcessor", nodes)
+
+    def test_friend_definitions_and_templates_remain_fail_closed(self):
+        for member in (
+            "friend void init_attrModel() {}",
+            "friend void init_attrModel() = delete;",
+            "template<class T> friend void init_attrModel(T);",
+            "template<class T> friend class InputProcessor;",
+        ):
+            with self.subTest(member=member):
+                self.header.write_text(f"struct Model {{ {member} int value; }};")
+                self.failure(self.invoke(), "ICG_UNSUPPORTED_DECLARATION")
+
+    def test_real_template_model_with_trick_friends_extracts(self):
+        header = ROOT / "test/SIM_test_templates/models/TemplateTest.hh"
+        document = self.success(
+            self.invoke(input=str(header), options=["--source-root", str(ROOT)])
+        )
+        nodes = self.declarations(document)
+        fields = {
+            nodes["TemplateTest::" + name]["id"]
+            for name in (
+                "TTT_var_scalar_builtins",
+                "TTT_var_array_builtins",
+                "TTT_var_enum",
+                "TTT_var_template_parameters",
+                "TTT_templates_of_templates",
+            )
+        }
+        self.assertEqual(set(nodes["TemplateTest"]["field_ids"]), fields)
+        self.assertGreater(
+            len([n for n in nodes.values() if n.get("specialization_kind")]), 10
+        )
+        self.assertEqual(nodes["TemplateTest"]["callable_ids"], [])
+        self.assertNotIn("InputProcessor", nodes)
+        self.assertNotIn("init_attrTemplateTest", nodes)
 
     def test_nested_class_templates_and_instantiated_member_contexts(self):
         self.header.write_text(

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(trick_icg_extract VERSION 0.10.0 LANGUAGES C CXX)
+project(trick_icg_extract VERSION 0.11.0 LANGUAGES C CXX)
 
 # Deliberately standalone: the legacy ICG remains the production build path.
 find_package(LLVM REQUIRED CONFIG)

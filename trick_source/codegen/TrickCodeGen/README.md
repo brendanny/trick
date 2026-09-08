@@ -68,7 +68,7 @@ are all compared. Linux and macOS targets are not equated. The comparison report
 and full input artifacts are retained; an equal graph is not a parse-cache key.
 
 The same jobs also require nine independently captured diagnostic cases:
-static members, friends, member/variable/alias templates, invalid UTF-8, a parse
+static members, friend definitions, member/variable/alias templates, invalid UTF-8, a parse
 error, a malformed paired argument, and a successful warning. Compare exit codes,
 empty stdout on failure, exact extractor-owned `ICG_` code sets, and Clang
 severity/count classifications. Numeric `CLANG_` IDs remain frontend-specific and
@@ -350,7 +350,10 @@ Extractor 0.9.0 advances facts to schema 9 for class-template signatures and
 concrete specializations. Extractor 0.10.0 advances facts to schema 10 for
 language-linkage contexts, fail-closed annotation encoding, and written versus
 inherited callable defaults. The synthetic minimal fixture is migrated; the reader
-rejects versions 1 through 9.
+rejects versions 1 through 10. Extractor 0.11.0 advances facts to schema 11 to
+distinguish C++17 `pod` from the earlier TR1/layout query. Both interpretations
+were emitted as v10 before this correction; v10 documents must be re-extracted,
+not relabeled. Identity and graph-digest algorithm versions remain 1.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
 in force. The diagnostics envelope stays at version 2; its file shape is unchanged.
 
@@ -470,6 +473,23 @@ instantiated members whose physical source locations are shared by many instance
 Owned identity tags extend version 1 to class-template kinds; previous supported
 kinds retain their recipe. Display names include arguments but remain nonunique.
 
+Primary template records normalize to their `ClassTemplateDecl` during identity
+lookup, including recursive parent lookups. Non-dependent alias sugar in an
+instantiated signature is rebound through Sema to its concrete alias declaration;
+aliases and qualifiers are preserved, and type memoization is scoped to the use's
+owner. The version-comparison fixture exercises two such instances, and focused
+tests cover typedef chains, parameters, partial specializations, and nested scopes.
+
+Concrete type and non-template function friend declarations without definitions
+are accepted, including Trick's `friend class InputProcessor` / `init_attr*`
+idiom. They add no record members or dependency edges. Friendship/access grants
+are not modeled, and private/protected access facts remain unchanged; generated
+access still requires future policy resolution. Friend definitions/templates and
+unsupported dependent forms in concrete records fail closed. The real
+[`TemplateTest.hh`](../../../test/SIM_test_templates/models/TemplateTest.hh)
+now extracts with all five model fields and their concrete template dependencies.
+This does not establish legacy template parity or general STL support.
+
 Function/alias templates, declaration-valued and member/function-pointer
 arguments, dependent expressions/expansions as concrete arguments, dependent
 pattern bodies/types, and uninstantiated method defaults remain outside this
@@ -540,7 +560,7 @@ source and suppress the facts document; they are never silently replaced by U+FF
 File digests continue to cover the exact input bytes.
 
 Function/alias templates, function/member-pointer signatures, deduced-return
-structural types, friends, variables, explicit
+structural types, friend definitions/templates, variables, explicit
 using declarations/directives, unsupported language linkage, and unsupported structural types
 in the selected declaration closure
 fail explicitly rather than producing apparently complete facts. Unsupported

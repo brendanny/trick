@@ -20,7 +20,11 @@ CASES = {
         1,
         ["ICG_UNSUPPORTED_DECLARATION"],
     ),
-    "friend": (b"struct A { friend struct B; };", 1, ["ICG_UNSUPPORTED_DECLARATION"]),
+    "friend-definition": (
+        b"struct A { friend void f() {} };",
+        1,
+        ["ICG_UNSUPPORTED_DECLARATION"],
+    ),
     "member-template": (
         b"struct A { template<class T> void f(T); };",
         1,

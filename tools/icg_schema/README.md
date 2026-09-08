@@ -10,7 +10,7 @@ incomplete-record layout, and direct type cycles. Each array node represents one
 dimension, with CVR qualification on its element. Recursive record references are
 valid; a pointer/alias graph cannot refer to itself without a record boundary.
 
-Facts schema version 10 retains validation of the normalized `graph_digest` independently of
+Facts schema version 11 retains validation of the normalized `graph_digest` independently of
 the extractor. `graph_digest_version` and `identity_version` are required and
 currently 1; older facts versions and unknown fingerprint/identity versions fail.
 The projection retains all graph facts except file `path.spelled`/`path.real`,
@@ -24,8 +24,15 @@ must agree with completeness (`supported / SUPPORTED` or
 `unknown / INCOMPLETE_TYPE`). Capability names must be unique and these known
 capabilities may not be placed on the wrong declaration kind.
 
-Version 10 separates semantic `language_linkage` (`c`, `c++`, or `none`) from
-the ABI calling convention. Member callables cannot have C language linkage.
+Version 11 fixes the meaning of record `pod` to the recorded language standard's
+trait (currently C++17), rather than Clang's older TR1/layout classification.
+The correction initially appeared without a version bump, so v10 documents can
+contain either meaning. They must be re-extracted; changing their version or
+recomputing their digest cannot repair that ambiguity. Validation rejects both
+forms of v10 even with a freshly recomputed digest.
+
+Version 10 introduced semantic `language_linkage` (`c`, `c++`, or `none`), separate
+from the ABI calling convention. Member callables cannot have C language linkage.
 Callable parameter defaults retain effective `has_default` evidence and classify
 its `default_origin` as written or inherited. Validation checks that a default is
 written at most once, inherited evidence matches its origin, and an effective
@@ -92,7 +99,7 @@ Named path roots, scalar `extent` (null for incomplete arrays), and exact layout
 integers retain the v3 representation. Numbers through
 `2^53-1` are numeric; larger quantities are canonical decimal strings. Path roots
 must exist in provenance, portable paths must be relative and canonical, and no
-two file nodes may represent the same root/path pair. Version 1 through 9 facts are
+two file nodes may represent the same root/path pair. Version 1 through 10 facts are
 rejected; the synthetic minimal fixture has been migrated. These checks are not
 complete semantic validation of all future schema kinds, Clang/GCC layout
 agreement, or legacy-printability policy. The independent diagnostics envelope

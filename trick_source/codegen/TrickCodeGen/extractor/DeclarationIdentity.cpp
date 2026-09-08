@@ -100,6 +100,12 @@ namespace trick::icg
 
     const DeclarationID& DeclarationIdentity::get(const clang::NamedDecl* decl)
     {
+        // A primary's record and ClassTemplateDecl share a USR and represent
+        // one published pattern node. Normalize recursive parent lookups too,
+        // not only the declaration worklist's entry points.
+        if (const auto* record = llvm::dyn_cast<clang::CXXRecordDecl>(decl))
+            if (const auto* pattern = record->getDescribedClassTemplate())
+                return get(pattern);
         decl       = llvm::cast<clang::NamedDecl>(decl->getCanonicalDecl());
         auto known = identities.find(decl);
         if (known != identities.end())

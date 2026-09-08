@@ -9,6 +9,8 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
 #include "clang/Lex/PPCallbacks.h"
+#include "clang/Sema/Sema.h"
+#include "clang/Sema/Template.h"
 #if CLANG_VERSION_MAJOR >= 23
 #include "clang/UnifiedSymbolResolution/USRGeneration.h"
 #else
@@ -19,6 +21,27 @@ static_assert(CLANG_VERSION_MAJOR == ICG_LLVM_VERSION_MAJOR, "Clang headers must
 
 namespace trick::icg::compat
 {
+    inline const clang::TypedefNameDecl* instantiatedAlias(clang::Sema& sema, const clang::TypedefNameDecl* alias,
+                                                           const clang::Decl* owner)
+    {
+        if (!alias->getDeclContext()->isDependentContext())
+            return alias;
+        const auto* named = llvm::dyn_cast<clang::NamedDecl>(owner);
+        if (!named || owner->getDeclContext()->isDependentContext())
+            return nullptr;
+        // Non-dependent typedef sugar can still name a template's pattern even
+        // inside an instantiated method. Let Sema map it using the real owner,
+        // including partial specializations and nested instantiation levels.
+        auto* scope = const_cast<clang::DeclContext*>(owner->getDeclContext());
+        if (llvm::isa<clang::CXXRecordDecl, clang::FunctionDecl>(owner))
+            scope = clang::Decl::castToDeclContext(const_cast<clang::Decl*>(owner));
+        clang::Sema::ContextRAII current(sema, scope);
+        const auto arguments = sema.getTemplateInstantiationArgs(named);
+        const auto* result   = llvm::dyn_cast_or_null<clang::TypedefNameDecl>(
+            sema.FindInstantiatedDecl(owner->getLocation(), const_cast<clang::TypedefNameDecl*>(alias), arguments));
+        return result && !result->getDeclContext()->isDependentContext() ? result : nullptr;
+    }
+
     inline const clang::NamedDecl* explicitInstantiation(const clang::Decl* decl)
     {
 #if CLANG_VERSION_MAJOR >= 23

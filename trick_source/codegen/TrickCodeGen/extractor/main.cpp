@@ -9,6 +9,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclFriend.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceManager.h"
@@ -1022,6 +1023,29 @@ namespace
                     if ((member->isImplicit() && !anonymousMember)
                         || llvm::isa<clang::AccessSpecDecl, clang::StaticAssertDecl>(member))
                         continue;
+                    if (const auto* friendship = llvm::dyn_cast<clang::FriendDecl>(member))
+                    {
+                        // Declaration-only friends do not add record members.
+                        // Tolerate the TRICK_ICG idiom without inferring access
+                        // grants or traversing a friend's unrelated dependency
+                        // graph. Definitions and templates remain fail-closed.
+                        const auto* type     = friendship->getFriendType();
+                        const auto* function = llvm::dyn_cast_or_null<clang::FunctionDecl>(friendship->getFriendDecl());
+                        const bool concreteType
+                            = type && !type->getType()->isDependentType() && type->getType()->isRecordType();
+                        const bool declarationOnly = function && !function->doesThisDeclarationHaveABody()
+                            && !function->isDeleted() && !function->isDefaulted()
+                            && function->getTemplatedKind() == clang::FunctionDecl::TK_NonTemplate;
+                        if (friendship->isUnsupportedFriend() || friendship->getFriendTypeNumTemplateParameterLists()
+                            || (!concreteType && !declarationOnly))
+                        {
+                            unsupported(ctx, member,
+                                        "Only concrete type and non-template function friend declarations "
+                                        "without definitions are supported; access grants are not modeled");
+                            unsupportedMembers = true;
+                        }
+                        continue;
+                    }
                     if (const auto* function = llvm::dyn_cast<clang::FunctionDecl>(member))
                     {
                         auto id             = request(function);
@@ -1197,7 +1221,7 @@ namespace
                     [this](const clang::ClassTemplateSpecializationDecl* decl)
                     { return specializationIdentity(decl); });
                 types = std::make_unique<trick::icg::TypeGraph>(
-                    facts, ctx, [this](const clang::NamedDecl* decl) { return request(decl); },
+                    facts, ctx, compiler.getSema(), [this](const clang::NamedDecl* decl) { return request(decl); },
                     [this, &ctx](const clang::Decl* decl, const std::string& message)
                     {
                         facts.diagnose(

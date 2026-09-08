@@ -35,6 +35,14 @@ namespace templates
     {
     };
     template <class T> struct Opaque;
+    template <class T> struct References
+    {
+            using ref = int&;
+            ref get();
+            void set(ref value);
+            friend class InputProcessor;
+            friend void init_attrReferences();
+    };
     using Int   = int;
     using Alias = Array<Int>;
     struct Model
@@ -48,6 +56,8 @@ namespace templates
             Apply<Choice, int> apply;
             Null<nullptr> null_pointer;
             Opaque<int>* opaque;
+            References<int> integer_refs;
+            References<char> character_refs;
     };
     extern template struct Array<short, 2>;
     template struct Array<long, 4>;

@@ -7,11 +7,12 @@
 namespace trick::icg
 {
 
-    TypeGraph::TypeGraph(Facts& facts, clang::ASTContext& context,
+    TypeGraph::TypeGraph(Facts& facts, clang::ASTContext& context, clang::Sema& sema,
                          std::function<std::string(const clang::NamedDecl*)> requestDeclaration,
                          std::function<void(const clang::Decl*, const std::string&)> unsupported)
         : facts(facts)
         , context(context)
+        , sema(sema)
         , requestDeclaration(std::move(requestDeclaration))
         , unsupported(std::move(unsupported))
     {
@@ -19,8 +20,8 @@ namespace trick::icg
 
     std::string TypeGraph::get(clang::QualType value, const clang::Decl* owner)
     {
-        const void* key = value.getAsOpaquePtr();
-        auto known      = interned.find(key);
+        const auto key = std::make_pair(value.getAsOpaquePtr(), owner);
+        auto known     = interned.find(key);
         if (known != interned.end())
             return known->second;
 
@@ -40,6 +41,19 @@ namespace trick::icg
             return get(context.getQualifiedType(adjusted->getAdjustedType(), value.getLocalQualifiers()), owner);
         if (const auto* substitution = llvm::dyn_cast<clang::SubstTemplateTypeParmType>(raw))
             return get(context.getQualifiedType(substitution->getReplacementType(), value.getLocalQualifiers()), owner);
+        if (const auto* alias = llvm::dyn_cast<clang::TypedefType>(raw))
+        {
+            const auto* resolved = compat::instantiatedAlias(sema, alias->getDecl(), owner);
+            if (!resolved)
+            {
+                unsupported(owner, "Cannot bind a template-pattern alias to a concrete declaration context");
+                return { };
+            }
+            if (resolved != alias->getDecl())
+                return get(
+                    context.getQualifiedType(compat::declarationType(context, resolved), value.getLocalQualifiers()),
+                    owner);
+        }
         if (const auto* specialization = llvm::dyn_cast<clang::TemplateSpecializationType>(raw))
         {
             if (!specialization->isTypeAlias())

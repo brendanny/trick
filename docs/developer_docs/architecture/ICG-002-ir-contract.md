@@ -16,7 +16,7 @@ and testable before compact encoding is justified.
 The extractor emits a UTF-8 JSON document with `document_kind` and an integer
 `schema_version`. JSON Schema draft 2020-12 defines the wire shape. Readers are
 strict: unknown properties and dangling graph references fail validation. The
-current facts schema is version 10; the independent diagnostics envelope is v2.
+current facts schema is version 11; the independent diagnostics envelope is v2.
 
 The document contains frontend facts only:
 
@@ -492,10 +492,11 @@ parameter view. These remain frontend facts rather than round-trip source.
 
 `deleted` and `defaulted` are intentionally independent: a defaulted special
 member can be implicitly defined as deleted. Schema validation preserves this
-legal and policy-relevant state. Likewise, an empty override list is not rejected:
-a newly introduced virtual method legitimately overrides nothing, and proving a
-missing edge would require C++ override resolution outside this graph validator.
-Real extraction tests instead assert known override relationships.
+legal and policy-relevant state. A newly introduced virtual method legitimately
+has no overrides. The validator now reconstructs nearest override targets through
+the recorded base paths and rejects missing or extraneous edges, including for
+implicit destructors. Mutation tests recompute the digest so fingerprint checking
+cannot mask missing rule coverage.
 
 Raw comment and `clang::annotate` payloads are checked with LLVM's strict UTF-8
 validator before construction of a JSON value. Invalid bytes produce
@@ -510,3 +511,38 @@ and closes its `GMTTIME` dependency. A Latin-1 comment payload probe verifies
 failure with empty stdout; attribute payloads pass through the same guard after
 Clang's string-literal validation. Facts advance to v10 and versions 1 through 9
 are rejected. Identity, graph-digest, and diagnostics versions remain unchanged.
+
+## Version 11: language-standard POD semantics and template-alias closure
+
+Record `pod` means the POD trait under the recorded language standard (currently
+C++17), queried through `QualType::isPODType`. `CXXRecordDecl::isPOD` instead uses
+TR1/layout rules and can disagree, notably for deleted default constructors on
+Darwin. Commit `640ff89` corrected the query but initially left facts at v10.
+Consequently v10 is ambiguous: consumers must re-extract it, not infer its meaning
+from a boolean, bump its version, or merely regenerate its digest. Version 11
+rejects facts v1–v10, and the minimal fixture is migrated. Native compiler trait
+probes and explicit Linux/Darwin target cases verify the new meaning.
+
+The class-template record and its `ClassTemplateDecl` identify the same published
+pattern, including during recursive identity lookup; their shared Clang USR is
+not a collision. Non-dependent alias sugar in instantiated callable signatures
+can still refer to a pattern alias. Sema's instantiation lookup binds that alias
+to its concrete owner before interning, preserving the alias node and qualifiers.
+Type memoization includes the use's owner so two specializations cannot reuse a
+pattern alias resolved in the other's context. This corrects previously rejected
+inputs without changing the ID recipe; `identity_version` remains 1.
+
+Concrete type and non-template function **friend declarations without definitions**
+are tolerated in records, including the `TRICK_MM_FRIENDS` idiom. They introduce
+no record fields, nested types, or member callables. This slice does not emit
+friendship edges, traverse friends as dependencies, infer access grants, or change
+private/protected access facts. A future backend must resolve friend/annotation
+policy before emitting privileged operations. Friend definitions, friend templates,
+and unsupported/dependent friend forms in concrete records still fail closed.
+Dependent template bodies retain their existing explicit unknown capability.
+
+The expanded cross-version template fixture includes two instances with shared
+non-dependent alias sugar and declaration-only friends. Integration additionally
+extracts the real `SIM_test_templates/models/TemplateTest.hh` and retains negative
+friend-definition/template cases. `graph_digest_version` remains 1; digests change
+because their projection includes `schema_version`. Diagnostics remain v2.

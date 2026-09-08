@@ -1,5 +1,5 @@
 {
-  "schema_version": 10,
+  "schema_version": 11,
   "document_kind": "trick.icg.extracted-facts",
   "provenance": {
     "extractor_version": "0.10.0-synthetic-fixture",
@@ -14,7 +14,7 @@
     "input_digest": "0000000000000000000000000000000000000000000000000000000000000000",
     "identity_version": 1,
     "graph_digest_version": 1,
-    "graph_digest": "692e4770bcf84afc220ee36c15e2b6d3df6b3d64e8758bd539e27cc7f20a4591",
+    "graph_digest": "396e08d6c87340f6d0e89c4c2381c98a2aad6719acc5303db207fe0eca7dfd69",
     "environment": {}
   },
   "files": [
