@@ -159,14 +159,7 @@ jobs:
             build/icg-evidence
             build/icg-extract/CMakeCache.txt
             build/icg-extract/Testing/Temporary/LastTest.log
-            build/icg-extract/record.json
-            build/icg-extract/structured.json
-            build/icg-extract/contexts.json
-            build/icg-extract/enums-bitfields.json
-            build/icg-extract/inheritance.json
-            build/icg-extract/callables.json
-            build/icg-extract/templates.json
-            build/icg-extract/linkage.json
+            build/icg-extract/*.json
           if-no-files-found: error
           retention-days: 30
 
