@@ -20,7 +20,6 @@
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendActions.h"
-#include "clang/Index/USRGeneration.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
