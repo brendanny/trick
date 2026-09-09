@@ -15,13 +15,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 3
+      "const": 4
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-3"
+      "const": "scalar-metadata-4"
     },
     "facts": {
       "type": "object",
@@ -79,7 +79,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-3"
+          "const": "scalar-metadata-4"
         }
       }
     },
@@ -312,7 +312,9 @@
                   "type_id",
                   "comment_index",
                   "annotation",
-                  "access"
+                  "access",
+                  "storage",
+                  "units_map_key"
                 ],
                 "properties": {
                   "type_id": {
@@ -420,6 +422,20 @@
                         ]
                       }
                     }
+                  },
+                  "storage": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/$defs/field_storage"
+                      }
+                    ]
+                  },
+                  "units_map_key": {
+                    "type": "string",
+                    "minLength": 1
                   }
                 }
               },
@@ -454,8 +470,8 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v3.schema.json",
-  "title": "Bounded numeric-offset scalar legacy metadata policy v3",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v4.schema.json",
+  "title": "Bounded numeric-offset scalar/array legacy metadata policy v4",
   "$defs": {
     "source": {
       "type": "object",
@@ -568,6 +584,51 @@
                 "pattern": "^-?(0|[1-9][0-9]*)$"
               }
             }
+          }
+        }
+      }
+    },
+    "field_storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "element_type_id",
+        "type_name",
+        "cpp_type",
+        "trick_type",
+        "dimensions"
+      ],
+      "properties": {
+        "element_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
+        },
+        "type_name": {
+          "enum": [
+            "int",
+            "unsigned int",
+            "double"
+          ]
+        },
+        "cpp_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trick_type": {
+          "enum": [
+            "TRICK_INTEGER",
+            "TRICK_UNSIGNED_INTEGER",
+            "TRICK_DOUBLE",
+            "TRICK_UNSIGNED_BITFIELD"
+          ]
+        },
+        "dimensions": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
           }
         }
       }

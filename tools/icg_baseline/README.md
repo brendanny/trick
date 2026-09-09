@@ -283,7 +283,7 @@ See [the initial contract inventory](../../docs/developer_docs/ICG-Rewrite-Phase
 
 ## Bounded policy comparison
 
-The differential runner now also resolves [policy v3](../icg_policy/README.md)
+The differential runner now also resolves [policy v4](../icg_policy/README.md)
 from validated facts, comparing record/enum selection and units/I/O against the
 three immutable legacy headers. Request and resolved documents accompany each
 report. Existing explicit expected exclusions remain independent checks; they
@@ -292,7 +292,7 @@ legacy policy characterization cases, preserving successful and failed evidence.
 Candidate metadata emission is checked through separate compiled probes.
 
 The differential runner also generates a bounded candidate from validated
-resolved policy v3 and compiles it in a separate executable. Candidate and legacy
+resolved policy v4 and compiles it in a separate executable. Candidate and legacy
 observations must agree with the independent native probe. A separate translation
 unit checks C-linkage tables and init/size entry points. The generated-source
 contract and negative tests are documented in [icg_emit](../icg_emit/README.md).
@@ -302,3 +302,9 @@ labels, alias order, signed/unsigned storage and empty tables. Its independent
 legacy/native rejection probe records unsigned-narrow sign-extension mismatches;
 policy rejects these values without producing a candidate. The new corpus has
 its own immutable references and CI reproduction gate.
+
+The [fixed-array corpus](arrays/README.md) adds two records / nine fields, including
+six arrays and scalar/array aliases. Native type traits check dimensions and base
+element/whole-field sizes independently. Non-default namespace-scoped units expose
+and correct the emitter's UnitsMap key mismatch. The array references have their
+own reproduction gate; the earlier reference bytes remain unchanged.

@@ -616,8 +616,8 @@ This sequence creates usable evidence early and prevents the project from becomi
 
 ### 20.1 Next milestone: generate and execute legacy metadata
 
-Status: facts v12 input evidence, bounded resolved policy v3 and metadata emitter
-v2 are implemented with compiled legacy/candidate/native gates. Broader generated
+Status: facts v12 input evidence, bounded resolved policy v4 and metadata emitter
+v3 are implemented with compiled legacy/candidate/native gates. Broader generated
 behavior and production integration remain pending.
 This milestone responds to the architectural review at `6a50207`, checked against
 `eea673ae`. The intervening identity/failure-path and macOS test-environment fixes
@@ -719,7 +719,7 @@ Implement this in four reviewable increments:
 
 The evidence increment and bounded Python resolver are implemented. Facts v12
 capture explicit file requests, physical comments, policy environment and friends.
-[Resolved policy v3](../../tools/icg_policy/README.md) now records selection,
+[Resolved policy v4](../../tools/icg_policy/README.md) now records selection,
 exclusions, units/I/O and operation-specific access with input/request identity.
 Thirty-eight live legacy characterization cases and the three existing metadata headers
 check these decisions; native compilation distinguishes actual friend access from
@@ -747,14 +747,25 @@ probe characterizes unsigned-narrow sign-extension mismatches; these requests
 fail closed, as do values outside signed `ENUM_ATTR.int`. Existing facts v12 and
 legacy reference corpora remain unchanged.
 
-Next widen broader record/annotation cases, then generate lifecycle operations against
+The fixed-array increment is implemented with policy v4 / emitter v3. A separate
+[captured array corpus](../../tools/icg_baseline/arrays/README.md) compares two
+records and nine fields, including six arrays, expanded typedefs, rank eight,
+dimension order, base element sizes, offsets and annotations. Native probes derive
+rank/extents independently from C++ types. The same fixture exposes and fixes the
+emitter's namespace-prefixed UnitsMap keys: legacy omits namespaces. Resolved keys
+are explicit; ambiguous key collisions and unsupported array shapes fail closed.
+Facts v12 and all earlier captured references remain unchanged.
+
+Next generate bounded lifecycle operations against
 the existing lifecycle/MemoryManager gates before tackling template/STL emission.
+Broader scalar/qualified/structured fields and general annotation policy remain
+separate coverage extensions.
 The backend remains a development metadata subset without production build,
 registry, or SIE integration. Template extraction alone is not STL emission parity.
 
 Exit criteria for this milestone are explicit selection/comment/friend decisions
 for the characterization cases and compiled old/new/native agreement for the
-three metadata cases plus the friend-access case. Run new generated-operation
+three metadata cases, the enum/array corpora and the friend-access cases. Run new generated-operation
 checks on GCC 8.5/12 and the Linux/macOS reference lanes. Preserve the LLVM 17–23
 fixture-graph and fail-closed diagnostic comparisons as frontend regression gates.
 Report each case as compared, rejected with a reason, or not covered; an empty

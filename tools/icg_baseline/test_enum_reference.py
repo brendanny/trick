@@ -13,13 +13,16 @@ HERE = Path(__file__).with_name("enums")
 
 
 class EnumReferenceTests(unittest.TestCase):
+    HERE = HERE
+
     def test_fixture_and_manifest_fingerprints_match(self):
-        provenance = json.loads((HERE / "reference/provenance.json").read_text())
+        provenance = json.loads((self.HERE / "reference/provenance.json").read_text())
         self.assertEqual(provenance["capture_status"], "success")
         self.assertEqual(
-            b.digest((HERE / "corpus.json").read_bytes()), provenance["manifest_sha256"]
+            b.digest((self.HERE / "corpus.json").read_bytes()),
+            provenance["manifest_sha256"],
         )
-        for case in legacy.load_corpus(HERE / "corpus.json", legacy.ROOT)["cases"]:
+        for case in legacy.load_corpus(self.HERE / "corpus.json", legacy.ROOT)["cases"]:
             self.assertEqual(
                 b.digest((legacy.ROOT / case["header"]).read_bytes()),
                 provenance["source_sha256"][case["header"]],
@@ -36,11 +39,11 @@ class EnumReferenceTests(unittest.TestCase):
             )
 
     def test_snapshots_sidecars_and_forced_append(self):
-        manifest = legacy.load_corpus(HERE / "corpus.json", legacy.ROOT)
+        manifest = legacy.load_corpus(self.HERE / "corpus.json", legacy.ROOT)
         for case in manifest["cases"]:
             snapshots = []
             for label in legacy.PASSES:
-                path = HERE / f"reference/{case['id']}/{label}.json"
+                path = self.HERE / f"reference/{case['id']}/{label}.json"
                 with (
                     self.subTest(case=case["id"], label=label),
                     contextlib.redirect_stdout(io.StringIO()),

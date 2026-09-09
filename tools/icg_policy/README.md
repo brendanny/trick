@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v3**, not C++, and does not replace production ICG.
+It emits **resolved policy v4**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-3"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-4"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, and sorted unique `file_ids`.
 It may narrow captured file selection but cannot widen it. A header merely
 present in the include graph is insufficient evidence that its unreferenced
@@ -41,9 +41,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v3 and policy
-`scalar-metadata-3` additionally require explicit enum metadata decisions.
-Resolve old v1/v2 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v4 and policy
+`scalar-metadata-4` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1/v2/v3 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -61,7 +61,22 @@ replays policy **before** comparing the digest. Replay shares the policy parser;
 it is not an independent implementation of the rules. Independent evidence comes
 from live legacy output and native compilation. Mutation tests recompute the
 digest before checking altered inclusion, I/O, units, source association, access,
-settings, enum labels/values/order/modifiers, and missing decisions.
+settings, enum labels/values/order/modifiers, array dimensions and storage,
+UnitsMap keys, and missing decisions.
+
+Each field has a `units_map_key` and `storage`. Included storage decisions record
+the canonical `element_type_id`, legacy `type_name` and `trick_type`, a native
+`cpp_type`, and outer-to-inner `dimensions`. Scalars/bitfields have no dimensions;
+zero-I/O omissions have null storage. Canonical type IDs expand scalar/array aliases.
+Fixed arrays support at most eight positive extents, each representable by signed
+`INDEX.int`. Incomplete/zero/oversized extents and excessive rank produce
+`ICG_POLICY_ARRAY_EXTENT` or `ICG_POLICY_ARRAY_RANK`.
+
+The [array corpus](../icg_baseline/arrays/README.md) also establishes the legacy
+UnitsMap key convention: enclosing records joined by `__`, followed by `_field`,
+with namespaces omitted. Keys are explicit decisions, not the table symbol with
+a field suffix. Selected-field key collisions fail with `ICG_POLICY_NAME`; the
+resolver does not reproduce ambiguous static initialization order.
 
 Each included enum has `metadata.enum`: `label_rule`, `diagnostics`, `mods`, and
 ordered `rows`. A row's `source_index` references the enumerator in the input
@@ -142,8 +157,10 @@ operation and reject wrong-name, wrong-overload, and exception-specification cas
 These permissions do not grant lifecycle/STL/binding operations access.
 
 The profile covers complete named non-template records without bases, named enums,
-and unqualified `int`, `unsigned int`, and `double` fields plus unsigned-int
-bitfields. Explicit zero-I/O fields can be omitted before type-policy checks.
+and unqualified `int`, `unsigned int`, and `double` fields, fixed arrays of those
+types, their scalar/array aliases, and unsigned-int bitfields. Qualified elements,
+pointer/reference and structured/enum arrays remain outside this policy.
+Explicit zero-I/O fields can be omitted before type-policy checks.
 Unsupported required fields/types fail the entire resolution. Extraction still
 rejects required static/global/function-pointer facts and parse errors before
 policy runs; unselected unrelated declarations are absent rather than fabricated

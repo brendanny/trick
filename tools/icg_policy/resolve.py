@@ -15,14 +15,13 @@ from jsonschema import Draft202012Validator, ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tools.icg_policy import enums, rules  # noqa: E402
+from tools.icg_policy import enums, rules, storage  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-3"
+POLICY_VERSION = "scalar-metadata-4"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
-SCALARS = {"int", "unsigned int", "double"}
 
 
 def digest(value: object) -> str:
@@ -132,6 +131,15 @@ def access(record: dict, field: dict, init_function: str) -> dict:
     )
 
 
+def units_key(record: dict, field: dict, declarations: dict) -> str:
+    containers = []
+    while record is not None:
+        if record["kind"] == "record":
+            containers.insert(0, record["name"])
+        record = declarations.get(record.get("semantic_parent_id"))
+    return "__".join(containers) + "_" + field["name"]
+
+
 def _build(facts: dict, request: dict, effective: dict) -> dict:
     declarations = {n["id"]: n for n in facts["declarations"]}
     types = {n["id"]: n for n in facts["types"]}
@@ -151,6 +159,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
     }
     decisions = {}
     symbols = {}
+    unit_keys = {}
 
     def decide(node: dict) -> dict:
         identifier = node["id"]
@@ -278,25 +287,19 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
                 comment_index=comment_index,
                 annotation=annotation,
                 access=permitted,
+                storage=None,
+                units_map_key=units_key(parent, node, declarations),
             )
             if annotation["io"] == 0:
                 result["rule"] = "IO_DISABLED"
                 return result
-            type_node = types[node["type_id"]]
-            if (
-                type_node["kind"] != "builtin"
-                or type_node["spelling"] not in SCALARS
-                or any(type_node["qualifiers"].values())
-                or not node["name"]
-            ):
+            result["metadata"]["storage"] = storage.resolve(node, types)
+            key = result["metadata"]["units_map_key"]
+            if key in unit_keys and unit_keys[key] != identifier:
                 raise rules.PolicyError(
-                    "ICG_POLICY_TYPE",
-                    f"required field outside scalar profile: {node['qualified_name']}",
+                    "ICG_POLICY_NAME", f"legacy UnitsMap key collision: {key}"
                 )
-            if node["bitfield"] and type_node["spelling"] != "unsigned int":
-                raise rules.PolicyError(
-                    "ICG_POLICY_TYPE", "only unsigned int bitfields are characterized"
-                )
+            unit_keys[key] = identifier
             # Literal numeric metadata does not perform a C++ member access.
             result.update(decision="include", rule="NUMERIC_OFFSET_METADATA")
         return result
@@ -310,7 +313,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=3,
+        schema_version=4,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(

@@ -1,4 +1,4 @@
-// Native observations for the three audited legacy differential fixtures.
+// Native observations for the audited scalar, array and enum metadata fixtures.
 // Include after the unmodified, materialized legacy translation unit.
 #include <climits>
 #include <cstring>
@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace probe
@@ -39,7 +40,36 @@ namespace probe
             size_t size;
             size_t offset;
             size_t width;
+            std::vector<size_t> dimensions;
+            size_t total_size;
     };
+
+    template <typename Value, size_t... I> Field member(const char* name, size_t offset, std::index_sequence<I...>)
+    {
+        return { name,
+                 sizeof(typename std::remove_all_extents<Value>::type),
+                 offset,
+                 0,
+                 { std::extent<Value, I>::value... },
+                 sizeof(Value) };
+    }
+
+    template <typename Value> Field member(const char* name, size_t offset)
+    {
+        return member<Value>(name, offset, std::make_index_sequence<std::rank<Value>::value> {});
+    }
+
+    inline void dimensions(const std::vector<size_t>& values)
+    {
+        std::cout << '[';
+        for (size_t i = 0; i < values.size(); ++i)
+        {
+            if (i)
+                std::cout << ',';
+            std::cout << values[i];
+        }
+        std::cout << ']';
+    }
 
     // This intentionally supports only the unsigned bitfields in the audited
     // standard-layout, trivially-copyable fixture on little-endian hosts.
@@ -50,7 +80,7 @@ namespace probe
         static_assert(std::is_unsigned<Value>::value, "unsigned fixture bitfield");
         unsigned int endian = 1;
         require(*reinterpret_cast<unsigned char*>(&endian) == 1, "bitfield probe requires little endian");
-        T object { };
+        T object {};
         std::memset(static_cast<void*>(&object), 0, sizeof(object));
         set(object, std::numeric_limits<Value>::max());
         const auto* bytes = reinterpret_cast<const unsigned char*>(&object);
@@ -68,7 +98,7 @@ namespace probe
             }
         }
         require(width != 0 && last - first + 1 == width, std::string(name) + ": noncontiguous native bitfield");
-        return { name, sizeof(Value), first, width };
+        return { name, sizeof(Value), first, width, {}, sizeof(Value) };
     }
 
     inline const char* kind(TRICK_TYPE type)
@@ -94,13 +124,21 @@ namespace probe
                 "null ATTRIBUTES string");
         require(!*row.alias && !*row.user_defined && row.io > 0 && row.io <= 15 && row.range_min == 0
                     && row.range_max == 0 && row.language == Language_CPP && (row.mods == 0 || row.mods == 4)
-                    && !row.attr && row.num_index == 0 && row.stl_type == TRICK_STL_UNKNOWN
-                    && row.stl_elem_type == TRICK_NUMBER_OF_TYPES && !row.stl_elem_type_name && !row.checkpoint_stl
-                    && !row.post_checkpoint_stl && !row.restore_stl && !row.clear_stl && !row.get_stl_size
-                    && !row.get_stl_element && !row.set_stl_element,
+                    && !row.attr && row.num_index >= 0 && row.num_index <= TRICK_MAX_INDEX
+                    && row.stl_type == TRICK_STL_UNKNOWN && row.stl_elem_type == TRICK_NUMBER_OF_TYPES
+                    && !row.stl_elem_type_name && !row.checkpoint_stl && !row.post_checkpoint_stl && !row.restore_stl
+                    && !row.clear_stl && !row.get_stl_size && !row.get_stl_element && !row.set_stl_element,
                 std::string(row.name) + ": unsupported compiled ATTRIBUTES metadata");
-        for (size_t i = 1; i < TRICK_MAX_INDEX; ++i)
-            require(row.index[i].size == 0 && row.index[i].start == 0, "unsupported extra index metadata");
+        const bool bits = row.type == TRICK_UNSIGNED_BITFIELD || row.type == TRICK_BITFIELD;
+        require(!bits || row.num_index == 0, "bitfield cannot have array dimensions");
+        for (int i = 0; i < TRICK_MAX_INDEX; ++i)
+        {
+            if (bits && i == 0)
+                continue;
+            require(row.index[i].start == 0, "unexpected array index start");
+            require(i < row.num_index ? row.index[i].size > 0 : row.index[i].size == 0,
+                    "invalid active or unused array extent");
+        }
     }
 
     template <typename T, size_t N>
@@ -111,10 +149,10 @@ namespace probe
         require(N == fields.size() + 1, std::string(name) + ": compiled field count differs");
         const auto& sentinel = rows[N - 1];
         defaults(sentinel);
-        require(!*sentinel.name && !*sentinel.type_name && std::string(sentinel.units) == "1"
-                    && !*sentinel.des && sentinel.io == 15 && sentinel.mods == 0
-                    && sentinel.type == TRICK_VOID && sentinel.size == 0 && sentinel.offset == 0
-                    && sentinel.index[0].size == 0 && sentinel.index[0].start == 0,
+        require(!*sentinel.name && !*sentinel.type_name && std::string(sentinel.units) == "1" && !*sentinel.des
+                    && sentinel.io == 15 && sentinel.mods == 0 && sentinel.type == TRICK_VOID && sentinel.size == 0
+                    && sentinel.offset == 0 && sentinel.num_index == 0 && sentinel.index[0].size == 0
+                    && sentinel.index[0].start == 0,
                 "invalid compiled ATTRIBUTES sentinel");
         std::cout << "{\"name\":";
         quoted(name);
@@ -139,8 +177,14 @@ namespace probe
             quoted(row.des);
             std::cout << ",\"units_map_units\":";
             quoted(Trick::UnitsMap::units_map()->get_units(std::string(symbol) + "_" + row.name));
+            std::vector<size_t> extents;
+            for (int j = 0; j < row.num_index; ++j)
+                extents.push_back(row.index[j].size);
             std::cout << ",\"size_bytes\":" << row.size << ",\"offset_bytes\":" << row.offset
-                      << ",\"width\":" << row.index[0].size << ",\"shift\":" << row.index[0].start << '}';
+                      << ",\"width\":" << (row.num_index ? 0 : row.index[0].size) << ",\"shift\":" << row.index[0].start
+                      << ",\"dimensions\":";
+            dimensions(extents);
+            std::cout << '}';
         }
         std::cout << "],\"native_fields\":[";
         for (size_t i = 0; i < fields.size(); ++i)
@@ -151,7 +195,10 @@ namespace probe
             std::cout << "{\"name\":";
             quoted(field.name);
             std::cout << ",\"size_bytes\":" << field.size << ",\"offset_bits\":" << field.offset
-                      << ",\"width\":" << field.width << '}';
+                      << ",\"width\":" << field.width << ",\"total_size_bytes\":" << field.total_size
+                      << ",\"dimensions\":";
+            dimensions(field.dimensions);
+            std::cout << '}';
         }
         std::cout << "]}";
     }

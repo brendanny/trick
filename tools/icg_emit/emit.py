@@ -17,12 +17,7 @@ sys.path.insert(0, str(ROOT))
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-2"
-KINDS = {
-    "int": "TRICK_INTEGER",
-    "unsigned int": "TRICK_UNSIGNED_INTEGER",
-    "double": "TRICK_DOUBLE",
-}
+VERSION = "scalar-metadata-emitter-3"
 
 
 def literal(value: str) -> str:
@@ -66,13 +61,19 @@ def attribute(
     offset=0,
     width=0,
     shift=0,
+    dimensions=(),
 ) -> str:
-    indices = ", ".join([f"{{{width}, {shift}}}"] + ["{0, 0}"] * 7)
+    entries = (
+        [f"{{{extent}, 0}}" for extent in dimensions]
+        if dimensions
+        else [f"{{{width}, {shift}}}"]
+    )
+    indices = ", ".join(entries + ["{0, 0}"] * (8 - len(entries)))
     return (
         f'{{{literal(name)}, {literal(spelling)}, {literal(units)}, "", "",\n'
         f"  {literal(description)},\n"
         f"  {io},{kind}, {size}, 0, 0, Language_CPP, {mods},\n"
-        f"  {offset}, NULL, 0, {{{indices}}},\n"
+        f"  {offset}, NULL, {len(dimensions)}, {{{indices}}},\n"
         "  TRICK_STL_UNKNOWN, TRICK_NUMBER_OF_TYPES, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}"
     )
 
@@ -81,7 +82,6 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
     # Never accept a caller's checksum as proof that its policy is valid.
     policy.validate(facts, request, resolved)
     nodes = {n["id"]: n for n in facts["declarations"]}
-    types = {n["id"]: n for n in facts["types"]}
     files = {n["id"]: n for n in facts["files"]}
     decisions = {d["declaration_id"]: d for d in resolved["declarations"]}
     selected = [
@@ -181,7 +181,8 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
             if decision["decision"] != "include":
                 continue
             field, annotation = nodes[identifier], decision["metadata"]["annotation"]
-            spelling = types[field["type_id"]]["spelling"]
+            storage = decision["metadata"]["storage"]
+            spelling = storage["type_name"]
             if not re.fullmatch(r"[A-Za-z_]\w*", field["name"], re.ASCII):
                 raise PolicyError(
                     "ICG_EMIT_NAME", "field identifier outside the ASCII ABI profile"
@@ -206,6 +207,9 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                         "ICG_EMIT_LAYOUT", "scalar offset is not byte aligned"
                     )
                 offset //= 8
+                checks.append(
+                    f'    static_assert({offset} <= sizeof(::{name}) && sizeof({storage["cpp_type"]}) <= sizeof(::{name}) - {offset}, "ICG field exceeds record storage");\n'
+                )
                 if decision["metadata"]["access"]["allowed"]:
                     # This is an actual access expression inside the exact
                     # resolved init function. Private fields need its friendship.
@@ -213,7 +217,7 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                         f'    static_assert(offsetof(::{name}, {field["name"]}) == {offset}, "ICG field offset mismatch: {field["name"]}");\n'
                     )
                     checks.append(
-                        f'    static_assert(std::is_same<decltype(::{name}::{field["name"]}), {spelling}>::value, "ICG field type mismatch");\n'
+                        f'    static_assert(std::is_same<decltype(::{name}::{field["name"]}), {storage["cpp_type"]}>::value, "ICG field type mismatch");\n'
                     )
             rows.append(
                 attribute(
@@ -223,15 +227,16 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                     description=annotation["description"],
                     io=annotation["io"],
                     mods=annotation["mods"],
-                    kind="TRICK_UNSIGNED_BITFIELD" if width else KINDS[spelling],
+                    kind=storage["trick_type"],
                     size="4" if width else f"sizeof({spelling})",
                     offset=offset,
                     width=width,
                     shift=shift,
+                    dimensions=storage["dimensions"],
                 )
             )
             units.append(
-                f"        map->add_param({literal(symbol + '_' + field['name'])}, {literal(annotation['units'])});\n"
+                f"        map->add_param({literal(decision['metadata']['units_map_key'])}, {literal(annotation['units'])});\n"
             )
         chunks.append(
             'extern "C" {\n'

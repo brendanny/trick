@@ -73,7 +73,7 @@ class RuleTests(unittest.TestCase):
                 / "trick_source/codegen/TrickCodeGen/ir/fixtures/minimal-record.json"
             ).read_text()
         )
-        for version in range(3):
+        for version in range(4):
             request = resolve.request_for(facts)
             request["policy_version"] = f"scalar-metadata-{version}"
             with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_REQUEST"):
@@ -238,7 +238,13 @@ class ExtractionTests(unittest.TestCase):
             resolve.validate(facts, broad, b)
 
     def test_unsupported_required_type_fails_but_explicit_io_omission_is_allowed(self):
-        for declaration in ("int *x;", "const int x = 1;", "int x[2];"):
+        for declaration in (
+            "int *x;",
+            "const int x = 1;",
+            "int *x[2];",
+            "const int x[2] = {};",
+            "volatile double x[2];",
+        ):
             facts = self.extract(cases.HEADER + f"struct Model {{ {declaration} }};\n")
             with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
                 resolve.resolve(facts, resolve.request_for(facts))
@@ -246,6 +252,86 @@ class ExtractionTests(unittest.TestCase):
             cases.HEADER + "struct Model { int *x; /* ** */\n};\n"
         )
         self.assertEqual(characterize.observed(facts, model), {"Model": {}})
+
+    def test_array_storage_and_rehashed_decisions(self):
+        facts, request, model = self.model(
+            "namespace demo { using Row = double[3]; struct Model { Row values[2]; }; }"
+        )
+        index = next(
+            i
+            for i, d in enumerate(model["declarations"])
+            if d["metadata"] and "storage" in d["metadata"]
+        )
+        metadata = model["declarations"][index]["metadata"]
+        self.assertEqual(metadata["units_map_key"], "Model_values")
+        expected = dict(
+            type_name="double",
+            cpp_type="double[2][3]",
+            trick_type="TRICK_DOUBLE",
+            dimensions=[2, 3],
+        )
+        self.assertEqual(
+            {k: v for k, v in metadata["storage"].items() if k != "element_type_id"},
+            expected,
+        )
+        element = next(
+            t
+            for t in facts["types"]
+            if t["id"] == metadata["storage"]["element_type_id"]
+        )
+        self.assertEqual(element["spelling"], "double")
+        for mutate in (
+            lambda m: m["storage"]["dimensions"].reverse(),
+            lambda m: m["storage"]["dimensions"].pop(),
+            lambda m: m["storage"].update(type_name="int"),
+            lambda m: m["storage"].update(cpp_type="double[3][2]"),
+            lambda m: m["storage"].update(trick_type="TRICK_INTEGER"),
+            lambda m: m["storage"].update(element_type_id="type:" + "0" * 64),
+            lambda m: m.update(storage=None),
+            lambda m: m.update(units_map_key="demo__Model_values"),
+        ):
+            changed = deepcopy(model)
+            mutate(changed["declarations"][index]["metadata"])
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                resolve.validate(facts, request, changed)
+
+    def test_array_rank_extent_and_element_boundaries(self):
+        for declaration, code in (
+            ("int x[1][1][1][1][1][1][1][1][1];", "ICG_POLICY_ARRAY_RANK"),
+            ("int x[2147483648ULL];", "ICG_POLICY_ARRAY_EXTENT"),
+            ("int x[0];", "ICG_POLICY_ARRAY_EXTENT"),
+            ("int lead; int x[];", "ICG_POLICY_ARRAY_EXTENT"),
+            ("float x[2];", "ICG_POLICY_TYPE"),
+            ("using Row = const int[2]; Row x;", "ICG_POLICY_TYPE"),
+        ):
+            with self.subTest(declaration=declaration):
+                facts = self.extract(f"struct Model {{ {declaration} }};")
+                with self.assertRaisesRegex(rules.PolicyError, code):
+                    resolve.resolve(facts, resolve.request_for(facts))
+        for shape in ("[2147483647]", "[1][1][1][1][1][1][1][1]"):
+            _, _, model = self.model(f"struct Model {{ int x{shape}; }};")
+            self.assertTrue(
+                any(
+                    d["metadata"] and d["metadata"].get("storage")
+                    for d in model["declarations"]
+                )
+            )
+
+    def test_omitted_array_does_not_require_storage_or_claim_unit_key(self):
+        _, _, model = self.model(
+            cases.HEADER
+            + "namespace one { struct Model { int *x[2]; /* ** */\n}; }\nnamespace two { struct Model { int x[2]; }; }"
+        )
+        omitted = next(d for d in model["declarations"] if d["rule"] == "IO_DISABLED")
+        self.assertIsNone(omitted["metadata"]["storage"])
+
+    def test_legacy_units_map_key_collision_is_rejected(self):
+        facts = self.extract(
+            "namespace one { struct Model { int x[2]; }; } namespace two { struct Model { int x[3]; }; }"
+        )
+        with self.assertRaisesRegex(rules.PolicyError, "legacy UnitsMap key collision"):
+            resolve.resolve(facts, resolve.request_for(facts))
 
     def test_templates_and_inheritance_reject_without_partial_output(self):
         for source in (

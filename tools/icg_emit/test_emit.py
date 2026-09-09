@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
+import array_metadata  # noqa: E402
 import differential  # noqa: E402
 import enum_metadata  # noqa: E402
 import native  # noqa: E402
@@ -281,6 +282,79 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
                     )
                 self.compile(candidate, "\n".join(checks), name)
 
+    def test_array_legacy_candidate_native_gate(self):
+        result = array_metadata.capture(EXTRACTOR, self.work, COMPILER)
+        self.assertEqual(result["status"], "compared")
+        self.assertEqual(sum(len(v) for v in result["records"].values()), 9)
+
+    def test_array_mutations_fail_compiled_comparison(self):
+        case, _ = array_metadata.reference()
+        documents = self.extract(ROOT / case["header"])
+        facts = documents[0]
+        report = array_metadata.report_for(facts)
+        candidate = emit.render(*documents)
+        for index, (before, after) in enumerate((
+            ("16, NULL, 2, {{2, 0}, {3, 0}", "16, NULL, 2, {{3, 0}, {2, 0}"),
+            ("16, NULL, 2, {{2, 0}", "16, NULL, 1, {{2, 0}"),
+            ("16, NULL, 2, {{2, 0}", "16, NULL, 2, {{0, 0}"),
+            ("16, NULL, 2, {{2, 0}", "16, NULL, 2, {{2, 1}"),
+            (
+                "16, NULL, 2, {{2, 0}, {3, 0}, {0, 0}",
+                "16, NULL, 2, {{2, 0}, {3, 0}, {9, 0}",
+            ),
+            ("16, NULL, 2", "24, NULL, 2"),
+            ("TRICK_DOUBLE, sizeof(double)", "TRICK_DOUBLE, sizeof(double[2][3])"),
+            ("96, NULL, 8", "96, NULL, 7"),
+            (
+                'map->add_param("Aliases_rows", "rad")',
+                'map->add_param("icg_array__Aliases_rows", "rad")',
+            ),
+            ('"positions",\n  15', '"positions",\n  10'),
+            (
+                '"counts",\n  5,TRICK_UNSIGNED_INTEGER, sizeof(unsigned int), 0, 0, Language_CPP, 4',
+                '"counts",\n  5,TRICK_UNSIGNED_INTEGER, sizeof(unsigned int), 0, 0, Language_CPP, 0',
+            ),
+        )):
+            with self.subTest(mutation=before):
+                self.assertIn(before, candidate)
+                directory = self.work / f"array-mutation-{index}"
+                directory.mkdir()
+                (directory / "native.json").write_text('{"stale":true}')
+                with self.assertRaises(ValueError):
+                    native.capture(
+                        facts,
+                        candidate.replace(before, after),
+                        report,
+                        case,
+                        directory,
+                        COMPILER,
+                        source_name="candidate.cpp",
+                    )
+                self.assertFalse((directory / "native.json").exists())
+
+    def test_private_array_checks_require_exact_init_friend(self):
+        for friend, allowed in (
+            ("friend void init_attrdemo__Model();", True),
+            ("friend void init_attrdemo__Model(int);", False),
+            ("", False),
+        ):
+            source = (
+                cases.HEADER
+                + f"namespace demo {{ using Row = double[3]; class Model {{ {friend}\nRow x[2]; /* trick_units(cm) */\n}}; }}"
+            )
+            candidate = emit.render(*self.model(source))
+            self.assertEqual("offsetof(" in candidate, allowed)
+            self.compile(
+                candidate,
+                'init_attrdemo__Model_c_intf(); if (Trick::UnitsMap::units_map()->get_units("Model_x") != "cm") throw std::runtime_error("namespace units key");',
+            )
+            if allowed:
+                (self.work / "model.hh").write_text(source.replace(friend, ""))
+                with self.assertRaisesRegex(ValueError, "private"):
+                    self.compile(
+                        candidate, "init_attrdemo__Model_c_intf();", "no-array-friend"
+                    )
+
     def test_generated_private_access_uses_exact_friend_and_namespace(self):
         for opening, closing, symbol in (
             ("", "", "Model"),
@@ -350,6 +424,11 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
 
     def test_unsupported_requests_publish_no_source(self):
         for source, code in (
+            (
+                "struct Model { int x[1][1][1][1][1][1][1][1][1]; };",
+                "ICG_POLICY_ARRAY_RANK",
+            ),
+            ("struct Model { int x[2147483648ULL]; };", "ICG_POLICY_ARRAY_EXTENT"),
             (
                 "/* PURPOSE: (ignored) ICG: (No) */\nstruct Model { int x; };\n",
                 "ICG_EMIT_EMPTY",

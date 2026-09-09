@@ -669,3 +669,21 @@ policy rejects affected requests and values outside `ENUM_ATTR.int`. This does
 not change the legacy ABI or its runtime behavior. Ten additional enum tables
 and 19 entries compile through separate old/new/native probes, with mutation and
 rejection checks. See the [enum evidence contract](../../../tools/icg_baseline/enums/README.md).
+
+### Bounded resolved policy v4 and metadata emitter v3
+
+Resolved schema v4 / `scalar-metadata-4` adds field `storage` decisions and explicit
+`units_map_key` values. Storage retains the canonical base type ID, legacy type
+name/kind, native C++ type and ordered dimensions. Scalar and array aliases expand
+through existing canonical type edges. Included arrays require one to eight
+positive signed-int extents and a supported unqualified scalar element type.
+Zero-I/O omissions retain null storage. Old models require re-resolution; facts
+v12 and their graph identity are unchanged.
+
+Emitter v3 consumes these decisions for base element sizes, rank/index metadata
+and full native field-type checks. UnitsMap keys retain record nesting but omit
+namespaces, fixing an error concealed by unitless lookup defaults in earlier
+fixtures. Policy rejects selected-field key collisions. The independently
+captured [array corpus](../../../tools/icg_baseline/arrays/README.md) uses native
+rank/extents, element/whole-field sizes and offsets to validate old and new code.
+Array metadata does not establish lifecycle or MemoryManager runtime parity.

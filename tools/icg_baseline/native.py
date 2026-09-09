@@ -1,12 +1,13 @@
 """Compile actual legacy metadata and compare it with facts and native layout.
 
-This probe supports only the audited scalar/unsigned-bitfield/enum fixtures in
-differential.py. It links the real Trick UnitsMap implementation, without stubs.
+This probe supports the audited scalar/array/unsigned-bitfield/enum fixtures.
+It links the real Trick UnitsMap implementation, without stubs.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import shlex
@@ -36,17 +37,25 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
         for node in document["declarations"]
         if node["kind"] in ("record", "enum")
     }
+    nodes = {n["id"]: n for n in document["declarations"]}
     calls = []
     for name, fields in report["records"].items():
         identifier(name)
         symbol = name.replace("::", "__")
+        record = declarations[name]
+        unit_containers = []
+        while record is not None:
+            if record["kind"] == "record":
+                unit_containers.insert(0, record["name"])
+            record = nodes.get(record.get("semantic_parent_id"))
+        unit_prefix = "__".join(unit_containers)
         native_fields = []
         for field in fields:
             member = identifier(field["name"])
             type_name = f"decltype({name}::{member})"
             if field["bit_width"] is None:
                 native_fields.append(
-                    f'{{"{member}", sizeof({type_name}), offsetof({name}, {member}) * CHAR_BIT, 0}}'
+                    f'probe::member<{type_name}>("{member}", offsetof({name}, {member}) * CHAR_BIT)'
                 )
             else:
                 if field["type"] != "unsigned int":
@@ -57,7 +66,7 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
                 )
         calls.append(
             f"init_attr{symbol}_c_intf();\n"
-            f'probe::record<{name}>("{name}", "{symbol}", attr{symbol}, '
+            f'probe::record<{name}>("{name}", "{unit_prefix}", attr{symbol}, '
             f"io_src_sizeof_{symbol}(), {{{', '.join(native_fields)}}});"
         )
     enum_calls = []
@@ -133,15 +142,21 @@ def validate(document: dict, report: dict, observed: dict) -> None:
             ):
                 label = f"{name}::{field['name']}"
                 width = field["bit_width"] or 0
+                dimensions = field.get("dimensions", [])
+                total_size = row["size_bytes"] * math.prod(dimensions)
                 if native != dict(
                     name=field["name"],
                     size_bytes=row["size_bytes"],
                     offset_bits=field["offset_bits"],
                     width=width,
+                    dimensions=dimensions,
+                    total_size_bytes=total_size,
                 ):
                     raise ValueError(f"{label}: native field size/offset/width differs")
                 if row["size_bytes"] <= 0 or row["offset_bytes"] < 0:
                     raise ValueError(f"{label}: invalid compiled field storage")
+                if row["offset_bytes"] + total_size > item["size_bytes"]:
+                    raise ValueError(f"{label}: field extends beyond native record")
                 kind = "TRICK_UNSIGNED_BITFIELD" if width else KINDS[field["type"]]
                 expected = dict(
                     name=field["name"],
@@ -156,6 +171,7 @@ def validate(document: dict, report: dict, observed: dict) -> None:
                     io=field.get("legacy_io", 15),
                     mods=field.get("legacy_mods", 0),
                     description=field.get("legacy_description", ""),
+                    dimensions=dimensions,
                 )
                 offset = row["offset_bytes"] * 8
                 if width:

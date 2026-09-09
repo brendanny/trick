@@ -1,0 +1,1 @@
+build${TRICK_ROOT}/tools/icg_baseline/arrays/fixtures/io_Arrays.o

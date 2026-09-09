@@ -10,6 +10,8 @@ on:
       - 'tools/icg_emit/**'
       - 'tools/icg_baseline/differential.py'
       - 'tools/icg_baseline/enum_metadata.py'
+      - 'tools/icg_baseline/array_metadata.py'
+      - 'tools/icg_baseline/arrays/**'
       - 'tools/icg_baseline/enums/**'
       - 'tools/icg_baseline/baseline.py'
       - 'tools/icg_baseline/native*'
@@ -31,6 +33,8 @@ on:
       - 'tools/icg_emit/**'
       - 'tools/icg_baseline/differential.py'
       - 'tools/icg_baseline/enum_metadata.py'
+      - 'tools/icg_baseline/array_metadata.py'
+      - 'tools/icg_baseline/arrays/**'
       - 'tools/icg_baseline/enums/**'
       - 'tools/icg_baseline/baseline.py'
       - 'tools/icg_baseline/native*'
@@ -159,6 +163,13 @@ jobs:
             --extractor build/icg-extract/trick-icg-extract \
             --compiler "$(command -v g++)" \
             --output build/icg-evidence/enums
+      - name: Compare fixed-array metadata with legacy and native layout
+        if: matrix.os == 'ubuntu-24.04' && matrix.llvm == 17 && matrix.python == '3.11'
+        run: |
+          python tools/icg_baseline/array_metadata.py \
+            --extractor build/icg-extract/trick-icg-extract \
+            --compiler "$(command -v g++)" \
+            --output build/icg-evidence/arrays
       - name: Capture lifecycle symbols, facts, execution, and sanitizer evidence
         if: matrix.os == 'ubuntu-24.04' && matrix.llvm == 17 && matrix.python == '3.11'
         run: |

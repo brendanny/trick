@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/arrays/fixtures/Arrays.hh
+${SIM_ROOT}/input.cpp

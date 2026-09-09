@@ -1,6 +1,6 @@
 # Bounded legacy metadata emitter
 
-This standalone development backend consumes **facts v12, resolved policy v3,
+This standalone development backend consumes **facts v12, resolved policy v4,
 and the caller's explicit request**. It generates C++ metadata against the
 existing Trick ABI. It is not a production `trick-ICG` replacement.
 
@@ -11,7 +11,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1/v2 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1/v2/v3 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -19,6 +19,8 @@ must be resolved again; relabeling their version is not a migration.
 - C-linkage `ATTRIBUTES` and `ENUM_ATTR` tables and complete sentinels.
 - Source-order fields and enumerators, numeric offsets, legacy 32-bit unsigned
   bitfield storage, scalar sizes, units, I/O, modifier bits, and descriptions.
+- Fixed arrays of the supported scalars: base element size, ordered dimensions,
+  zero starts/unused indices, and expanded scalar/array typedefs.
 - Namespace-correct C++ initialization functions, global C-interface wrappers,
   and `io_src_sizeof_*` entry points. Initializers are repeatable.
 - UnitsMap registration through the real implementation, matching legacy keys.
@@ -32,11 +34,13 @@ checks each observed source file's digest before rendering. Numeric private-fiel
 metadata does not itself need member access. An init-function friend grants no
 lifecycle, STL, registry, or binding permission.
 
-Emitter v2 supports standard-layout records in the bounded scalar policy and
+Emitter v3 supports standard-layout records in the bounded scalar/array policy and
 scoped/unscoped enum values representable by `ENUM_ATTR.int` that agree with
 legacy's signed integer conversion. Enum labels, C++ names, values, order and
 modifier bits come from explicit policy decisions; the emitter does not derive
-them again. Its target profile is
+them again. Field storage, dimensions and UnitsMap keys are likewise resolved
+explicitly. Generated checks verify the full native field type and that its
+storage fits inside the record. Its target profile is
 little-endian LP64 x86-64/AArch64 Linux or macOS, with eight-bit bytes, 32-bit int,
 and 64-bit double. Bitfields must fit a complete in-object 32-bit storage unit.
 Non-standard-layout records, wider enum values, unsigned narrow values that legacy
@@ -44,6 +48,12 @@ sign-extends incorrectly, unsafe packed
 bitfields, conflicting init-function signatures, and empty selections are explicit
 errors. These emitter limits are
 narrower than successful fact extraction or policy resolution.
+
+Arrays require one to eight fixed positive extents, each fitting signed
+`INDEX.int`. Const/volatile, pointer/reference and structured/enum elements remain
+rejected. UnitsMap keys retain enclosing record names but omit namespaces,
+correcting the prior emitter's namespace prefix. Ambiguous selected-field key
+collisions are policy errors.
 
 Output includes the original translation-unit header and embeds the emitter
 version and policy/input digests. Compile it with the model's matching target and
@@ -74,6 +84,9 @@ python tools/icg_baseline/differential.py \
 python tools/icg_baseline/enum_metadata.py \
   --extractor build/icg-extract/trick-icg-extract \
   --compiler /usr/bin/g++ --output build/enum-evidence
+python tools/icg_baseline/array_metadata.py \
+  --extractor build/icg-extract/trick-icg-extract \
+  --compiler /usr/bin/g++ --output build/array-evidence
 ctest --test-dir build/icg-extract --output-on-failure
 ```
 
@@ -95,6 +108,13 @@ policy to reject their sign-extension mismatch without publishing a candidate.
 On Clang, only the legacy lane relaxes the `-Werror` promotion for
 `-Winline-namespace-reopened-noninline`; the original source and warning are
 retained. The candidate lane keeps full warnings-as-errors.
+
+The [array corpus](../icg_baseline/arrays/README.md) adds two records and nine
+fields, including six arrays. Independent `std::extent`/`sizeof`/`offsetof`
+observations check dimensions, element size and total storage. Mutation tests
+catch swapped dimensions with equal total size, changed ranks/extents/index
+starts, unused index data, wrong element sizes/offsets, annotations and UnitsMap
+keys. Private-array access uses the same exact-friend compile controls.
 
 `icg_emit_integration` is part of the existing LLVM 17–23 Linux/macOS and GCC
 8.5/12 CTest lanes. It also compiles all I/O combinations, unit aliases and `--`
