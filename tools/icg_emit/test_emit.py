@@ -333,6 +333,8 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
                 self.assertFalse((directory / "native.json").exists())
 
     def test_private_array_checks_require_exact_init_friend(self):
+        # Without the exact friend, generated code intentionally leaves x unused.
+        # Keep Clang's unused-private-field warning from masking access checks.
         for friend, allowed in (
             ("friend void init_attrdemo__Model();", True),
             ("friend void init_attrdemo__Model(int);", False),
@@ -340,7 +342,7 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
         ):
             source = (
                 cases.HEADER
-                + f"namespace demo {{ using Row = double[3]; class Model {{ {friend}\nRow x[2]; /* trick_units(cm) */\n}}; }}"
+                + f"namespace demo {{ using Row = double[3]; class Model {{ {friend}\n[[maybe_unused]] Row x[2]; /* trick_units(cm) */\n}}; }}"
             )
             candidate = emit.render(*self.model(source))
             self.assertEqual("offsetof(" in candidate, allowed)
@@ -350,12 +352,15 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
             )
             if allowed:
                 (self.work / "model.hh").write_text(source.replace(friend, ""))
-                with self.assertRaisesRegex(ValueError, "private"):
+                with self.assertRaisesRegex(
+                    ValueError, "is private within this context|is a private member of"
+                ):
                     self.compile(
                         candidate, "init_attrdemo__Model_c_intf();", "no-array-friend"
                     )
 
     def test_generated_private_access_uses_exact_friend_and_namespace(self):
+        # The no-friend cases deliberately generate no reference to this field.
         for opening, closing, symbol in (
             ("", "", "Model"),
             ("namespace demo { inline namespace v1 {", "}}", "demo__v1__Model"),
@@ -369,7 +374,7 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
                 with self.subTest(scope=opening, friend=friend):
                     source = (
                         cases.HEADER
-                        + f"#define TRICK_ICG {friend}\n{opening}\nclass Model {{ TRICK_ICG int x; }};\n{closing}\n"
+                        + f"#define TRICK_ICG {friend}\n{opening}\nclass Model {{ TRICK_ICG [[maybe_unused]] int x; }};\n{closing}\n"
                     )
                     candidate = emit.render(*self.model(source))
                     self.assertEqual("offsetof(" in candidate, allowed)
@@ -378,7 +383,10 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
                     # generated operation must actually require compiler access.
                     if allowed:
                         (self.work / "model.hh").write_text(source.replace(friend, ""))
-                        with self.assertRaisesRegex(ValueError, "private"):
+                        with self.assertRaisesRegex(
+                            ValueError,
+                            "is private within this context|is a private member of",
+                        ):
                             self.compile(
                                 candidate, f"init_attr{symbol}_c_intf();", "no-friend"
                             )
@@ -506,6 +514,8 @@ if __name__ == "__main__":
         help="retain source, commands and observations, including failures",
     )
     args, rest = parser.parse_known_args()
-    EXTRACTOR, COMPILER = args.extractor.resolve(), args.compiler.resolve()
+    EXTRACTOR = args.extractor.resolve()
+    # Preserve the C++ driver name when clang++ is a symlink to clang.
+    COMPILER = args.compiler.absolute()
     ARTIFACTS = args.artifacts.resolve() if args.artifacts else None
     unittest.main(argv=[sys.argv[0], *rest])
