@@ -15,13 +15,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-1"
+      "const": "scalar-metadata-2"
     },
     "facts": {
       "type": "object",
@@ -79,7 +79,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-1"
+          "const": "scalar-metadata-2"
         }
       }
     },
@@ -335,7 +335,9 @@
                       "units",
                       "io",
                       "rules",
-                      "diagnostics"
+                      "diagnostics",
+                      "mods",
+                      "description"
                     ],
                     "properties": {
                       "units": {
@@ -362,6 +364,15 @@
                             "LEGACY_INVALID_UNITS_DEFAULT"
                           ]
                         }
+                      },
+                      "mods": {
+                        "enum": [
+                          0,
+                          4
+                        ]
+                      },
+                      "description": {
+                        "type": "string"
                       }
                     }
                   },

@@ -25,7 +25,7 @@ def metadata(text: str) -> dict:
     ):
         rows = list(
             re.finditer(
-                r'\{"([^"\n]*)", "[^"\n]*", "([^"\n]*)", "", "",\s*"[^"\n]*",\s*(\d+),TRICK_\w+',
+                r'\{"([^"\n]*)", "[^"\n]*", "([^"\n]*)", "", "",\s*("(?:[^"\\]|\\.)*"),\s*(\d+),TRICK_\w+,[^\n]*Language_CPP, (\d+),',
                 table[2],
             )
         )
@@ -33,7 +33,12 @@ def metadata(text: str) -> dict:
             raise ValueError("unrecognized legacy table/sentinel")
         if table[1] in result:
             raise ValueError("duplicate legacy table")
-        result[table[1]] = {r[1]: dict(units=r[2], io=int(r[3])) for r in rows[:-1]}
+        result[table[1]] = {
+            r[1]: dict(
+                units=r[2], io=int(r[4]), mods=int(r[5]), description=json.loads(r[3])
+            )
+            for r in rows[:-1]
+        }
         if len(result[table[1]]) != len(rows) - 1:
             raise ValueError("duplicate legacy field")
     if len(result) != text.count("ATTRIBUTES attr"):
@@ -51,7 +56,8 @@ def observed(facts: dict, model: dict) -> dict:
             continue
         result[decision["metadata"]["symbol"]] = {
             nodes[i]["name"]: {
-                k: decisions[i]["metadata"]["annotation"][k] for k in ("units", "io")
+                k: decisions[i]["metadata"]["annotation"][k]
+                for k in ("units", "io", "mods", "description")
             }
             for i in node["field_ids"]
             if decisions[i]["decision"] == "include"

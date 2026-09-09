@@ -1,9 +1,9 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v1**, not C++, and does not replace production ICG.
-The next increment is the narrow metadata emitter in
-[the rewrite roadmap](../../docs/developer_docs/ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata).
+It emits **resolved policy v2**, not C++, and does not replace production ICG.
+The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
+compares generated C++ with legacy/native evidence.
 
 ## Run
 
@@ -24,13 +24,13 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-1"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-2"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, and sorted unique `file_ids`.
 It may narrow captured file selection but cannot widen it. A header merely
 present in the include graph is insufficient evidence that its unreferenced
 records were extracted. Caller-supplied requests remain mandatory for validation.
 Errors publish nothing on stdout; the shell may still create an empty redirected
-file. No generated-source writer or production cache is implemented.
+file. The separate emitter provides atomic source writes; no production cache is implemented.
 
 ## Contract and evidence
 
@@ -41,7 +41,10 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
+Field annotations now retain `description` and `mods`; this requires schema v2
+and policy `scalar-metadata-2`. Resolve old v1 inputs again rather than changing
+their version fields. Record/enum collisions in their shared size-function symbol
+namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
 
 `facts.document_digest` hashes the complete input document, including selection
@@ -61,7 +64,7 @@ settings, and missing decisions.
 
 ## Characterized compatibility rules
 
-The live [characterization runner](characterize.py) compares 31 compatible cases and two explicit policy rejections
+The live [characterization runner](characterize.py) compares 36 compatible cases and two explicit policy rejections
 against the unchanged `Interface_Code_Gen`, independent expected observations,
 and the new resolver. It saves commands, raw outputs, source/facts, requests,
 resolved models, generated legacy files, binary/XML fingerprints and reports.
@@ -85,8 +88,10 @@ unit case: legacy repairs it to `1`; the resolver records
 invalid and not repaired to `1`. Composite UDUNITS expressions, arbitrary prose
 interpreted as units, malformed or repeated annotations, and unclosed directives
 remain outside this grammar. This is an explicit compatibility boundary, not a
-complete reimplementation of `FieldDescription::parseComment`. Descriptions and
-general annotation precedence remain pending. Units are left uninterpreted when
+complete reimplementation of `FieldDescription::parseComment`. The remaining comment text becomes a description using characterized legacy
+cleanup, whitespace normalization, and escaped-byte behavior. General annotation
+precedence remains pending. The `--` units alias retains modifier bit 2 (`mods: 4`), independently of its
+normalized units string. Units are left uninterpreted when
 legacy skips unit validation because primary I/O is zero.
 
 Path settings are split on `:`, trimmed, and resolved relative to the recorded
@@ -141,5 +146,6 @@ python tools/icg_policy/characterize.py \
 The live characterization runs in the reference Linux/LLVM 17 lane. Actual
 extractor and native access tests are part of CTest on LLVM 17–23 Linux/macOS and
 GCC 8.5/12; pure rule tests also run on Python 3.11/3.12 Linux/macOS. Existing
-legacy reference snapshots are immutable. Successful resolution is not evidence
-of newly generated metadata, lifecycle, bindings, registry, SIE or build output.
+legacy reference snapshots are immutable. Successful resolution alone is not evidence of generated metadata; the separate
+emitter gate establishes the bounded contract. Lifecycle, bindings, registry,
+SIE and build output remain outside this profile.

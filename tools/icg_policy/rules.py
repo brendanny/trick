@@ -197,7 +197,14 @@ def file_policy(file: dict, effective: dict) -> dict:
 
 def annotation(payload: str | None) -> dict:
     if payload is None:
-        return dict(units="1", io=15, rules=["DEFAULT_UNITS_IO"], diagnostics=[])
+        return dict(
+            units="1",
+            io=15,
+            mods=0,
+            description="",
+            rules=["DEFAULT_UNITS_IO"],
+            diagnostics=[],
+        )
     text = re.sub(r"^(//|/\*)", "", payload, count=1)
     text = re.sub(r"^([*!]<)?\s*", "", text, count=1)
     text = re.sub(r"^(\\[a-zA-Z0-9]+)?\s*", "", text, count=1)
@@ -255,7 +262,9 @@ def annotation(payload: str | None) -> dict:
                 units = match[1]
         if units is not None:
             rules.append("LEGACY_PREFIX_UNITS")
+            text = text[match.end() :]
     io = values.get("io", 15)
+    mods = 0
     # Legacy validates units before processing checkpoint permissions; this
     # means a primary ** leaves arbitrary units text uninterpreted.
     if units is None:
@@ -270,6 +279,8 @@ def annotation(payload: str | None) -> dict:
                 "ICG_POLICY_UNITS", f"units outside the bounded vocabulary: {units!r}"
             )
         mapped = UNITS[units]
+        if units == "--":
+            mods = 4
         if mapped != units and units != "--":
             diagnostics.append("LEGACY_UNIT_ALIAS")
         units = mapped
@@ -285,6 +296,17 @@ def annotation(payload: str | None) -> dict:
             )
     elif "io" in values:
         io |= io << 2
+    # Preserve the characterized legacy description cleanup, including its
+    # requirement for leading whitespace/@ after annotations are removed.
+    if "*/" in text and text.rsplit("*/", 1)[0]:
+        text = text.rsplit("*/", 1)[0]
+    match = re.match(r"^[ \t\n\r@]+(.*)$", text, re.S)
+    description = re.sub(r"[ \t\n\r]+", " ", match[1].strip() if match else "")
     return dict(
-        units=units, io=io, rules=rules or ["DEFAULT_UNITS_IO"], diagnostics=diagnostics
+        units=units,
+        io=io,
+        mods=mods,
+        description=description,
+        rules=rules or ["DEFAULT_UNITS_IO"],
+        diagnostics=diagnostics,
     )

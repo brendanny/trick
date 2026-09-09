@@ -3,8 +3,8 @@
 HEADER = "/* PURPOSE: (policy characterization) */\n"
 
 
-def field(units="1", io=15):
-    return dict(units=units, io=io)
+def field(units="1", io=15, mods=0, description=""):
+    return dict(units=units, io=io, mods=mods, description=description)
 
 
 def cases():
@@ -195,7 +195,13 @@ def cases():
         "aliases",
         HEADER
         + "struct Model {\ndouble r; /* trick_units(r) */\ndouble d; /* trick_units(d) */\ndouble m; /* M distance */\n};\n",
-        {"Model": {"r": field("rad"), "d": field("degree"), "m": field("m")}},
+        {
+            "Model": {
+                "r": field("rad"),
+                "d": field("degree"),
+                "m": field("m", description="distance"),
+            }
+        },
         {},
     ))
     values.append((
@@ -204,6 +210,40 @@ def cases():
         {"Model": {"x": field()}},
         {},
     ))
+    values.extend([
+        (
+            "dash-units",
+            HEADER + "struct Model { double x; /* -- distance */\n};\n",
+            {"Model": {"x": field(mods=4, description="distance")}},
+            {},
+        ),
+        (
+            "checkpoint-only-dash",
+            HEADER
+            + "struct Model { double x; /* trick_io(**) trick_chkpnt_io(i) trick_units(--) */\n};\n",
+            {"Model": {"x": field("--", io=8)}},
+            {},
+        ),
+        (
+            "description",
+            HEADER
+            + 'struct Model { double x; /* trick_units(cm)  a "quoted" \\path\t label */\n};\n',
+            {"Model": {"x": field("cm", description='a "quoted" \\path label')}},
+            {},
+        ),
+        (
+            "line-description",
+            HEADER + "struct Model { double x; // (cm) distance\n};\n",
+            {"Model": {"x": field("cm", description="distance")}},
+            {},
+        ),
+        (
+            "description-no-space",
+            HEADER + "struct Model { double x; /* trick_units(m)distance */\n};\n",
+            {"Model": {"x": field("m")}},
+            {},
+        ),
+    ])
     return values
 
 

@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from tools.icg_policy import rules  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-1"
+POLICY_VERSION = "scalar-metadata-2"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
@@ -223,7 +223,8 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
                     "inheritance/template metadata is outside this request profile",
                 )
             symbol, init_function = names(node, declarations)
-            key = (node["kind"], symbol)
+            # Records and enums share the io_src_sizeof_<symbol> C namespace.
+            key = symbol
             if key in symbols and symbols[key] != identifier:
                 raise rules.PolicyError(
                     "ICG_POLICY_NAME", f"legacy symbol collision: {symbol}"
@@ -304,7 +305,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=1,
+        schema_version=2,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(

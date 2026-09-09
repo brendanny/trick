@@ -161,6 +161,10 @@ class ExtractionTests(unittest.TestCase):
             if d["metadata"] and "annotation" in d["metadata"]
         )
         mutations = [
+            lambda m: m["declarations"][field]["metadata"]["annotation"].update(mods=4),
+            lambda m: m["declarations"][field]["metadata"]["annotation"].update(
+                description="changed"
+            ),
             lambda m: m["declarations"][field]["metadata"]["annotation"].update(io=0),
             lambda m: m["declarations"][field]["metadata"]["annotation"].update(
                 units="cm"
@@ -376,7 +380,12 @@ class ExtractionTests(unittest.TestCase):
                 "TopClass__PublicEmbed__PublicEmbed2__PublicEmbed3",
             },
         )
-        self.assertEqual(result["TopClass"]["d"], dict(units="rad", io=15))
+        self.assertEqual(result["TopClass"]["d"], cases.field("rad"))
+
+    def test_record_enum_size_symbol_collision_is_rejected(self):
+        facts = self.extract("struct A__B {}; namespace A { enum B { value }; }\n")
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_NAME"):
+            resolve.resolve(facts, resolve.request_for(facts))
 
 
 if __name__ == "__main__":
