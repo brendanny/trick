@@ -335,6 +335,7 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
     def test_private_array_checks_require_exact_init_friend(self):
         # Without the exact friend, generated code intentionally leaves x unused.
         # Keep Clang's unused-private-field warning from masking access checks.
+        # GCC 8 rejects [[maybe_unused]] on fields; use the shared GNU spelling.
         for friend, allowed in (
             ("friend void init_attrdemo__Model();", True),
             ("friend void init_attrdemo__Model(int);", False),
@@ -342,7 +343,7 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
         ):
             source = (
                 cases.HEADER
-                + f"namespace demo {{ using Row = double[3]; class Model {{ {friend}\n[[maybe_unused]] Row x[2]; /* trick_units(cm) */\n}}; }}"
+                + f"namespace demo {{ using Row = double[3]; class Model {{ {friend}\nRow x[2] __attribute__((unused)); /* trick_units(cm) */\n}}; }}"
             )
             candidate = emit.render(*self.model(source))
             self.assertEqual("offsetof(" in candidate, allowed)
@@ -374,7 +375,7 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
                 with self.subTest(scope=opening, friend=friend):
                     source = (
                         cases.HEADER
-                        + f"#define TRICK_ICG {friend}\n{opening}\nclass Model {{ TRICK_ICG [[maybe_unused]] int x; }};\n{closing}\n"
+                        + f"#define TRICK_ICG {friend}\n{opening}\nclass Model {{ TRICK_ICG int x __attribute__((unused)); }};\n{closing}\n"
                     )
                     candidate = emit.render(*self.model(source))
                     self.assertEqual("offsetof(" in candidate, allowed)
