@@ -333,9 +333,8 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
                 self.assertFalse((directory / "native.json").exists())
 
     def test_private_array_checks_require_exact_init_friend(self):
-        # Without the exact friend, generated code intentionally leaves x unused.
-        # Keep Clang's unused-private-field warning from masking access checks.
-        # GCC 8 rejects [[maybe_unused]] on fields; use the shared GNU spelling.
+        # Reference x inside the fixture so Clang's unused-private-field warning
+        # cannot mask access checks. GCC 8 ignores unused attributes on fields.
         for friend, allowed in (
             ("friend void init_attrdemo__Model();", True),
             ("friend void init_attrdemo__Model(int);", False),
@@ -343,7 +342,7 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
         ):
             source = (
                 cases.HEADER
-                + f"namespace demo {{ using Row = double[3]; class Model {{ {friend}\nRow x[2] __attribute__((unused)); /* trick_units(cm) */\n}}; }}"
+                + f"namespace demo {{ using Row = double[3]; class Model {{ {friend}\nRow x[2]; /* trick_units(cm) */\npublic: double value() const {{ return x[0][0]; }}\n}}; }}"
             )
             candidate = emit.render(*self.model(source))
             self.assertEqual("offsetof(" in candidate, allowed)
@@ -361,7 +360,7 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
                     )
 
     def test_generated_private_access_uses_exact_friend_and_namespace(self):
-        # The no-friend cases deliberately generate no reference to this field.
+        # The fixture's accessor keeps x used even when generated code omits it.
         for opening, closing, symbol in (
             ("", "", "Model"),
             ("namespace demo { inline namespace v1 {", "}}", "demo__v1__Model"),
@@ -375,7 +374,7 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
                 with self.subTest(scope=opening, friend=friend):
                     source = (
                         cases.HEADER
-                        + f"#define TRICK_ICG {friend}\n{opening}\nclass Model {{ TRICK_ICG int x __attribute__((unused)); }};\n{closing}\n"
+                        + f"#define TRICK_ICG {friend}\n{opening}\nclass Model {{ TRICK_ICG int x; public: int value() const {{ return x; }} }};\n{closing}\n"
                     )
                     candidate = emit.render(*self.model(source))
                     self.assertEqual("offsetof(" in candidate, allowed)
