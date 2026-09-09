@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / "tools/icg_schema"))
 import validate as ir  # noqa: E402
 
 sys.path.insert(0, str(ROOT))
+from tools.icg_emit import emit  # noqa: E402
 from tools.icg_policy import characterize as policy_evidence  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 
@@ -339,6 +340,25 @@ def capture(extractor: Path, output: Path, compiler: Path) -> dict:
         report["native"] = native.capture(
             document, legacy, report, case, output / case["id"], compiler
         )
+        candidate_dir = output / case["id"] / "candidate"
+        candidate_path = candidate_dir / "candidate.cpp"
+        emit.write(document, request, resolved, candidate_path)
+        candidate = candidate_path.read_text()
+        # Selection/order/type/enum checks retain the immutable legacy oracle.
+        if compare(document, candidate, case["id"])["records"] != report["records"]:
+            raise ValueError("candidate metadata fields differ from legacy")
+        report["candidate"] = native.capture(
+            document,
+            candidate,
+            report,
+            case,
+            candidate_dir,
+            compiler,
+            source_name="candidate.cpp",
+        )
+        if report["candidate"]["observations"] != report["native"]["observations"]:
+            raise ValueError("candidate/legacy/native metadata observations differ")
+        report["candidate_sha256"] = b.digest(candidate.encode())
         report.update(
             source_sha256=source_digest,
             legacy_sha256=metadata[0]["sha256"],

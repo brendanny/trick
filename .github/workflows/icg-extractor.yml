@@ -7,6 +7,7 @@ on:
       - 'trick_source/codegen/TrickCodeGen/**'
       - 'tools/icg_schema/**'
       - 'tools/icg_policy/**'
+      - 'tools/icg_emit/**'
       - 'tools/icg_baseline/differential.py'
       - 'tools/icg_baseline/baseline.py'
       - 'tools/icg_baseline/native*'
@@ -25,6 +26,7 @@ on:
       - 'trick_source/codegen/TrickCodeGen/**'
       - 'tools/icg_schema/**'
       - 'tools/icg_policy/**'
+      - 'tools/icg_emit/**'
       - 'tools/icg_baseline/differential.py'
       - 'tools/icg_baseline/baseline.py'
       - 'tools/icg_baseline/native*'
@@ -161,6 +163,7 @@ jobs:
             build/icg-evidence
             build/icg-extract/CMakeCache.txt
             build/icg-extract/Testing/Temporary/LastTest.log
+            build/icg-extract/emitter-evidence
             build/icg-extract/*.json
           if-no-files-found: error
           retention-days: 30

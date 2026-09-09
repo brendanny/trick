@@ -695,9 +695,9 @@ The next milestone remains a [facts-to-legacy-metadata vertical slice](../../../
 File requests, physical comments, and friend evidence now feed the
 [bounded Python policy resolver](../../../tools/icg_policy/README.md). Its versioned
 selection, units/I/O and operation-access decisions are checked against live legacy
-characterization and the existing three-header corpus. Next generate metadata for that corpus and compile and execute that new output against the same legacy/native
-observations. Current differential and configured simulation gates exercise
-legacy-generated code; they do not yet validate a rewrite emitter.
+characterization and the existing three-header corpus. The bounded emitter now generates metadata for that corpus and compares compiled
+candidate output against the same legacy/native observations. Configured simulation
+gates continue to exercise legacy code; full replacement remains outstanding.
 
 Typed declaration builders and smaller source, selection, record, and callable
 modules should accompany this work, with mechanical refactors preserving fixture
@@ -711,10 +711,20 @@ any production switch.
 Install `python3 -m pip install -r tools/icg_requirements.txt`, then run:
 
 ```sh
-ruff check tools/icg_baseline tools/icg_capability tools/icg_schema tools/icg_policy trick_source/codegen/TrickCodeGen/tests
-ruff format --check tools/icg_baseline tools/icg_capability tools/icg_schema tools/icg_policy trick_source/codegen/TrickCodeGen/tests
+ruff check tools/icg_baseline tools/icg_capability tools/icg_schema tools/icg_policy tools/icg_emit trick_source/codegen/TrickCodeGen/tests
+ruff format --check tools/icg_baseline tools/icg_capability tools/icg_schema tools/icg_policy tools/icg_emit trick_source/codegen/TrickCodeGen/tests
 ```
 
 `ruff.toml` requires Ruff 0.16.6 and preview formatting, matching the existing
 repository style workflow. The ICG style workflow enforces these checks on branch
 pushes as well as pull requests.
+
+### Bounded C++ metadata generation
+
+The [development emitter](../../../tools/icg_emit/README.md) now consumes facts
+v12 and resolved policy v2. Its generated tables, init/C-interface/size functions
+and UnitsMap registrations compare against immutable legacy/native evidence for
+all three scalar metadata headers. CTest includes candidate execution, exact
+friend-access compilation, entry-point linkage, output mutations and atomic
+publication tests. This is a narrow legacy ABI backend, without lifecycle/STL,
+registry, SIE or production build integration.

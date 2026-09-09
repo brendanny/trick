@@ -6,6 +6,7 @@ on:
     paths:
       - 'tools/icg_baseline/**'
       - 'tools/icg_policy/**'
+      - 'tools/icg_emit/**'
       - 'trick_source/codegen/Interface_Code_Gen/**'
       - 'trick_source/sim_services/UdUnits/**'
       - 'include/trick/**'
@@ -17,6 +18,7 @@ on:
     paths:
       - 'tools/icg_baseline/**'
       - 'tools/icg_policy/**'
+      - 'tools/icg_emit/**'
       - 'trick_source/codegen/Interface_Code_Gen/**'
       - 'trick_source/sim_services/UdUnits/**'
       - 'include/trick/**'

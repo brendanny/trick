@@ -110,6 +110,11 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/icg_policy/test_resolve.py"
             --extractor "$<TARGET_FILE:trick-icg-extract>"
             --compiler "${CMAKE_CXX_COMPILER}")
+    add_test(NAME icg_emit_integration
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/icg_emit/test_emit.py"
+            --extractor "$<TARGET_FILE:trick-icg-extract>"
+            --compiler "${CMAKE_CXX_COMPILER}"
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/emitter-evidence")
     add_test(NAME icg_extract_integration
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_extract.py"
             --extractor "$<TARGET_FILE:trick-icg-extract>"

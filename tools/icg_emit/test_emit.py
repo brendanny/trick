@@ -1,0 +1,359 @@
+#!/usr/bin/env python3
+"""Compile candidate, immutable legacy, and independent native metadata probes."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+from copy import deepcopy
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
+import differential  # noqa: E402
+import native  # noqa: E402
+
+from tools.icg_emit import emit  # noqa: E402
+from tools.icg_policy import cases, resolve, rules  # noqa: E402
+
+EXTRACTOR = None
+COMPILER = None
+ARTIFACTS = None
+
+
+class EmitterTests(unittest.TestCase):
+    def setUp(self):
+        if EXTRACTOR is None or COMPILER is None:
+            self.skipTest("requires --extractor and --compiler")
+        if ARTIFACTS is None:
+            self.temp = tempfile.TemporaryDirectory()
+            self.addCleanup(self.temp.cleanup)
+            self.work = Path(self.temp.name).resolve()
+        else:
+            ARTIFACTS.mkdir(parents=True, exist_ok=True)
+            self.work = Path(
+                tempfile.mkdtemp(prefix=self._testMethodName + "-", dir=ARTIFACTS)
+            ).resolve()
+        self.env = {
+            k: v
+            for k, v in os.environ.items()
+            if not k.startswith("TRICK_")
+            and k not in ("CPATH", "CPLUS_INCLUDE_PATH", "C_INCLUDE_PATH")
+        }
+
+    def extract(self, header):
+        p = subprocess.run(
+            [str(EXTRACTOR), "--source-root", str(header.parent), str(header), "--"],
+            capture_output=True,
+            env=self.env,
+        )
+        self.assertEqual(p.returncode, 0, p.stderr.decode())
+        facts = json.loads(p.stdout)
+        request = resolve.request_for(facts)
+        return facts, request, resolve.resolve(facts, request)
+
+    def model(self, source=cases.HEADER + "struct Model { int x; };\n"):
+        header = self.work / "model.hh"
+        header.write_text(source)
+        return self.extract(header)
+
+    def legacy_case(self, case_id):
+        corpus = json.loads((differential.REFERENCE.parent / "corpus.json").read_text())
+        case = next(c for c in corpus["cases"] if c["id"] == case_id)
+        facts, request, model = self.extract(ROOT / case["header"])
+        snapshot = differential.REFERENCE / case_id / "cold.json"
+        artifact = next(
+            a
+            for a in json.loads(snapshot.read_text())["artifacts"].values()
+            if a["group"] == "legacy-metadata"
+        )
+        legacy = differential.b.artifact_text(snapshot, artifact)
+        report = differential.compare(facts, legacy, case_id)
+        return facts, request, model, legacy, report, case
+
+    def compile(self, candidate, body, directory="probe"):
+        work = self.work / directory
+        work.mkdir(parents=True, exist_ok=True)
+        (work / "candidate.cpp").write_text(candidate)
+        (work / "probe.cpp").write_text(
+            '#include "candidate.cpp"\n#include <iostream>\n#include <string>\n#include <stdexcept>\nint main() {\n'
+            + body
+            + '\nstd::cout << "{}";\n}\n'
+        )
+        return native.execute(
+            [
+                work / "probe.cpp",
+                ROOT / "trick_source/sim_services/UnitsMap/UnitsMap.cpp",
+            ],
+            work,
+            COMPILER,
+        )
+
+    def test_candidate_legacy_and_native_agree(self):
+        for case_id in ("anonymous-enum", "deleted-constructor", "embedded"):
+            with self.subTest(case=case_id):
+                facts, request, model, legacy, report, case = self.legacy_case(case_id)
+                candidate = emit.render(facts, request, model)
+                self.assertEqual(
+                    differential.compare(facts, candidate, case_id), report
+                )
+                old = native.capture(
+                    facts,
+                    legacy,
+                    report,
+                    case,
+                    self.work / case_id / "legacy",
+                    COMPILER,
+                )
+                new = native.capture(
+                    facts,
+                    candidate,
+                    report,
+                    case,
+                    self.work / case_id / "candidate",
+                    COMPILER,
+                    source_name="candidate.cpp",
+                )
+                self.assertEqual(old["observations"], new["observations"])
+
+    def test_mutated_candidate_output_fails_compiled_comparison(self):
+        facts, request, model, _, report, case = self.legacy_case("embedded")
+        candidate = emit.render(facts, request, model)
+        for index, (before, after) in enumerate((
+            ("8, NULL", "9, NULL"),
+            ("{{5, 27}", "{{4, 28}"),
+            ('"TopClass::one", 0, 0x40000000', '"TopClass::one", 1, 0x40000000'),
+            ('"d", "double", "rad"', '"d", "double", "cm"'),
+            ("15,TRICK_DOUBLE", "10,TRICK_DOUBLE"),
+            ('"d", "double"', '"lost", "double"'),
+            ("Language_CPP, 0,\n  8", "Language_CPP, 4,\n  8"),
+            ("size_t io_src_sizeof_TopClass()", "size_t missing_size()"),
+            ("void init_attrTopClass_c_intf()", "void missing_init()"),
+            (re.search(r'\{"d",.*?NULL\},\n', candidate, re.S)[0], ""),
+            ("15,TRICK_VOID", "10,TRICK_VOID"),
+        )):
+            with self.subTest(mutation=before):
+                self.assertIn(before, candidate)
+                directory = self.work / f"mutation-{index}"
+                directory.mkdir(exist_ok=True)
+                (directory / "native.json").write_text('{"stale": true}')
+                with self.assertRaises(ValueError):
+                    native.capture(
+                        facts,
+                        candidate.replace(before, after),
+                        report,
+                        case,
+                        directory,
+                        COMPILER,
+                        source_name="candidate.cpp",
+                    )
+                self.assertFalse((directory / "native.json").exists())
+
+    def test_cpp_linkage_cannot_satisfy_c_interface(self):
+        facts, request, model, _, report, case = self.legacy_case("embedded")
+        candidate = emit.render(facts, request, model).replace(
+            "void init_attrTopClass_c_intf()",
+            'extern "C++" void init_attrTopClass_c_intf()',
+        )
+        with self.assertRaisesRegex(ValueError, "native link failed"):
+            native.capture(
+                facts,
+                candidate,
+                report,
+                case,
+                self.work / "cpp-linkage",
+                COMPILER,
+                source_name="candidate.cpp",
+            )
+
+    def test_compiled_policy_metadata(self):
+        names = {
+            "all-io",
+            "aliases",
+            "dash-units",
+            "checkpoint-only-dash",
+            "description",
+            "line-description",
+            "description-no-space",
+        }
+        for name, source, expected, _ in cases.cases():
+            if name not in names:
+                continue
+            with self.subTest(case=name):
+                candidate = emit.render(*self.model(source))
+                rows = expected["Model"]
+                checks = [
+                    f'static_assert(sizeof(attrModel) / sizeof(attrModel[0]) == {len(rows) + 1}, "field count");',
+                    "init_attrModel_c_intf();",
+                ]
+                for i, (member, row) in enumerate(rows.items()):
+                    for key, value in {
+                        "name": member,
+                        "units": row["units"],
+                        "des": row["description"],
+                    }.items():
+                        checks.append(
+                            f'if (std::string(attrModel[{i}].{key}) != {json.dumps(value)}) throw std::runtime_error("{key}");'
+                        )
+                    for key in ("io", "mods"):
+                        checks.append(
+                            f'if (attrModel[{i}].{key} != {row[key]}) throw std::runtime_error("{key}");'
+                        )
+                    checks.append(
+                        f'if (Trick::UnitsMap::units_map()->get_units("Model_{member}") != {json.dumps(row["units"])}) throw std::runtime_error("units map");'
+                    )
+                self.compile(candidate, "\n".join(checks), name)
+
+    def test_generated_private_access_uses_exact_friend_and_namespace(self):
+        for opening, closing, symbol in (
+            ("", "", "Model"),
+            ("namespace demo { inline namespace v1 {", "}}", "demo__v1__Model"),
+        ):
+            for friend, allowed in (
+                (f"friend void init_attr{symbol}();", True),
+                (f"friend void init_attr{symbol}(int);", False),
+                (f"friend void init_attr{symbol}Extra();", False),
+                ("", False),
+            ):
+                with self.subTest(scope=opening, friend=friend):
+                    source = (
+                        cases.HEADER
+                        + f"#define TRICK_ICG {friend}\n{opening}\nclass Model {{ TRICK_ICG int x; }};\n{closing}\n"
+                    )
+                    candidate = emit.render(*self.model(source))
+                    self.assertEqual("offsetof(" in candidate, allowed)
+                    self.compile(candidate, f"init_attr{symbol}_c_intf();")
+                    # Remove only the friendship after rendering. The positive
+                    # generated operation must actually require compiler access.
+                    if allowed:
+                        (self.work / "model.hh").write_text(source.replace(friend, ""))
+                        with self.assertRaisesRegex(ValueError, "private"):
+                            self.compile(
+                                candidate, f"init_attr{symbol}_c_intf();", "no-friend"
+                            )
+
+    def test_deterministic_atomic_writer_preserves_identical_file(self):
+        documents = self.model()
+        output = self.work / "out" / "candidate.cpp"
+        self.assertTrue(emit.write(*documents, output))
+        os.utime(output, ns=(1_000_000_000, 1_000_000_000))
+        stat = output.stat()
+        self.assertFalse(emit.write(*documents, output))
+        self.assertEqual(
+            (output.stat().st_ino, output.stat().st_mtime_ns),
+            (stat.st_ino, stat.st_mtime_ns),
+        )
+        self.assertEqual(output.read_text(), emit.render(*documents))
+        self.assertEqual(list(output.parent.iterdir()), [output])
+
+    def test_rehashed_policy_mutation_publishes_no_output(self):
+        facts, request, model = self.model()
+        field = next(
+            d
+            for d in model["declarations"]
+            if d["metadata"] and "annotation" in d["metadata"]
+        )
+        field["metadata"]["annotation"]["io"] = 10
+        model["digest"] = resolve.model_digest(model)
+        output = self.work / "candidate.cpp"
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+            emit.write(facts, request, model, output)
+        self.assertFalse(output.exists())
+        output.write_text("previous successful output\n")
+        with self.assertRaises(rules.PolicyError):
+            emit.write(facts, request, model, output)
+        self.assertEqual(output.read_text(), "previous successful output\n")
+
+    def test_changed_source_is_rejected_before_writing(self):
+        documents = self.model()
+        (self.work / "model.hh").write_text("struct Model { double x; };\n")
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_EMIT_SOURCE"):
+            emit.write(*documents, self.work / "candidate.cpp")
+        self.assertFalse((self.work / "candidate.cpp").exists())
+
+    def test_unsupported_requests_publish_no_source(self):
+        for source, code in (
+            (
+                "/* PURPOSE: (ignored) ICG: (No) */\nstruct Model { int x; };\n",
+                "ICG_EMIT_EMPTY",
+            ),
+            (
+                "enum E : unsigned long long { huge = 0xffffffffffffffffULL };",
+                "ICG_EMIT_ENUM",
+            ),
+            ("enum class E { value };", "ICG_EMIT_ENUM"),
+            (
+                "class Model { friend void init_attrModel() noexcept; int x; };",
+                "ICG_EMIT_INIT",
+            ),
+            ("class Model { friend int init_attrModel(); int x; };", "ICG_EMIT_INIT"),
+            ("struct Model { virtual ~Model() = default; int x; };", "ICG_EMIT_RECORD"),
+            (
+                "struct __attribute__((packed)) Model { unsigned int x : 3; };",
+                "ICG_EMIT_BITFIELD",
+            ),
+        ):
+            with (
+                self.subTest(source=source),
+                self.assertRaisesRegex(rules.PolicyError, code),
+            ):
+                emit.write(*self.model(source), self.work / "candidate.cpp")
+        self.assertFalse((self.work / "candidate.cpp").exists())
+
+    def test_input_and_symlink_outputs_are_rejected(self):
+        documents = self.model()
+        output = self.work / "candidate.cpp"
+        output.symlink_to(self.work / "model.hh")
+        for path in (output, self.work / "model.hh"):
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_EMIT_OUTPUT"):
+                emit.write(*documents, path)
+
+    def test_cli_failure_has_empty_stdout_and_no_candidate(self):
+        facts, request, model = self.model()
+        request = deepcopy(request)
+        request["policy_version"] = "scalar-metadata-1"
+        for name, value in (
+            ("facts", facts),
+            ("request", request),
+            ("resolved", model),
+        ):
+            (self.work / f"{name}.json").write_text(json.dumps(value))
+        p = subprocess.run(
+            [
+                sys.executable,
+                str(Path(emit.__file__)),
+                str(self.work / "facts.json"),
+                "--request",
+                str(self.work / "request.json"),
+                "--resolved",
+                str(self.work / "resolved.json"),
+                "--output",
+                str(self.work / "candidate.cpp"),
+            ],
+            capture_output=True,
+        )
+        self.assertNotEqual(p.returncode, 0)
+        self.assertEqual(p.stdout, b"")
+        self.assertFalse((self.work / "candidate.cpp").exists())
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--extractor", type=Path, required=True)
+    parser.add_argument("--compiler", type=Path, required=True)
+    parser.add_argument(
+        "--artifacts",
+        type=Path,
+        help="retain source, commands and observations, including failures",
+    )
+    args, rest = parser.parse_known_args()
+    EXTRACTOR, COMPILER = args.extractor.resolve(), args.compiler.resolve()
+    ARTIFACTS = args.artifacts.resolve() if args.artifacts else None
+    unittest.main(argv=[sys.argv[0], *rest])

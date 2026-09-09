@@ -718,19 +718,30 @@ Implement this in four reviewable increments:
 
 The evidence increment and bounded Python resolver are implemented. Facts v12
 capture explicit file requests, physical comments, policy environment and friends.
-[Resolved policy v1](../../tools/icg_policy/README.md) now records selection,
+[Resolved policy v2](../../tools/icg_policy/README.md) now records selection,
 exclusions, units/I/O and operation-specific access with input/request identity.
-Thirty-three live legacy characterization cases and the three existing metadata headers
+Thirty-eight live legacy characterization cases and the three existing metadata headers
 check these decisions; native compilation distinguishes actual friend access from
 legacy prefix matching. General annotations/UDUNITS, compat15/automatic conditional
 policy, inheritance/templates/STL and offline path-policy replay remain outside
 this bounded profile. Typed record/callable extraction remains follow-up work.
 
-Next implement increment 3: consume validated resolved policy and generate the
-narrow metadata contract, retaining the existing immutable legacy/native evidence
-as the oracle. Then compare newly generated output through increment 4. Successful
-resolution and template-header extraction do not establish metadata or STL
-replacement parity.
+Increments 3 and 4 now have a [bounded emitter](../../tools/icg_emit/README.md)
+and compiled candidate/legacy/native comparison for the three metadata headers.
+The emitter preserves scalar/bitfield tables, enums, units/I/O, descriptions and
+modifier bits, sentinels, init/C-interface/size symbols, and UnitsMap registration.
+Actual generated private-member checks require the matching friend, including
+inline namespaces. Resolved policy v2 fixes lost descriptions and `--` modifiers
+and rejects record/enum size-symbol collisions. Unsupported emitter profiles fail
+without a new candidate; identical output is not rewritten. These checks run in
+the existing frontend/platform CTest lanes; local results do not establish that
+every matrix lane has passed.
+
+Next widen the generated contract deliberately: characterize scoped enum labels
+and broader record/annotation cases, then generate lifecycle operations against
+the existing lifecycle/MemoryManager gates before tackling template/STL emission.
+The backend remains a development metadata subset without production build,
+registry, or SIE integration. Template extraction alone is not STL emission parity.
 
 Exit criteria for this milestone are explicit selection/comment/friend decisions
 for the characterization cases and compiled old/new/native agreement for the

@@ -92,9 +92,9 @@ namespace probe
     {
         require(row.name && row.type_name && row.units && row.alias && row.user_defined && row.des,
                 "null ATTRIBUTES string");
-        require(!*row.alias && !*row.user_defined && !*row.des && row.io == 15 && row.range_min == 0
-                    && row.range_max == 0 && row.language == Language_CPP && row.mods == 0 && !row.attr
-                    && row.num_index == 0 && row.stl_type == TRICK_STL_UNKNOWN
+        require(!*row.alias && !*row.user_defined && row.io > 0 && row.io <= 15 && row.range_min == 0
+                    && row.range_max == 0 && row.language == Language_CPP && (row.mods == 0 || row.mods == 4)
+                    && !row.attr && row.num_index == 0 && row.stl_type == TRICK_STL_UNKNOWN
                     && row.stl_elem_type == TRICK_NUMBER_OF_TYPES && !row.stl_elem_type_name && !row.checkpoint_stl
                     && !row.post_checkpoint_stl && !row.restore_stl && !row.clear_stl && !row.get_stl_size
                     && !row.get_stl_element && !row.set_stl_element,
@@ -112,6 +112,7 @@ namespace probe
         const auto& sentinel = rows[N - 1];
         defaults(sentinel);
         require(!*sentinel.name && !*sentinel.type_name && std::string(sentinel.units) == "1"
+                    && !*sentinel.des && sentinel.io == 15 && sentinel.mods == 0
                     && sentinel.type == TRICK_VOID && sentinel.size == 0 && sentinel.offset == 0
                     && sentinel.index[0].size == 0 && sentinel.index[0].start == 0,
                 "invalid compiled ATTRIBUTES sentinel");
@@ -134,6 +135,8 @@ namespace probe
             quoted(kind(row.type));
             std::cout << ",\"units\":";
             quoted(row.units);
+            std::cout << ",\"io\":" << row.io << ",\"mods\":" << row.mods << ",\"description\":";
+            quoted(row.des);
             std::cout << ",\"units_map_units\":";
             quoted(Trick::UnitsMap::units_map()->get_units(std::string(symbol) + "_" + row.name));
             std::cout << ",\"size_bytes\":" << row.size << ",\"offset_bytes\":" << row.offset

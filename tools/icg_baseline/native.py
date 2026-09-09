@@ -30,7 +30,7 @@ def identifier(value: str) -> str:
     return value
 
 
-def source(document: dict, report: dict) -> str:
+def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str:
     declarations = {
         node["qualified_name"]: node
         for node in document["declarations"]
@@ -78,8 +78,9 @@ def source(document: dict, report: dict) -> str:
         )
     separator = '\nstd::cout << ",";\n'
     return (
-        '#include "legacy.cpp"\n#include "native_probe.hh"\n'
-        'int main() {\ntry {\nstd::cout << "{\\"records\\":[";\n'
+        f'#include "{source_name}"\n#include "native_probe.hh"\n'
+        "void verify_metadata_linkage();\n"
+        'int main() {\ntry {\nverify_metadata_linkage();\nstd::cout << "{\\"records\\":[";\n'
         + separator.join(calls)
         + '\nstd::cout << "],\\"enums\\":[";\n'
         + separator.join(enum_calls)
@@ -152,6 +153,9 @@ def validate(document: dict, report: dict, observed: dict) -> None:
                     offset_bytes=row["offset_bytes"],
                     width=width,
                     shift=row["shift"],
+                    io=field.get("legacy_io", 15),
+                    mods=field.get("legacy_mods", 0),
+                    description=field.get("legacy_description", ""),
                 )
                 offset = row["offset_bytes"] * 8
                 if width:
@@ -164,8 +168,43 @@ def validate(document: dict, report: dict, observed: dict) -> None:
                     raise ValueError(f"{label}: compiled ATTRIBUTES differs")
 
 
+def linkage_source(document: dict, report: dict) -> str:
+    """Link public entry points from a separate translation unit, without output."""
+    declarations = []
+    calls = []
+    for group, prefix, row_type in (
+        ("records", "attr", "ATTRIBUTES"),
+        ("enums", "enum", "ENUM_ATTR"),
+    ):
+        for name in report[group]:
+            symbol = identifier(name).replace("::", "__")
+            declarations.append(
+                f'extern "C" {{ extern {row_type} {prefix}{symbol}[]; size_t io_src_sizeof_{symbol}(); }}\n'
+            )
+            calls.append(
+                f'    if (!{prefix}{symbol}[0].{"name" if group == "records" else "label"} || !io_src_sizeof_{symbol}()) throw std::runtime_error("metadata linkage/size");\n'
+            )
+            if group == "records":
+                declarations.append(f'extern "C" void init_attr{symbol}_c_intf();\n')
+                calls.extend([f"    init_attr{symbol}_c_intf();\n"] * 2)
+    return (
+        '#include "trick/attributes.h"\n#include <stdexcept>\n'
+        + "".join(declarations)
+        + "void verify_metadata_linkage() {\n"
+        + "".join(calls)
+        + "}\n"
+    )
+
+
 def capture(
-    document: dict, legacy: str, report: dict, case: dict, output: Path, compiler: Path
+    document: dict,
+    legacy: str,
+    report: dict,
+    case: dict,
+    output: Path,
+    compiler: Path,
+    *,
+    source_name: str = "legacy.cpp",
 ) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -176,11 +215,15 @@ def capture(
     materialized = legacy.replace("${TRICK_ROOT}", str(ROOT))
     if "${" in materialized:
         raise ValueError("unresolved normalization token in legacy source")
-    (output / "legacy.cpp").write_text(materialized)
+    if source_name not in ("legacy.cpp", "candidate.cpp"):
+        raise ValueError("unsupported metadata source filename")
+    (output / source_name).write_text(materialized)
     (output / "native_probe.hh").write_bytes(HELPER.read_bytes())
-    (output / "probe.cpp").write_text(source(document, report))
+    (output / "probe.cpp").write_text(source(document, report, source_name))
+    (output / "entry-points.cpp").write_text(linkage_source(document, report))
     sources = [
         output / "probe.cpp",
+        output / "entry-points.cpp",
         ROOT / "trick_source/sim_services/UnitsMap/UnitsMap.cpp",
     ]
     if case["id"] == "anonymous-enum":

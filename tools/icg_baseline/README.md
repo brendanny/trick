@@ -228,8 +228,8 @@ This checks source and legacy-sidecar fingerprints for `anonymous-enum`,
 captured record and enum tables. All three headers are included in a synthetic
 `S_source.hh`; each comparison explicitly requests its model header and retains
 the selection evidence. The other included headers must not become metadata
-roots accidentally. This still compares legacy-generated C++, not rewrite output.
-It then compiles and links the entire captured
+roots accidentally. The runner compares both legacy-generated and candidate C++.
+It compiles and links the entire captured
 C++ with the real Trick headers, `UnitsMap.cpp`, and the Starter constructor.
 There is no substituted metadata ABI or mocked runtime implementation.
 
@@ -283,10 +283,16 @@ See [the initial contract inventory](../../docs/developer_docs/ICG-Rewrite-Phase
 
 ## Bounded policy comparison
 
-The differential runner now also resolves [policy v1](../icg_policy/README.md)
+The differential runner now also resolves [policy v2](../icg_policy/README.md)
 from validated facts, comparing record/enum selection and units/I/O against the
 three immutable legacy headers. Request and resolved documents accompany each
 report. Existing explicit expected exclusions remain independent checks; they
-are not inputs to the resolver. The reference lane additionally runs 33 live
+are not inputs to the resolver. The reference lane additionally runs 38 live
 legacy policy characterization cases, preserving successful and failed evidence.
-New metadata emission is still pending.
+Candidate metadata emission is checked through separate compiled probes.
+
+The differential runner also generates a bounded candidate from validated
+resolved policy v2 and compiles it in a separate executable. Candidate and legacy
+observations must agree with the independent native probe. A separate translation
+unit checks C-linkage tables and init/size entry points. The generated-source
+contract and negative tests are documented in [icg_emit](../icg_emit/README.md).

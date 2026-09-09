@@ -636,3 +636,20 @@ this is not yet a portable offline cache model. Future policy/schema changes mus
 be versioned; consumers must resolve again rather than relabel prior decisions.
 General UDUNITS, descriptions, automatic compat15 policy, inheritance/templates/STL
 and newly generated metadata are not established by this contract.
+
+### Bounded resolved policy v2 and metadata emitter v1
+
+Resolved schema v2 / `scalar-metadata-2` retains field `description` and `mods`,
+including the legacy `--` units flag after normalization to `1`. It also rejects
+record/enum collisions in their shared `io_src_sizeof_*` symbol namespace. Old
+models must be resolved again from facts v12 and a current explicit request;
+changing version fields or recomputing digests cannot supply the lost evidence.
+The extractor schema and graph-digest algorithm remain unchanged.
+
+The [bounded emitter](../../../tools/icg_emit/README.md) validates this model with
+its facts/request and rechecks source bytes before atomic publication. It emits
+scalar/unsigned-bitfield attributes, unscoped enum tables with int-representable
+values, init/C-interface/size functions and UnitsMap registration. Candidate and
+immutable legacy sources compile separately and agree with native layout/enum
+observations. Init-function friend access is checked by generated C++ expressions.
+This contract has no lifecycle, STL, registry, SIE or production build output.
