@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/enums/fixtures/Enums.hh
+${SIM_ROOT}/input.cpp

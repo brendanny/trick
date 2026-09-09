@@ -205,6 +205,7 @@ def capture(
     compiler: Path,
     *,
     source_name: str = "legacy.cpp",
+    compile_flags: tuple[str, ...] = (),
 ) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -228,7 +229,7 @@ def capture(
     ]
     if case["id"] == "anonymous-enum":
         sources.append(ROOT / "test/SIM_anon_enum/models/starter.cpp")
-    evidence = execute(sources, output, compiler)
+    evidence = execute(sources, output, compiler, compile_flags=compile_flags)
     validate(document, report, evidence["observations"])
     result_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
     return evidence

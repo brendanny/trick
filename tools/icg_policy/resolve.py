@@ -15,10 +15,10 @@ from jsonschema import Draft202012Validator, ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tools.icg_policy import rules  # noqa: E402
+from tools.icg_policy import enums, rules  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-2"
+POLICY_VERSION = "scalar-metadata-3"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
@@ -207,6 +207,9 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
                     )
                 result["rule"] = "UNNAMED_ENUM"
                 return result
+            if node["kind"] == "enum" and not node["definition"]:
+                result["rule"] = "OPAQUE_ENUM_DECLARATION"
+                return result
             if not node.get("complete", False):
                 if node["kind"] == "class_template":
                     raise rules.PolicyError(
@@ -238,6 +241,8 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
                     init_function=init_function if node["kind"] == "record" else None,
                 ),
             )
+            if node["kind"] == "enum":
+                result["metadata"]["enum"] = enums.metadata(node, declarations, types)
         else:
             if not parent or parent["kind"] != "record":
                 raise rules.PolicyError(
@@ -305,7 +310,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=2,
+        schema_version=3,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(

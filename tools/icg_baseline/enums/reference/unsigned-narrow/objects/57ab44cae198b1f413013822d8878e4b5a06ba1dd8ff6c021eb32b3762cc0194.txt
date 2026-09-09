@@ -1,0 +1,2 @@
+build${TRICK_ROOT}/tools/icg_baseline/enums/fixtures/io_UnsignedNarrow.o
+build/class_map.o

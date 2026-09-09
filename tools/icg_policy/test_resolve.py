@@ -73,10 +73,11 @@ class RuleTests(unittest.TestCase):
                 / "trick_source/codegen/TrickCodeGen/ir/fixtures/minimal-record.json"
             ).read_text()
         )
-        request = resolve.request_for(facts)
-        request["policy_version"] = "scalar-metadata-0"
-        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_REQUEST"):
-            resolve.resolve(facts, request)
+        for version in range(3):
+            request = resolve.request_for(facts)
+            request["policy_version"] = f"scalar-metadata-{version}"
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_REQUEST"):
+                resolve.resolve(facts, request)
 
 
 class ExtractionTests(unittest.TestCase):
@@ -385,6 +386,92 @@ class ExtractionTests(unittest.TestCase):
     def test_record_enum_size_symbol_collision_is_rejected(self):
         facts = self.extract("struct A__B {}; namespace A { enum B { value }; }\n")
         with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_NAME"):
+            resolve.resolve(facts, resolve.request_for(facts))
+
+    def test_enum_decisions_reject_rehashed_mutations(self):
+        facts, request, model = self.model(
+            "namespace demo { enum class E : unsigned char { zero, alias = 0, last = 127 }; }"
+        )
+        index = next(
+            i
+            for i, item in enumerate(model["declarations"])
+            if item["metadata"] and "enum" in item["metadata"]
+        )
+        decision = model["declarations"][index]["metadata"]["enum"]
+        self.assertEqual(decision["diagnostics"], ["LEGACY_SCOPED_LABEL_OMITS_ENUM"])
+        self.assertEqual(decision["mods"], 0x40000000)
+        self.assertEqual(
+            decision["rows"],
+            [
+                dict(
+                    source_index=i,
+                    label=f"demo::{name}",
+                    cpp_name=f"demo::E::{name}",
+                    value=value,
+                )
+                for i, (name, value) in enumerate((
+                    ("zero", "0"),
+                    ("alias", "0"),
+                    ("last", "127"),
+                ))
+            ],
+        )
+        for mutate in (
+            lambda e: e.update(mods=0),
+            lambda e: e.update(diagnostics=[]),
+            lambda e: e["rows"][0].update(label="demo::E::zero"),
+            lambda e: e["rows"][0].update(cpp_name="demo::zero"),
+            lambda e: e["rows"][0].update(source_index=1),
+            lambda e: e["rows"][0].update(value="1"),
+            lambda e: e["rows"].reverse(),
+            lambda e: e["rows"].pop(1),
+        ):
+            changed = deepcopy(model)
+            mutate(changed["declarations"][index]["metadata"]["enum"])
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                resolve.validate(facts, request, changed)
+
+    def test_enum_numeric_boundaries_fail_closed(self):
+        for underlying, value, code in (
+            ("bool", "true", "ICG_POLICY_ENUM_SIGN_EXTENSION"),
+            ("unsigned char", "128", "ICG_POLICY_ENUM_SIGN_EXTENSION"),
+            ("unsigned char", "255", "ICG_POLICY_ENUM_SIGN_EXTENSION"),
+            ("unsigned short", "32768", "ICG_POLICY_ENUM_SIGN_EXTENSION"),
+            ("unsigned short", "65535", "ICG_POLICY_ENUM_SIGN_EXTENSION"),
+            ("unsigned int", "2147483648U", "ICG_POLICY_ENUM_VALUE"),
+            ("unsigned long long", "0xffffffffffffffffULL", "ICG_POLICY_ENUM_VALUE"),
+            ("long long", "2147483648LL", "ICG_POLICY_ENUM_VALUE"),
+            ("long long", "-2147483649LL", "ICG_POLICY_ENUM_VALUE"),
+        ):
+            with self.subTest(underlying=underlying, value=value):
+                facts = self.extract(
+                    f"enum class E : {underlying} {{ value = {value} }};"
+                )
+                with self.assertRaisesRegex(rules.PolicyError, code):
+                    resolve.resolve(facts, resolve.request_for(facts))
+
+    def test_enum_alias_underlying_type_and_opaque_declaration(self):
+        _, _, model = self.model(
+            "using Byte = unsigned char; enum class E : Byte { last = 127 }; enum class Opaque;"
+        )
+        self.assertEqual(
+            sum(d["rule"] == "OPAQUE_ENUM_DECLARATION" for d in model["declarations"]),
+            1,
+        )
+        metadata = next(
+            d["metadata"]["enum"]
+            for d in model["declarations"]
+            if d["metadata"] and "enum" in d["metadata"]
+        )
+        self.assertEqual(metadata["mods"], 0x40000000)
+        self.assertEqual(metadata["rows"][0]["value"], "127")
+        facts = self.extract(
+            "using Boolean = bool; enum class E : Boolean { yes = true };"
+        )
+        with self.assertRaisesRegex(
+            rules.PolicyError, "ICG_POLICY_ENUM_SIGN_EXTENSION"
+        ):
             resolve.resolve(facts, resolve.request_for(facts))
 
 

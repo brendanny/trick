@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/enums/fixtures/UnsignedNarrow.hh
+${SIM_ROOT}/input.cpp

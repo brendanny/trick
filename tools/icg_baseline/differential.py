@@ -109,7 +109,11 @@ def enum_tables(text: str) -> dict:
     return result
 
 
-def compare_enums(document: dict, legacy: str, case_id: str) -> dict:
+def compare_enums(
+    document: dict, legacy: str, case_id: str, exclusions: dict | None = None
+) -> dict:
+    if exclusions is None:
+        exclusions = ENUM_EXCLUSIONS[case_id]
     declarations = {node["id"]: node for node in document["declarations"]}
     enums = {
         node["qualified_name"].replace("::", "__"): node
@@ -122,19 +126,15 @@ def compare_enums(document: dict, legacy: str, case_id: str) -> dict:
     absent = {
         node["qualified_name"] for key, node in enums.items() if key not in actual
     }
-    if absent != set(ENUM_EXCLUSIONS[case_id]) or set(actual) - enums.keys():
+    if absent != set(exclusions) or set(actual) - enums.keys():
         raise ValueError(f"{case_id}: changed enum tables or policy exclusions")
     report = {}
     for symbol, rows in actual.items():
         node = enums[symbol]
-        parent = declarations.get(node["semantic_parent_id"])
-        scope = (
-            node["qualified_name"]
-            if node["scoped"]
-            else parent["qualified_name"]
-            if parent
-            else ""
-        )
+        parent = declarations.get(node.get("semantic_parent_id"))
+        # Live scoped-enum captures establish the legacy omission of the enum
+        # name. C++ enumerator names remain fully qualified in the native probe.
+        scope = parent["qualified_name"] if parent else ""
         expected = [
             {
                 "label": f"{scope}::{item['name']}" if scope else item["name"],
@@ -151,7 +151,18 @@ def compare_enums(document: dict, legacy: str, case_id: str) -> dict:
     return report
 
 
-def compare(document: dict, legacy: str, case_id: str) -> dict:
+def compare(
+    document: dict,
+    legacy: str,
+    case_id: str,
+    *,
+    record_exclusions: dict | None = None,
+    enum_exclusions: dict | None = None,
+) -> dict:
+    if record_exclusions is None:
+        record_exclusions = EXCLUSIONS[case_id]
+    if enum_exclusions is None:
+        enum_exclusions = ENUM_EXCLUSIONS[case_id]
     declarations = {node["id"]: node for node in document["declarations"]}
     types = {node["id"]: node for node in document["types"]}
     records = {
@@ -165,9 +176,9 @@ def compare(document: dict, legacy: str, case_id: str) -> dict:
     absent = {
         node["qualified_name"] for key, node in records.items() if key not in actual
     }
-    if absent != set(EXCLUSIONS[case_id]) or set(actual) - records.keys():
+    if absent != set(record_exclusions) or set(actual) - records.keys():
         raise ValueError(f"{case_id}: changed record tables or policy exclusions")
-    report = {"records": {}, "policy_exclusions": EXCLUSIONS[case_id]}
+    report = {"records": {}, "policy_exclusions": record_exclusions}
     for symbol, rows in actual.items():
         record = records[symbol]
         fields = [declarations[identifier] for identifier in record["field_ids"]]
@@ -212,8 +223,8 @@ def compare(document: dict, legacy: str, case_id: str) -> dict:
                 ],
             })
         report["records"][record["qualified_name"]] = compared
-    report["enums"] = compare_enums(document, legacy, case_id)
-    report["enum_policy_exclusions"] = ENUM_EXCLUSIONS[case_id]
+    report["enums"] = compare_enums(document, legacy, case_id, enum_exclusions)
+    report["enum_policy_exclusions"] = enum_exclusions
     report["not_compared"] = [
         "unit/annotation policy",
         "lifecycle wrappers",

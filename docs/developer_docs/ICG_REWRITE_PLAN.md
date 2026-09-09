@@ -616,8 +616,9 @@ This sequence creates usable evidence early and prevents the project from becomi
 
 ### 20.1 Next milestone: generate and execute legacy metadata
 
-Status: core policy input evidence implemented in facts v12; resolved policy and
-replacement metadata remain pending.
+Status: facts v12 input evidence, bounded resolved policy v3 and metadata emitter
+v2 are implemented with compiled legacy/candidate/native gates. Broader generated
+behavior and production integration remain pending.
 This milestone responds to the architectural review at `6a50207`, checked against
 `eea673ae`. The intervening identity/failure-path and macOS test-environment fixes
 do not close the selection, annotation, friendship, or generation gaps below.
@@ -718,7 +719,7 @@ Implement this in four reviewable increments:
 
 The evidence increment and bounded Python resolver are implemented. Facts v12
 capture explicit file requests, physical comments, policy environment and friends.
-[Resolved policy v2](../../tools/icg_policy/README.md) now records selection,
+[Resolved policy v3](../../tools/icg_policy/README.md) now records selection,
 exclusions, units/I/O and operation-specific access with input/request identity.
 Thirty-eight live legacy characterization cases and the three existing metadata headers
 check these decisions; native compilation distinguishes actual friend access from
@@ -737,8 +738,16 @@ without a new candidate; identical output is not rewritten. These checks run in
 the existing frontend/platform CTest lanes; local results do not establish that
 every matrix lane has passed.
 
-Next widen the generated contract deliberately: characterize scoped enum labels
-and broader record/annotation cases, then generate lifecycle operations against
+The next enum increment is implemented with policy v3 / emitter v2. An
+[independently captured enum corpus](../../tools/icg_baseline/enums/README.md)
+compares ten tables and 19 enumerators across legacy, candidate and native C++.
+Explicit enum decisions preserve legacy container-scope labels (with a scoped
+label diagnostic), source order, aliases and unsigned modifiers. A separate native
+probe characterizes unsigned-narrow sign-extension mismatches; these requests
+fail closed, as do values outside signed `ENUM_ATTR.int`. Existing facts v12 and
+legacy reference corpora remain unchanged.
+
+Next widen broader record/annotation cases, then generate lifecycle operations against
 the existing lifecycle/MemoryManager gates before tackling template/STL emission.
 The backend remains a development metadata subset without production build,
 registry, or SIE integration. Template extraction alone is not STL emission parity.

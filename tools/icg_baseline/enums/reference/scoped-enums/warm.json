@@ -1,0 +1,118 @@
+{
+  "artifact_spec": [
+    {
+      "id": "legacy-metadata",
+      "patterns": [
+        "build/**/io_*.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry",
+      "patterns": [
+        "build/class_map.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry-declarations",
+      "patterns": [
+        "build/extern_init_attr.h"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-make",
+      "patterns": [
+        "build/Makefile_io_src"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-dependencies",
+      "patterns": [
+        "build/Makefile_ICG"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-link",
+      "patterns": [
+        "build/io_link_list",
+        "build/trickify_io_link_list"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-processed",
+      "patterns": [
+        "build/ICG_processed"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-policy",
+      "patterns": [
+        "build/ICG_ext_lib",
+        "build/ICG_no_found"
+      ],
+      "required": false
+    },
+    {
+      "id": "sie-classes",
+      "patterns": [
+        "build/classes.resource"
+      ],
+      "required": true
+    }
+  ],
+  "artifacts": {
+    "build${TRICK_ROOT}/tools/icg_baseline/enums/fixtures/io_Enums.cpp": {
+      "group": "legacy-metadata",
+      "sha256": "d34e5644030faa1f739babf774c71e03c4ea437bf6dd4c276f9dc5b6b9221f37"
+    },
+    "build/ICG_ext_lib": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_no_found": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_processed": {
+      "group": "icg-processed",
+      "sha256": "71c27482a6e5f74d5eb8c9fa4bbc30618585e387df95e9f6e8a0e41f1205826e"
+    },
+    "build/Makefile_ICG": {
+      "group": "icg-dependencies",
+      "sha256": "4cf7f47ba9dcea63bc3a90aa921e657614c7251906aa83ea2170474097cc2e95"
+    },
+    "build/Makefile_io_src": {
+      "group": "icg-make",
+      "sha256": "0e6a9bfd07b863c20295676d9c586dec42cb0725a41b8fb286a908917435e527"
+    },
+    "build/class_map.cpp": {
+      "group": "registry",
+      "sha256": "ea5d29bc92fbaa015712f0dd17ddc8cee1e0c9ba024f461493e7ae62042b79c6"
+    },
+    "build/classes.resource": {
+      "group": "sie-classes",
+      "sha256": "f3ada4d43bcc90bae71d4d245838227e09b613e0b31583148ca3720621348058"
+    },
+    "build/extern_init_attr.h": {
+      "group": "registry-declarations",
+      "sha256": "2d60eed6bae99bf34afb2b8c476c76f2b9ac88bd2c9dde5aca0e8f6a63f6d77b"
+    },
+    "build/io_link_list": {
+      "group": "icg-link",
+      "sha256": "24546d6e17e9c3160df24f15dbe739b21f2e7cdfcd66d5d23c3d1ba15b577f9d"
+    },
+    "build/trickify_io_link_list": {
+      "group": "icg-link",
+      "sha256": "0d37d10c5d8b8d51a3e291bec7aac2bc4670ac620310acd19c6fe79070ceb88a"
+    }
+  },
+  "case": "scoped-enums",
+  "normalization_version": 2,
+  "schema_version": 2
+}

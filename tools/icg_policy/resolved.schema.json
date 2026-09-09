@@ -15,13 +15,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 2
+      "const": 3
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-2"
+      "const": "scalar-metadata-3"
     },
     "facts": {
       "type": "object",
@@ -79,7 +79,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-2"
+          "const": "scalar-metadata-3"
         }
       }
     },
@@ -256,6 +256,7 @@
               "ICG_IGNORE_TYPES",
               "INACCESSIBLE_NESTED_TYPE",
               "UNNAMED_ENUM",
+              "OPAQUE_ENUM_DECLARATION",
               "INCOMPLETE_TYPE",
               "REQUESTED_METADATA",
               "IO_DISABLED",
@@ -300,10 +301,7 @@
                     "type": "string"
                   },
                   "init_function": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
+                    "type": "string"
                   }
                 }
               },
@@ -424,6 +422,26 @@
                     }
                   }
                 }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "symbol",
+                  "init_function",
+                  "enum"
+                ],
+                "properties": {
+                  "symbol": {
+                    "type": "string"
+                  },
+                  "init_function": {
+                    "type": "null"
+                  },
+                  "enum": {
+                    "$ref": "#/$defs/enum_metadata"
+                  }
+                }
               }
             ]
           }
@@ -436,8 +454,8 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v1.schema.json",
-  "title": "Bounded numeric-offset scalar legacy metadata policy v1",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v3.schema.json",
+  "title": "Bounded numeric-offset scalar legacy metadata policy v3",
   "$defs": {
     "source": {
       "type": "object",
@@ -494,6 +512,65 @@
       "type": "string",
       "minLength": 1,
       "pattern": "^[a-z]+:[^\\s]+$"
+    },
+    "enum_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label_rule",
+        "diagnostics",
+        "mods",
+        "rows"
+      ],
+      "properties": {
+        "label_rule": {
+          "const": "LEGACY_CONTAINER_SCOPE"
+        },
+        "diagnostics": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "const": "LEGACY_SCOPED_LABEL_OMITS_ENUM"
+          }
+        },
+        "mods": {
+          "enum": [
+            0,
+            1073741824
+          ]
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_index",
+              "label",
+              "cpp_name",
+              "value"
+            ],
+            "properties": {
+              "source_index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cpp_name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "value": {
+                "type": "string",
+                "pattern": "^-?(0|[1-9][0-9]*)$"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

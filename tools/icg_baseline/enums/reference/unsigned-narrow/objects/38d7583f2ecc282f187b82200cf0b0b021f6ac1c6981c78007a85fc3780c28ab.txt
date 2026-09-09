@@ -1,0 +1,17 @@
+  <enumeration name="icg_rejected__Boolean">
+    <pair label ="icg_rejected::Boolean::zero" value="0"/>
+    <pair label ="icg_rejected::Boolean::one" value="-1"/>
+  </enumeration>
+
+  <enumeration name="icg_rejected__Byte">
+    <pair label ="icg_rejected::Byte::valid" value="127"/>
+    <pair label ="icg_rejected::Byte::middle" value="-128"/>
+    <pair label ="icg_rejected::Byte::maximum" value="-1"/>
+  </enumeration>
+
+  <enumeration name="icg_rejected__Word">
+    <pair label ="icg_rejected::Word::valid" value="32767"/>
+    <pair label ="icg_rejected::Word::middle" value="-32768"/>
+    <pair label ="icg_rejected::Word::maximum" value="-1"/>
+  </enumeration>
+

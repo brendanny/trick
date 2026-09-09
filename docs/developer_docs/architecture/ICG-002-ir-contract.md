@@ -653,3 +653,19 @@ values, init/C-interface/size functions and UnitsMap registration. Candidate and
 immutable legacy sources compile separately and agree with native layout/enum
 observations. Init-function friend access is checked by generated C++ expressions.
 This contract has no lifecycle, STL, registry, SIE or production build output.
+
+### Bounded resolved policy v3 and metadata emitter v2
+
+Resolved schema v3 / `scalar-metadata-3` adds explicit enum decisions: the legacy
+label rule and diagnostic, unsigned modifiers, ordered rows, enumerator source
+indices, exact decimal values and native C++ names. Replay rejects altered
+decisions even after rehashing. Old policy documents require re-resolution;
+extracted-facts v12 and its graph contract remain unchanged.
+
+The emitter consumes those decisions for scoped and unscoped enum tables.
+Independent captured legacy/native evidence establishes that scoped labels omit
+the enum's own name. The same evidence exposes unsigned-narrow sign extension;
+policy rejects affected requests and values outside `ENUM_ATTR.int`. This does
+not change the legacy ABI or its runtime behavior. Ten additional enum tables
+and 19 entries compile through separate old/new/native probes, with mutation and
+rejection checks. See the [enum evidence contract](../../../tools/icg_baseline/enums/README.md).

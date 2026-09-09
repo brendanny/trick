@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
 import differential  # noqa: E402
+import enum_metadata  # noqa: E402
 import native  # noqa: E402
 
 from tools.icg_emit import emit  # noqa: E402
@@ -173,6 +174,75 @@ class EmitterTests(unittest.TestCase):
                 source_name="candidate.cpp",
             )
 
+    def test_scoped_enum_legacy_candidate_native_gate_and_rejection(self):
+        # This also exercises extraction command/evidence retention and the
+        # separate native observation of legacy's unsigned-narrow mismatch.
+        result = enum_metadata.capture(EXTRACTOR, self.work, COMPILER)
+        self.assertEqual(result["scoped-enums"]["status"], "compared")
+        self.assertEqual(result["unsigned-narrow"]["status"], "rejected")
+        self.assertFalse((self.work / "unsigned-narrow/candidate.cpp").exists())
+
+    def test_enum_mutations_fail_native_comparison(self):
+        case, legacy = enum_metadata.reference("scoped-enums")
+        facts, request, model = self.extract(ROOT / case["header"])
+        report = enum_metadata.report_for(facts, legacy)
+        candidate = emit.render(facts, request, model)
+        for index, (before, after) in enumerate((
+            (
+                '{"icg_enum::last", 127, 0x40000000}',
+                '{"icg_enum::Byte::last", 127, 0x40000000}',
+            ),
+            ('{"icg_enum::last", 127, 0x40000000}', '{"icg_enum::last", 127, 0x0}'),
+            (
+                '{"icg_enum::last", 127, 0x40000000}',
+                '{"icg_enum::last", 126, 0x40000000}',
+            ),
+            (
+                '{"icg_enum::zero", 0, 0x0},\n{"icg_enum::alias", 0, 0x0}',
+                '{"icg_enum::alias", 0, 0x0},\n{"icg_enum::zero", 0, 0x0}',
+            ),
+            ('{"icg_enum::alias", 0, 0x0},\n', ""),
+            (
+                'enumicg_enum__Empty[] = {\n{"", 0, 0x0}',
+                'enumicg_enum__Empty[] = {\n{"", 1, 0x0}',
+            ),
+            ("ENUM_ATTR enumicg_enum__Byte[]", "ENUM_ATTR missing_enum[]"),
+            ("size_t io_src_sizeof_icg_enum__Byte()", "size_t missing_enum_size()"),
+        )):
+            with self.subTest(mutation=before):
+                self.assertIn(before, candidate)
+                directory = self.work / f"enum-mutation-{index}"
+                directory.mkdir()
+                (directory / "native.json").write_text('{"stale":true}')
+                with self.assertRaises(ValueError):
+                    native.capture(
+                        facts,
+                        candidate.replace(before, after),
+                        report,
+                        case,
+                        directory,
+                        COMPILER,
+                        source_name="candidate.cpp",
+                    )
+                self.assertFalse((directory / "native.json").exists())
+
+    def test_enum_only_and_empty_enum_compile(self):
+        candidate = emit.render(
+            *self.model(
+                "enum class E { negative = -1, alias = -1 }; enum class Empty {};"
+            )
+        )
+        self.compile(
+            candidate,
+            """
+static_assert(sizeof(enumE) / sizeof(enumE[0]) == 3, "aliases retained");
+static_assert(sizeof(enumEmpty) / sizeof(enumEmpty[0]) == 1, "empty sentinel");
+if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
+    std::string(enumEmpty[0].label) != "" || enumEmpty[0].value != 0 ||
+    io_src_sizeof_Empty() != sizeof(Empty)) throw std::runtime_error("enum only");
+""",
+        )
+
     def test_compiled_policy_metadata(self):
         names = {
             "all-io",
@@ -286,9 +356,12 @@ class EmitterTests(unittest.TestCase):
             ),
             (
                 "enum E : unsigned long long { huge = 0xffffffffffffffffULL };",
-                "ICG_EMIT_ENUM",
+                "ICG_POLICY_ENUM_VALUE",
             ),
-            ("enum class E { value };", "ICG_EMIT_ENUM"),
+            (
+                "enum class E : unsigned char { value = 255 };",
+                "ICG_POLICY_ENUM_SIGN_EXTENSION",
+            ),
             (
                 "class Model { friend void init_attrModel() noexcept; int x; };",
                 "ICG_EMIT_INIT",

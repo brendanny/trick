@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-1"
+VERSION = "scalar-metadata-emitter-2"
 KINDS = {
     "int": "TRICK_INTEGER",
     "unsigned int": "TRICK_UNSIGNED_INTEGER",
@@ -133,25 +133,17 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
             f'static_assert(sizeof(::{name}) * CHAR_BIT == {node["size_bits"]} && alignof(::{name}) * CHAR_BIT == {node["alignment_bits"]}, "ICG layout mismatch: {name}");\n'
         )
         if node["kind"] == "enum":
-            if node["scoped"]:
-                raise PolicyError(
-                    "ICG_EMIT_ENUM",
-                    "scoped enum labels have no legacy characterization in this profile",
-                )
+            enum = meta["enum"]
             rows = []
-            scope = "::".join(n["name"] for n in contexts(node, nodes))
-            for item in node["enumerators"]:
-                value = int(item["value"])
-                if not -(2**31) <= value < 2**31:
-                    raise PolicyError(
-                        "ICG_EMIT_ENUM",
-                        f"ENUM_ATTR.int cannot represent {name}::{item['name']}",
-                    )
-                label = (scope + "::" if scope else "") + item["name"]
-                mods = "0x40000000" if not node["underlying_signed"] else "0x0"
-                rows.append(f"{{{literal(label)}, {value}, {mods}}}")
+            chunks.append(
+                f'static_assert(std::is_signed<std::underlying_type<::{name}>::type>::value == {str(node["underlying_signed"]).lower()}, "ICG enum signedness mismatch");\n'
+            )
+            for item in enum["rows"]:
+                rows.append(
+                    f"{{{literal(item['label'])}, {item['value']}, {hex(enum['mods'])}}}"
+                )
                 chunks.append(
-                    f'static_assert(static_cast<long long>(::{name}::{item["name"]}) == {value}, "ICG enum value mismatch");\n'
+                    f'static_assert(static_cast<long long>(::{item["cpp_name"]}) == {item["value"]}, "ICG enum value mismatch");\n'
                 )
             chunks.append(
                 'extern "C" {\n'

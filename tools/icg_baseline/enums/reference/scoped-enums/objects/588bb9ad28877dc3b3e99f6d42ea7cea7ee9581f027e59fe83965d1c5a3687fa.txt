@@ -1,0 +1,116 @@
+  <enumeration name="GlobalMode">
+    <pair label ="GlobalMode::off" value="-3"/>
+    <pair label ="GlobalMode::on" value="7"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Plain">
+    <pair label ="icg_enum::minimum" value="-2147483648"/>
+    <pair label ="icg_enum::maximum" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Signed">
+    <pair label ="icg_enum::Signed::negative" value="-21"/>
+    <pair label ="icg_enum::Signed::zero" value="0"/>
+    <pair label ="icg_enum::Signed::alias" value="0"/>
+    <pair label ="icg_enum::Signed::positive" value="3"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Byte">
+    <pair label ="icg_enum::Byte::zero" value="0"/>
+    <pair label ="icg_enum::Byte::last" value="127"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Word">
+    <pair label ="icg_enum::Word::zero" value="0"/>
+    <pair label ="icg_enum::Word::last" value="32767"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__DWord">
+    <pair label ="icg_enum::DWord::zero" value="0"/>
+    <pair label ="icg_enum::DWord::last" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__QWord">
+    <pair label ="icg_enum::QWord::last" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Empty">
+  </enumeration>
+
+  <enumeration name="icg_enum__v1__Mode">
+    <pair label ="icg_enum::Mode::off" value="0"/>
+    <pair label ="icg_enum::Mode::on" value="1"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__v1__Owner__State">
+    <pair label ="icg_enum::Owner::State::idle" value="-1"/>
+    <pair label ="icg_enum::Owner::State::active" value="2"/>
+  </enumeration>
+
+  <class name="icg_enum__v1__Owner">
+    <member
+      name="count"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <enumeration name="GlobalMode">
+    <pair label ="GlobalMode::off" value="-3"/>
+    <pair label ="GlobalMode::on" value="7"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Plain">
+    <pair label ="icg_enum::minimum" value="-2147483648"/>
+    <pair label ="icg_enum::maximum" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Signed">
+    <pair label ="icg_enum::Signed::negative" value="-21"/>
+    <pair label ="icg_enum::Signed::zero" value="0"/>
+    <pair label ="icg_enum::Signed::alias" value="0"/>
+    <pair label ="icg_enum::Signed::positive" value="3"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Byte">
+    <pair label ="icg_enum::Byte::zero" value="0"/>
+    <pair label ="icg_enum::Byte::last" value="127"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Word">
+    <pair label ="icg_enum::Word::zero" value="0"/>
+    <pair label ="icg_enum::Word::last" value="32767"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__DWord">
+    <pair label ="icg_enum::DWord::zero" value="0"/>
+    <pair label ="icg_enum::DWord::last" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__QWord">
+    <pair label ="icg_enum::QWord::last" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__Empty">
+  </enumeration>
+
+  <enumeration name="icg_enum__v1__Mode">
+    <pair label ="icg_enum::Mode::off" value="0"/>
+    <pair label ="icg_enum::Mode::on" value="1"/>
+  </enumeration>
+
+  <enumeration name="icg_enum__v1__Owner__State">
+    <pair label ="icg_enum::Owner::State::idle" value="-1"/>
+    <pair label ="icg_enum::Owner::State::active" value="2"/>
+  </enumeration>
+
+  <class name="icg_enum__v1__Owner">
+    <member
+      name="count"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+

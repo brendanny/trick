@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v2**, not C++, and does not replace production ICG.
+It emits **resolved policy v3**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-2"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-3"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, and sorted unique `file_ids`.
 It may narrow captured file selection but cannot widen it. A header merely
 present in the include graph is insufficient evidence that its unreferenced
@@ -41,9 +41,10 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations now retain `description` and `mods`; this requires schema v2
-and policy `scalar-metadata-2`. Resolve old v1 inputs again rather than changing
-their version fields. Record/enum collisions in their shared size-function symbol
+Field annotations retain `description` and `mods`. Schema v3 and policy
+`scalar-metadata-3` additionally require explicit enum metadata decisions.
+Resolve old v1/v2 inputs again rather than changing their version fields.
+Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
 
@@ -60,7 +61,30 @@ replays policy **before** comparing the digest. Replay shares the policy parser;
 it is not an independent implementation of the rules. Independent evidence comes
 from live legacy output and native compilation. Mutation tests recompute the
 digest before checking altered inclusion, I/O, units, source association, access,
-settings, and missing decisions.
+settings, enum labels/values/order/modifiers, and missing decisions.
+
+Each included enum has `metadata.enum`: `label_rule`, `diagnostics`, `mods`, and
+ordered `rows`. A row's `source_index` references the enumerator in the input
+facts (including its source), `label` is the legacy lookup spelling, `cpp_name`
+is the C++ constant used by native checks, and `value` is an exact decimal string.
+The legacy `LEGACY_CONTAINER_SCOPE` rule omits the enum's own name from labels,
+even for scoped enums. These retain `LEGACY_SCOPED_LABEL_OMITS_ENUM`; native
+references still include the enum's name. Duplicate values remain separate rows,
+and empty enums retain an empty row list. Unsigned underlying types set modifier
+bit 30. This does not change the existing `ENUM_ATTR` ABI or runtime lookup.
+
+The [independent enum corpus](../icg_baseline/enums/README.md) characterizes
+8/16/32/64-bit underlying storage, signed-int boundary values, namespace and record
+scopes, and inaccessible nested enums. Opaque declarations are omitted with
+`OPAQUE_ENUM_DECLARATION`, matching legacy's definition-only emission. Values
+outside signed 32-bit `ENUM_ATTR.int`
+fail with `ICG_POLICY_ENUM_VALUE`. Unsigned narrow values whose sign bit is set
+fail with `ICG_POLICY_ENUM_SIGN_EXTENSION`: legacy encodes unsigned-char `255`
+as `-1`, disagreeing with native C++.
+`bool`-backed `true` has the same mismatch because its value uses one bit despite
+occupying a byte. Underlying aliases are resolved through canonical type IDs.
+Resolution rejects the entire request. Reproducing the numeric mismatch or
+changing runtime behavior is outside this profile.
 
 ## Characterized compatibility rules
 
