@@ -317,6 +317,56 @@ def capture(args: argparse.Namespace) -> int:
                         output / "cold/snapshot.json", output / label / "snapshot.json"
                     )
             report[f"cold_{label}_equal"] = code == 0
+        if case_id == "memorymanager":
+            # Preserve the completed legacy run and its metadata/registry. Only
+            # lifecycle C exports are supplied by the independently generated TU.
+            candidate_output = output / "candidate-lifecycle"
+            target, overlay = memorymanager.install_candidate(
+                facts, sim, candidate_output
+            )
+            old_binary = b.digest(executable(sim).read_bytes())
+            command = [
+                timeout,
+                "--kill-after=10s",
+                f"{args.build_timeout}s",
+                str(root / "bin/trick-CP"),
+                "TRICK_VERBOSE_BUILD=1",
+            ]
+            (candidate_output / "build.command.json").write_bytes(b.json_bytes(command))
+            with (candidate_output / "build.log").open("w") as stream:
+                code = subprocess.run(
+                    command,
+                    cwd=sim,
+                    env=env,
+                    stdout=stream,
+                    stderr=subprocess.STDOUT,
+                    check=False,
+                ).returncode
+            if code or target.read_text() != overlay:
+                raise b.BaselineError(
+                    "candidate lifecycle rebuild failed or regenerated the overlay"
+                )
+            if b.digest(executable(sim).read_bytes()) == old_binary:
+                raise b.BaselineError("candidate lifecycle executable was not relinked")
+            report["stages"]["candidate-build"] = "success"
+            report["stages"]["runtime-candidate"] = runtime(
+                sim,
+                output / "runtime-candidate",
+                env,
+                timeout,
+                args.runtime_timeout,
+                case_id,
+                facts,
+            )
+            for name in ("observations.json", "memorymanager.json"):
+                previous = json.loads((output / "runtime-rebuilt" / name).read_text())
+                candidate = json.loads(
+                    (output / "runtime-candidate" / name).read_text()
+                )
+                if b.json_bytes(previous) != b.json_bytes(candidate):
+                    raise b.BaselineError(
+                        "candidate lifecycle runtime differs from legacy"
+                    )
         # Full generated snapshots are observations, not yet approved portable
         # goldens. Runtime expectations above are the explicit behavioral gate.
         report["status"] = "success"

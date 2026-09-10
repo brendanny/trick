@@ -2,8 +2,11 @@
 
 This gate executes actual legacy-generated lifecycle functions for a new,
 instrumented six-record corpus. The extractor still exports declaration facts;
-`lifecycle.py` contains a deliberately bounded evidence policy, not a production
-lifecycle emitter or general access/ownership resolver.
+`lifecycle.py` contains a deliberately bounded, independent evidence policy.
+The opt-in [candidate emitter](../../icg_emit/README.md#opt-in-lifecycle-output)
+now generates these operations from resolved policy. `lifecycle_codegen.py`
+compares both implementations with this same native probe and retains separate
+sources, commands, observations and a final `comparison.json` only on agreement.
 
 | Record | Default construction | Legacy allocation | Destruct / delete | Executed evidence |
 |---|---|---|---|---|

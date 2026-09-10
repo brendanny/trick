@@ -15,13 +15,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 4
+      "const": 5
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-4"
+      "const": "scalar-metadata-5"
     },
     "facts": {
       "type": "object",
@@ -70,16 +70,26 @@
           "uniqueItems": true
         },
         "outputs": {
-          "const": [
-            "attributes",
-            "enum-attributes"
+          "enum": [
+            [
+              "attributes",
+              "enum-attributes"
+            ],
+            [
+              "lifecycle"
+            ],
+            [
+              "attributes",
+              "enum-attributes",
+              "lifecycle"
+            ]
           ]
         },
         "offset_mode": {
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-4"
+          "const": "scalar-metadata-5"
         }
       }
     },
@@ -260,7 +270,8 @@
               "INCOMPLETE_TYPE",
               "REQUESTED_METADATA",
               "IO_DISABLED",
-              "NUMERIC_OFFSET_METADATA"
+              "NUMERIC_OFFSET_METADATA",
+              "OUTPUT_NOT_REQUESTED"
             ]
           },
           "source": {
@@ -294,7 +305,8 @@
                 "additionalProperties": false,
                 "required": [
                   "symbol",
-                  "init_function"
+                  "init_function",
+                  "lifecycle"
                 ],
                 "properties": {
                   "symbol": {
@@ -302,6 +314,16 @@
                   },
                   "init_function": {
                     "type": "string"
+                  },
+                  "lifecycle": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/$defs/lifecycle"
+                      }
+                    ]
                   }
                 }
               },
@@ -470,8 +492,8 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v4.schema.json",
-  "title": "Bounded numeric-offset scalar/array legacy metadata policy v4",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v5.schema.json",
+  "title": "Bounded legacy metadata and lifecycle policy v5",
   "$defs": {
     "source": {
       "type": "object",
@@ -629,6 +651,210 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 2147483647
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "default_constructor",
+        "destructor",
+        "default_placement",
+        "allocate",
+        "destruct",
+        "delete"
+      ],
+      "properties": {
+        "domain": {
+          "const": "positive-count-nonthrowing"
+        },
+        "default_constructor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "special_member_index",
+            "declaration_ids",
+            "available",
+            "rule",
+            "virtual"
+          ],
+          "properties": {
+            "special_member_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "declaration_ids": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              },
+              "maxItems": 1
+            },
+            "available": {
+              "type": "boolean"
+            },
+            "rule": {
+              "enum": [
+                "NO_DECLARED_SPECIAL_MEMBER",
+                "DELETED_SPECIAL_MEMBER",
+                "NON_PUBLIC_SPECIAL_MEMBER",
+                "PUBLIC_SPECIAL_MEMBER"
+              ]
+            },
+            "virtual": {
+              "type": "boolean"
+            }
+          }
+        },
+        "destructor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "special_member_index",
+            "declaration_ids",
+            "available",
+            "rule",
+            "virtual"
+          ],
+          "properties": {
+            "special_member_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "declaration_ids": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              },
+              "maxItems": 1
+            },
+            "available": {
+              "type": "boolean"
+            },
+            "rule": {
+              "enum": [
+                "NO_DECLARED_SPECIAL_MEMBER",
+                "DELETED_SPECIAL_MEMBER",
+                "NON_PUBLIC_SPECIAL_MEMBER",
+                "PUBLIC_SPECIAL_MEMBER"
+              ]
+            },
+            "virtual": {
+              "type": "boolean"
+            }
+          }
+        },
+        "default_placement": {
+          "type": "boolean"
+        },
+        "allocate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "symbol",
+            "action",
+            "rule"
+          ],
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^io_src_[A-Za-z0-9_]+$"
+            },
+            "action": {
+              "enum": [
+                "absent",
+                "raw_storage",
+                "construct"
+              ]
+            },
+            "rule": {
+              "enum": [
+                "NO_DECLARED_SPECIAL_MEMBER",
+                "DELETED_SPECIAL_MEMBER",
+                "NON_PUBLIC_SPECIAL_MEMBER",
+                "PUBLIC_SPECIAL_MEMBER",
+                "LEGACY_POD_RAW_STORAGE",
+                "ABSTRACT_RECORD",
+                "LEGACY_POD_NOOP",
+                "FORWARD_DESTRUCTION_NO_FREE",
+                "SCALAR_NEW_OWNERSHIP"
+              ]
+            }
+          }
+        },
+        "destruct": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "symbol",
+            "action",
+            "rule"
+          ],
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^io_src_[A-Za-z0-9_]+$"
+            },
+            "action": {
+              "enum": [
+                "absent",
+                "noop",
+                "loop"
+              ]
+            },
+            "rule": {
+              "enum": [
+                "NO_DECLARED_SPECIAL_MEMBER",
+                "DELETED_SPECIAL_MEMBER",
+                "NON_PUBLIC_SPECIAL_MEMBER",
+                "PUBLIC_SPECIAL_MEMBER",
+                "LEGACY_POD_RAW_STORAGE",
+                "ABSTRACT_RECORD",
+                "LEGACY_POD_NOOP",
+                "FORWARD_DESTRUCTION_NO_FREE",
+                "SCALAR_NEW_OWNERSHIP"
+              ]
+            }
+          }
+        },
+        "delete": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "symbol",
+            "action",
+            "rule"
+          ],
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "pattern": "^io_src_[A-Za-z0-9_]+$"
+            },
+            "action": {
+              "enum": [
+                "absent",
+                "noop",
+                "scalar"
+              ]
+            },
+            "rule": {
+              "enum": [
+                "NO_DECLARED_SPECIAL_MEMBER",
+                "DELETED_SPECIAL_MEMBER",
+                "NON_PUBLIC_SPECIAL_MEMBER",
+                "PUBLIC_SPECIAL_MEMBER",
+                "LEGACY_POD_RAW_STORAGE",
+                "ABSTRACT_RECORD",
+                "LEGACY_POD_NOOP",
+                "FORWARD_DESTRUCTION_NO_FREE",
+                "SCALAR_NEW_OWNERSHIP"
+              ]
+            }
           }
         }
       }

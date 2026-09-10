@@ -256,6 +256,7 @@ def check(
     *,
     sanitize: bool = False,
     leak_check: bool = False,
+    source_name: str = "legacy.cpp",
 ) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -270,9 +271,15 @@ def check(
     materialized = legacy.replace("${TRICK_ROOT}", str(d.ROOT))
     if "${" in materialized:
         raise ValueError("unresolved normalization token in lifecycle source")
-    (output / "legacy.cpp").write_text(materialized)
+    if source_name not in ("legacy.cpp", "candidate.cpp"):
+        raise ValueError("unexpected lifecycle source name")
+    (output / source_name).write_text(materialized)
     (output / "native_probe.hh").write_bytes(native.HELPER.read_bytes())
-    (output / "probe.cpp").write_bytes((HERE / "probe.cpp").read_bytes())
+    (output / "probe.cpp").write_text(
+        (HERE / "probe.cpp")
+        .read_text()
+        .replace('#include "legacy.cpp"', f'#include "{source_name}"')
+    )
     sanitizer_flags = (
         (
             "-fsanitize=address,undefined",
@@ -311,7 +318,8 @@ def check(
     evidence.update(
         policy=policy,
         graph_digest=document["provenance"]["graph_digest"],
-        legacy_sha256=b.digest(legacy.encode()),
+        source_name=source_name,
+        source_sha256=b.digest(legacy.encode()),
         sanitizers=list(sanitizer_flags),
         leak_check=leak_check,
         not_executed={
@@ -327,6 +335,8 @@ def check(
             "general lifecycle policy",
         ],
     )
+    if source_name == "legacy.cpp":
+        evidence["legacy_sha256"] = evidence["source_sha256"]
     evidence["input_sha256"][str(Path(__file__))] = b.digest(
         Path(__file__).read_bytes()
     )

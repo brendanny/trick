@@ -20,6 +20,9 @@ sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
 import array_metadata  # noqa: E402
 import differential  # noqa: E402
 import enum_metadata  # noqa: E402
+import lifecycle as lifecycle_baseline  # noqa: E402
+import lifecycle_codegen  # noqa: E402
+import memorymanager  # noqa: E402
 import native  # noqa: E402
 
 from tools.icg_emit import emit  # noqa: E402
@@ -28,6 +31,7 @@ from tools.icg_policy import cases, resolve, rules  # noqa: E402
 EXTRACTOR = None
 COMPILER = None
 ARTIFACTS = None
+LIFECYCLE_LEAK_CHECK = False
 
 
 class EmitterTests(unittest.TestCase):
@@ -50,7 +54,7 @@ class EmitterTests(unittest.TestCase):
             and k not in ("CPATH", "CPLUS_INCLUDE_PATH", "C_INCLUDE_PATH")
         }
 
-    def extract(self, header):
+    def extract(self, header, *, outputs=None):
         p = subprocess.run(
             [str(EXTRACTOR), "--source-root", str(header.parent), str(header), "--"],
             capture_output=True,
@@ -58,13 +62,202 @@ class EmitterTests(unittest.TestCase):
         )
         self.assertEqual(p.returncode, 0, p.stderr.decode())
         facts = json.loads(p.stdout)
-        request = resolve.request_for(facts)
+        request = resolve.request_for(facts, outputs=outputs)
         return facts, request, resolve.resolve(facts, request)
 
-    def model(self, source=cases.HEADER + "struct Model { int x; };\n"):
+    def model(
+        self, source=cases.HEADER + "struct Model { int x; };\n", *, outputs=None
+    ):
         header = self.work / "model.hh"
         header.write_text(source)
-        return self.extract(header)
+        return self.extract(header, outputs=outputs)
+
+    def test_lifecycle_legacy_candidate_native_gate(self):
+        report = lifecycle_codegen.capture(
+            EXTRACTOR,
+            COMPILER,
+            self.work,
+            sanitize=LIFECYCLE_LEAK_CHECK,
+            leak_check=LIFECYCLE_LEAK_CHECK,
+        )
+        self.assertEqual(
+            (report["records"], report["lookups"], report["executions"]), (6, 18, 12)
+        )
+        self.assertEqual(report["status"], "compared")
+
+    def test_lifecycle_output_and_operation_access_are_explicit(self):
+        source = (
+            "namespace demo { inline namespace v1 { class Model {\n"
+            "friend void init_attrdemo__v1__Model(); Model() {}\n"
+            "public: ~Model() {} }; }}"
+        )
+        documents = self.model(source, outputs=["lifecycle"])
+        candidate = emit.render(*documents)
+        self.assertNotIn("void* io_src_allocate_", candidate)
+        self.assertIn("void io_src_delete_demo__v1__Model", candidate)
+        self.assertNotIn("ATTRIBUTES attr", candidate)
+        self.compile(candidate, "io_src_delete_demo__v1__Model(nullptr);")
+        (self.work / "model.hh").write_text(
+            source.replace("Model() {}", "public: Model() {}")
+        )
+        with self.assertRaisesRegex(ValueError, "ICG lifecycle trait mismatch"):
+            self.compile(candidate, "", "changed-access")
+
+    def test_lifecycle_combines_with_metadata_only_when_requested(self):
+        source = "struct Model { int x = 5; };"
+        documents = self.model(source)
+        self.assertNotIn("io_src_allocate_", emit.render(*documents))
+        facts = documents[0]
+        request = resolve.request_for(facts, outputs=[*resolve.OUTPUTS, "lifecycle"])
+        model = resolve.resolve(facts, request)
+        self.compile(
+            emit.render(facts, request, model),
+            """
+init_attrModel_c_intf();
+auto* values = static_cast<Model*>(io_src_allocate_Model(3));
+if (!values || values[0].x != 5 || values[2].x != 5) throw std::runtime_error("initialization");
+io_src_destruct_Model(values, 3);
+std::free(values);
+io_src_delete_Model(new Model);
+if (io_src_allocate_Model(0) || io_src_allocate_Model(-1)) throw std::runtime_error("invalid count");
+""",
+        )
+
+    def test_lifecycle_policy_mutations_cannot_be_rehashed_into_permission(self):
+        documents = self.model(
+            "class Model { friend void init_attrModel(); Model() {} public: ~Model() {} };",
+            outputs=["lifecycle"],
+        )
+        facts, request, model = documents
+        index = next(
+            i for i, d in enumerate(model["declarations"]) if d["decision"] == "include"
+        )
+        for change in (
+            lambda r: r["allocate"].update(action="construct"),
+            lambda r: r["default_constructor"].update(available=True),
+            lambda r: r["destructor"].update(declaration_ids=[]),
+            lambda r: r["destruct"].update(action="noop"),
+            lambda r: r["delete"].update(symbol="io_src_delete_Other"),
+        ):
+            changed = deepcopy(model)
+            change(changed["declarations"][index]["metadata"]["lifecycle"])
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                emit.write(facts, request, changed, self.work / "forbidden.cpp")
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_lifecycle_respects_selection_and_checks_io_omitted_storage(self):
+        source = cases.HEADER + "struct Model { int* p; /* trick_io(**) */\n};"
+        facts, _, _ = self.model(source)
+        request = resolve.request_for(facts, outputs=[*resolve.OUTPUTS, "lifecycle"])
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+            resolve.resolve(facts, request)
+        documents = self.model(
+            "/* PURPOSE: (excluded) ICG: (No) */\nstruct Model {};",
+            outputs=["lifecycle"],
+        )
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_EMIT_EMPTY"):
+            emit.write(*documents, self.work / "excluded.cpp")
+        self.assertFalse((self.work / "excluded.cpp").exists())
+
+    def test_lifecycle_unsupported_profiles_publish_nothing(self):
+        for source, code in (
+            ("struct alignas(32) Model { int x; };", "ICG_POLICY_LIFECYCLE_STORAGE"),
+            ("union Model { int x; };", "ICG_POLICY_LIFECYCLE_STORAGE"),
+            ("struct Model { virtual void f() {} };", "ICG_POLICY_LIFECYCLE_DELETE"),
+            (
+                "struct Model { static void* operator new(unsigned long size); };",
+                "ICG_POLICY_LIFECYCLE_ALLOCATION",
+            ),
+            ("struct Model { int* p; };", "ICG_POLICY_TYPE"),
+        ):
+            with (
+                self.subTest(source=source),
+                self.assertRaisesRegex(rules.PolicyError, code),
+            ):
+                emit.write(
+                    *self.model(source, outputs=["lifecycle"]),
+                    self.work / "forbidden.cpp",
+                )
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_lifecycle_generated_mutations_fail_native_comparison(self):
+        facts, request, model = self.extract(
+            lifecycle_baseline.HEADER, outputs=["lifecycle"]
+        )
+        candidate = emit.render(facts, request, model)
+        for index, (before, after) in enumerate((
+            ("void io_src_destruct_IcgLifecycleTracked(", "void missing_destruct("),
+            ("for (int i = 0; i < num; ++i)", "for (int i = num - 1; i >= 0; --i)"),
+            ("object->~T();", "(void)object;"),
+            ('extern "C" {', 'extern "C++" {'),
+        )):
+            with self.subTest(mutation=before):
+                self.assertIn(before, candidate)
+                output = self.work / f"mutation-{index}"
+                output.mkdir()
+                (output / "lifecycle.json").write_text('{"stale":true}')
+                with self.assertRaises(ValueError):
+                    lifecycle_baseline.check(
+                        facts,
+                        candidate.replace(before, after),
+                        output,
+                        COMPILER,
+                        source_name="candidate.cpp",
+                    )
+                self.assertFalse((output / "lifecycle.json").exists())
+
+    def test_lifecycle_overlay_cannot_fall_back_to_legacy_exports(self):
+        facts, request, model = self.extract(
+            lifecycle_baseline.HEADER, outputs=["lifecycle"]
+        )
+        candidate = emit.render(facts, request, model)
+        legacy = lifecycle_baseline.reference()
+        symbols = {
+            f"io_src_{operation}_{name}"
+            for name, rule in lifecycle_baseline.policies(facts).items()
+            for operation in ("allocate", "destruct", "delete")
+            if rule[operation] != "absent"
+        }
+        overlay = memorymanager.lifecycle_overlay(legacy, candidate, symbols)
+        lifecycle_baseline.check(
+            facts, overlay, self.work / "overlay", COMPILER, source_name="candidate.cpp"
+        )
+        missing = candidate.replace(
+            "io_src_allocate_IcgLifecycleTracked", "missing_allocate"
+        )
+        with self.assertRaisesRegex(ValueError, "missing owning-allocation wrappers"):
+            lifecycle_baseline.check(
+                facts,
+                memorymanager.lifecycle_overlay(legacy, missing, symbols),
+                self.work / "missing",
+                COMPILER,
+                source_name="candidate.cpp",
+            )
+
+    def test_lifecycle_candidate_scalar_delete_releases_storage(self):
+        if not LIFECYCLE_LEAK_CHECK:
+            self.skipTest("requires the Linux lifecycle leak-check lane")
+        facts, request, model = self.extract(
+            lifecycle_baseline.HEADER, outputs=["lifecycle"]
+        )
+        candidate = emit.render(facts, request, model)
+        before = "delete static_cast<::IcgLifecycleTracked*>(address);"
+        self.assertIn(before, candidate)
+        with self.assertRaisesRegex(ValueError, "LeakSanitizer: detected memory leaks"):
+            lifecycle_baseline.check(
+                facts,
+                candidate.replace(
+                    before,
+                    "static_cast<::IcgLifecycleTracked*>(address)->~IcgLifecycleTracked();",
+                ),
+                self.work / "leak",
+                COMPILER,
+                sanitize=True,
+                leak_check=True,
+                source_name="candidate.cpp",
+            )
+        self.assertFalse((self.work / "leak/lifecycle.json").exists())
 
     def legacy_case(self, case_id):
         corpus = json.loads((differential.REFERENCE.parent / "corpus.json").read_text())
@@ -508,6 +701,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--extractor", type=Path, required=True)
     parser.add_argument("--compiler", type=Path, required=True)
+    parser.add_argument("--lifecycle-leak-check", action="store_true")
     parser.add_argument(
         "--artifacts",
         type=Path,
@@ -518,4 +712,5 @@ if __name__ == "__main__":
     # Preserve the C++ driver name when clang++ is a symlink to clang.
     COMPILER = args.compiler.absolute()
     ARTIFACTS = args.artifacts.resolve() if args.artifacts else None
+    LIFECYCLE_LEAK_CHECK = args.lifecycle_leak_check
     unittest.main(argv=[sys.argv[0], *rest])

@@ -616,8 +616,8 @@ This sequence creates usable evidence early and prevents the project from becomi
 
 ### 20.1 Next milestone: generate and execute legacy metadata
 
-Status: facts v12 input evidence, bounded resolved policy v4 and metadata emitter
-v3 are implemented with compiled legacy/candidate/native gates. Broader generated
+Status: facts v12 input evidence, bounded resolved policy v5 and metadata emitter
+v4 are implemented with compiled legacy/candidate/native gates. Broader generated
 behavior and production integration remain pending.
 This milestone responds to the architectural review at `6a50207`, checked against
 `eea673ae`. The intervening identity/failure-path and macOS test-environment fixes
@@ -756,11 +756,20 @@ emitter's namespace-prefixed UnitsMap keys: legacy omits namespaces. Resolved ke
 are explicit; ambiguous key collisions and unsupported array shapes fail closed.
 Facts v12 and all earlier captured references remain unchanged.
 
-Next generate bounded lifecycle operations against
-the existing lifecycle/MemoryManager gates before tackling template/STL emission.
+The bounded lifecycle increment is implemented with policy v5 / emitter v4.
+Explicit lifecycle-only or combined requests resolve operation-specific public
+special-member access, legacy raw POD/no-op behavior and absent exports. Generated
+allocation, destruction and scalar deletion are compared against the immutable
+six-record lifecycle corpus and native operations, including sanitizer and mutation
+checks. The configured MemoryManager gate relinks a candidate lifecycle overlay
+while retaining legacy metadata/registration and requires identical runtime
+observations. This remains a positive-count, nonthrowing ownership contract;
+exception recovery, over-alignment and arbitrary class allocation are not supported.
+
+Next widen to template/STL emission using the existing independent gates.
 Broader scalar/qualified/structured fields and general annotation policy remain
 separate coverage extensions.
-The backend remains a development metadata subset without production build,
+The backend remains a development metadata/lifecycle subset without production build,
 registry, or SIE integration. Template extraction alone is not STL emission parity.
 
 Exit criteria for this milestone are explicit selection/comment/friend decisions

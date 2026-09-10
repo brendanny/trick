@@ -15,13 +15,14 @@ from jsonschema import Draft202012Validator, ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tools.icg_policy import enums, rules, storage  # noqa: E402
+from tools.icg_policy import enums, lifecycle, rules, storage  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-4"
+POLICY_VERSION = "scalar-metadata-5"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
+OUTPUT_PROFILES = [OUTPUTS, ["lifecycle"], [*OUTPUTS, "lifecycle"]]
 
 
 def digest(value: object) -> str:
@@ -36,10 +37,10 @@ def model_digest(model: dict) -> str:
     return digest({key: value for key, value in model.items() if key != "digest"})
 
 
-def request_for(facts: dict) -> dict:
+def request_for(facts: dict, *, outputs: list[str] | None = None) -> dict:
     return dict(
         file_ids=list(facts["provenance"]["selection"]["file_ids"]),
-        outputs=list(OUTPUTS),
+        outputs=list(OUTPUTS if outputs is None else outputs),
         offset_mode="numeric",
         policy_version=POLICY_VERSION,
     )
@@ -51,7 +52,7 @@ def validate_inputs(facts: dict, request: dict) -> None:
     if (
         not isinstance(request, dict)
         or set(request) != set(expected)
-        or request["outputs"] != OUTPUTS
+        or request["outputs"] not in OUTPUT_PROFILES
         or request["offset_mode"] != "numeric"
         or request["policy_version"] != POLICY_VERSION
     ):
@@ -186,6 +187,14 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         if node["kind"] not in ("record", "enum", "field", "class_template"):
             result["rule"] = "NOT_METADATA_DECLARATION"
             return result
+        if (
+            node["kind"] == "enum"
+            and "enum-attributes" not in request["outputs"]
+            or node["kind"] == "field"
+            and "attributes" not in request["outputs"]
+        ):
+            result["rule"] = "OUTPUT_NOT_REQUESTED"
+            return result
         file_id = node["source"]["spelling"]["file_id"]
         if file_id not in policies:
             raise rules.PolicyError(
@@ -252,6 +261,12 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
             )
             if node["kind"] == "enum":
                 result["metadata"]["enum"] = enums.metadata(node, declarations, types)
+            else:
+                result["metadata"]["lifecycle"] = (
+                    lifecycle.resolve(node, declarations, types, symbol)
+                    if "lifecycle" in request["outputs"]
+                    else None
+                )
         else:
             if not parent or parent["kind"] != "record":
                 raise rules.PolicyError(
@@ -313,7 +328,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=4,
+        schema_version=5,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(

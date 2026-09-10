@@ -105,6 +105,7 @@ if(BUILD_TESTING)
             message(FATAL_ERROR "The lifecycle leak-check lane requires Linux")
         endif()
         list(APPEND ICG_TEST_ROOT_ARGS --lifecycle-leak-check)
+        set(ICG_EMIT_TEST_ARGS --lifecycle-leak-check)
     endif()
     add_test(NAME icg_policy_integration
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/icg_policy/test_resolve.py"
@@ -114,7 +115,7 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/icg_emit/test_emit.py"
             --extractor "$<TARGET_FILE:trick-icg-extract>"
             --compiler "${CMAKE_CXX_COMPILER}"
-            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/emitter-evidence")
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/emitter-evidence" ${ICG_EMIT_TEST_ARGS})
     add_test(NAME icg_extract_integration
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_extract.py"
             --extractor "$<TARGET_FILE:trick-icg-extract>"

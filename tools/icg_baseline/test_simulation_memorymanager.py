@@ -16,6 +16,21 @@ def expected_logs(binary="/tmp/S_main_test.exe"):
 
 
 class MemoryManagerLogsTests(unittest.TestCase):
+    def test_overlay_replaces_only_lifecycle_symbol_lookup(self):
+        original = (
+            'extern "C" { void* io_src_allocate_IcgLifecycleTracked(int);\n'
+            "void init_attrIcgLifecycleTracked_c_intf() {} }\n"
+        )
+        symbols = {"io_src_allocate_IcgLifecycleTracked"}
+        candidate = "// separately generated candidate\n"
+        result = m.lifecycle_overlay(original, candidate, symbols)
+        self.assertIn("icg_baseline_legacy_io_src_allocate_IcgLifecycleTracked", result)
+        self.assertIn("void init_attrIcgLifecycleTracked_c_intf() {}", result)
+        self.assertTrue(result.endswith(candidate))
+        for changed in (original.replace("Tracked", "Other"), result, ""):
+            with self.assertRaises(b.BaselineError):
+                m.lifecycle_overlay(changed, candidate, symbols)
+
     def test_exact_failures_ignore_only_loader_binary_path(self):
         for binary in ("/tmp/S_main.exe", "/a directory/with spaces/S_main.exe"):
             with self.subTest(binary=binary):

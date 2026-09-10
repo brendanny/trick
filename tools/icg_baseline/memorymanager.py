@@ -17,6 +17,80 @@ INPUTS = (
 )
 
 
+def lifecycle_overlay(original: str, candidate: str, expected_symbols: set[str]) -> str:
+    """Keep legacy metadata while removing its lifecycle exports from lookup.
+
+    This is an isolated test overlay, never a production generation backend.
+    Renamed legacy helpers cannot satisfy MemoryManager's original C-symbol names.
+    """
+    pattern = r"\bio_src_(?:allocate|destruct|delete)_IcgLifecycle\w+\b"
+    found = set(re.findall(pattern, original))
+    if found != expected_symbols:
+        raise b.BaselineError(
+            "legacy lifecycle exports differ from the audited overlay"
+        )
+    if "icg_baseline_legacy_io_src_" in original:
+        raise b.BaselineError("lifecycle overlay already installed")
+    renamed = re.sub(pattern, lambda m: "icg_baseline_legacy_" + m[0], original)
+    return (
+        renamed
+        + "\n// Begin independently generated lifecycle candidate.\n"
+        + candidate
+    )
+
+
+def install_candidate(facts_path: Path, sim: Path, output: Path) -> tuple[Path, str]:
+    import lifecycle as l
+    import lifecycle_codegen
+
+    facts = json.loads(facts_path.read_text())
+    output.mkdir(parents=True, exist_ok=False)
+    model, candidate = lifecycle_codegen.generate(facts, output)
+    expected_symbols = {
+        f"io_src_{operation}_{name}"
+        for name, rule in l.policies(facts).items()
+        for operation in ("allocate", "destruct", "delete")
+        if rule[operation] != "absent"
+    }
+    generated_symbols = {
+        d["metadata"]["lifecycle"][operation]["symbol"]
+        for d in model["declarations"]
+        if d["decision"] == "include"
+        for operation in ("allocate", "destruct", "delete")
+        if d["metadata"]["lifecycle"][operation]["action"] != "absent"
+    }
+    if generated_symbols != expected_symbols:
+        raise b.BaselineError(
+            "candidate lifecycle exports differ from independent facts policy"
+        )
+    sources = [
+        path
+        for path in (sim / "build").rglob("io_*.cpp")
+        if "io_src_allocate_IcgLifecycleTracked(" in path.read_text()
+    ]
+    if len(sources) != 1:
+        raise b.BaselineError("expected one generated lifecycle source for the overlay")
+    target = sources[0]
+    original = target.read_text()
+    overlay = lifecycle_overlay(original, candidate, expected_symbols)
+    (output / "legacy-original.cpp").write_text(original)
+    (output / "overlay.cpp").write_text(overlay)
+    (output / "overlay.json").write_bytes(
+        b.json_bytes(
+            dict(
+                source=str(target),
+                legacy_sha256=b.digest(original.encode()),
+                candidate_sha256=b.digest(candidate.encode()),
+                overlay_sha256=b.digest(overlay.encode()),
+                resolved_digest=model["digest"],
+                symbols=sorted(expected_symbols),
+            )
+        )
+    )
+    target.write_text(overlay)
+    return target, overlay
+
+
 def extract(extractor: Path, root: Path, output: Path) -> Path:
     import lifecycle as l
 

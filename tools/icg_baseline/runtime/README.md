@@ -5,7 +5,8 @@
 Perl configuration processor, legacy ICG, SWIG, generated-source compilation,
 linking, and the Trick executable. It does not substitute the new extractor or
 alter the existing template or I/O models. The lifecycle case compares the
-observed MemoryManager operations with separately extracted facts.
+observed MemoryManager operations with separately extracted facts, then relinks
+with candidate lifecycle exports and repeats the checks.
 
 ## Reproduce
 
@@ -103,6 +104,21 @@ The allocation map must return to its initial size. Extra/missing runtime errors
 fail even if the process returns zero. A success report requires both the Python
 observations and the C++ MemoryManager document; this case does not write a
 checkpoint. Mutation tests recompute fact digests before checking rule coverage.
+
+After completing the legacy stages, the runner now generates an independent
+lifecycle-only candidate from the same facts and explicit policy request. A test
+overlay renames the original lifecycle exports, retains the legacy metadata and
+registry code, and adds the candidate. The simulation must recompile and relink;
+regeneration that discards the overlay is an error. `runtime-candidate` repeats
+the MemoryManager/SWIG checks and must match both independently specified
+expectations and the legacy observations. The candidate therefore supplies the
+original lifecycle symbols used by real runtime dispatch; the renamed legacy
+exports cannot satisfy a missing candidate function.
+
+`candidate-lifecycle/` retains the original source, candidate, overlay, request,
+resolved model, symbol list, hashes, build command and build log. The native
+overlay negative control deliberately removes a candidate allocator and requires
+lookup failure. This is an isolated evidence adapter, not a production switch.
 
 This closes the focused dispatch/registration gap, not general lifecycle policy.
 It excludes executive checkpoint restart, recursive user destructors, concurrent

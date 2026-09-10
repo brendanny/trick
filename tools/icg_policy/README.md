@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v4**, not C++, and does not replace production ICG.
+It emits **resolved policy v5**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,8 +24,10 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-4"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-5"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, and sorted unique `file_ids`.
+An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
+opts into the bounded lifecycle contract; the default request does not.
 It may narrow captured file selection but cannot widen it. A header merely
 present in the include graph is insufficient evidence that its unreferenced
 records were extracted. Caller-supplied requests remain mandatory for validation.
@@ -41,9 +43,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v4 and policy
-`scalar-metadata-4` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1/v2/v3 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v5 and policy
+`scalar-metadata-5` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1/v2/v3/v4 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -188,5 +190,28 @@ The live characterization runs in the reference Linux/LLVM 17 lane. Actual
 extractor and native access tests are part of CTest on LLVM 17–23 Linux/macOS and
 GCC 8.5/12; pure rule tests also run on Python 3.11/3.12 Linux/macOS. Existing
 legacy reference snapshots are immutable. Successful resolution alone is not evidence of generated metadata; the separate
-emitter gate establishes the bounded contract. Lifecycle, bindings, registry,
-SIE and build output remain outside this profile.
+emitter gate establishes the bounded contract. Bindings, registry, SIE and build output remain outside this profile.
+
+## Bounded lifecycle policy
+
+Policy v5 adds a nullable `metadata.lifecycle` to record decisions. It is null for
+metadata-only requests. Lifecycle requests record separate allocator, destructor,
+and scalar-deletion actions/symbols/reasons; default-constructor and destructor
+evidence names special-member slots and declaration IDs. Public operation access
+is independent of init-function friendship. Deleted-default POD raw storage does
+not claim C++ construction is available. Suppressed/abstract construction and
+inaccessible destruction produce explicit absent exports, with legacy POD no-ops
+preserved separately from scalar deletion.
+
+Lifecycle-only requests omit enum and field metadata with `OUTPUT_NOT_REQUESTED`,
+while validating every physical field's storage for lifecycle eligibility.
+Selection, file exclusions, ignored names, inaccessible nested types and parent
+omissions still apply. The domain is positive-count, nonthrowing operations with
+matching ownership; unions, over-alignment, class allocation operators, ambiguous
+special members, inheritance/templates and unsupported fields are rejected.
+Model mutation tests rehash altered actions, access, evidence links and symbols
+before requiring policy replay to reject them.
+
+See the [emitter lifecycle contract](../icg_emit/README.md#opt-in-lifecycle-output)
+for the native differential and configured MemoryManager comparison. Facts v12
+and all captured legacy references remain unchanged.
