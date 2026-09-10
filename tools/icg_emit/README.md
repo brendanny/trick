@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v5,
+This standalone development backend consumes **facts v12, resolved policy v6,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -12,7 +12,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1/v2/v3/v4 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1/v2/v3/v4/v5 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -35,7 +35,7 @@ checks each observed source file's digest before rendering. Numeric private-fiel
 metadata does not itself need member access. An init-function friend grants no
 lifecycle, STL, registry, or binding permission.
 
-Emitter v4 supports standard-layout records in the bounded scalar/array policy and
+Emitter v5 supports standard-layout records in the bounded scalar/array policy and
 scoped/unscoped enum values representable by `ENUM_ATTR.int` that agree with
 legacy's signed integer conversion. Enum labels, C++ names, values, order and
 modifier bits come from explicit policy decisions; the emitter does not derive
@@ -126,6 +126,42 @@ observations. Renamed helpers cannot satisfy the original symbol lookups; a nati
 negative control removes a candidate allocator and requires lookup failure.
 Original source, candidate, overlay, policy, build log and runtime evidence are retained.
 This is a test overlay, not production ICG/build integration.
+
+## Template-member metadata
+
+Emitter v5 accepts `outputs=["template-attributes"]` with explicit containing
+field IDs. It emits the selected specialization's scalar/array table, sentinel,
+initializer/C wrapper, size function and UnitsMap entries. It uses resolved
+per-use symbols and type spellings; a generated C++ alias makes native `offsetof`
+checks safe for template types containing commas. Selection and limits are in the
+[template policy](../icg_policy/README.md#explicit-template-member-requests).
+
+```sh
+python tools/icg_baseline/template_metadata.py \
+  --extractor build/icg-extract/trick-icg-extract \
+  --compiler /usr/bin/g++ --output build/template-metadata-evidence
+```
+
+The comparison uses the unchanged `TemplateTest.hh` and its existing immutable
+legacy capture. It selects two complete generated blocks by independently
+specified symbol names, preserving their original bodies. Legacy and candidate
+compile in separate executables against the same real Trick headers and UnitsMap.
+Independent native types and manual expectations compare two tables, four fields,
+array shapes, offsets, sizes, annotations, sentinels, C linkage and six zero-I/O
+pointer exclusions. Expected symbols and layouts are specified independently of production policy.
+No legacy snapshot or fixture is regenerated for this increment.
+
+The configured simulation overlay renames the old definitions of those metadata
+entries while preserving containing-record references to the original ABI names.
+Only candidate tables can satisfy those references. Rebuild/relink and unchanged
+checkpoint/readback observations are required. A native negative control removes
+a candidate table and requires link failure; a changed-offset control proves the
+containing record sees the candidate. Policy mutations with recomputed hashes and
+emitted dimension/offset/UnitsMap/symbol mutations must fail separate checks.
+
+These fragments do not emit containing-record tables, template lifecycle helpers,
+STL callbacks or template registries. Other template and enum tables, lifecycle,
+registration and bindings in the configured simulation remain legacy-generated.
 
 ## Failure and incremental behavior
 

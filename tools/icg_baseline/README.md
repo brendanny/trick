@@ -139,7 +139,8 @@ To snapshot existing outputs without executing any command:
 
 ```sh
 python3 tools/icg_baseline/baseline.py capture \
-  --case templates --output /tmp/icg-templates-existing
+  --case templates --extractor /tmp/icg-extract/trick-icg-extract \
+  --output /tmp/icg-templates-existing
 ```
 
 `--root PATH` and `--manifest FILE` are global options placed before the subcommand.

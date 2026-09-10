@@ -77,16 +77,7 @@ jobs:
               tail -100 build/icg-simulation-setup/build.log
               exit 1
             }
-      - name: Capture template builds and verify runtime checkpoint readback
-        run: |
-          /usr/bin/python3 tools/icg_baseline/simulation.py \
-            --case templates --output build/icg-simulation-evidence/templates --jobs 2
-      - name: Capture I/O builds and verify permissions and units
-        if: ${{ !cancelled() && steps.core.outcome == 'success' }}
-        run: |
-          /usr/bin/python3 tools/icg_baseline/simulation.py \
-            --case io --output build/icg-simulation-evidence/io --jobs 2
-      - name: Build facts extractor for the MemoryManager comparison
+      - name: Build facts extractor for candidate comparisons
         id: facts
         if: ${{ !cancelled() && steps.core.outcome == 'success' }}
         run: |
@@ -97,6 +88,17 @@ jobs:
             -DPython3_EXECUTABLE="$PWD/build/icg-schema-venv/bin/python" \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-Werror
           cmake --build build/icg-extract --parallel 2
+      - name: Compare legacy and candidate template checkpoint readback
+        if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
+        run: |
+          build/icg-schema-venv/bin/python tools/icg_baseline/simulation.py \
+            --case templates --extractor build/icg-extract/trick-icg-extract \
+            --output build/icg-simulation-evidence/templates --jobs 2
+      - name: Capture I/O builds and verify permissions and units
+        if: ${{ !cancelled() && steps.core.outcome == 'success' }}
+        run: |
+          /usr/bin/python3 tools/icg_baseline/simulation.py \
+            --case io --output build/icg-simulation-evidence/io --jobs 2
       - name: Verify MemoryManager allocation, SWIG ownership, and deletion against facts
         if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
         run: |

@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v5**, not C++, and does not replace production ICG.
+It emits **resolved policy v6**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,8 +24,9 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-5"`, `offset_mode: "numeric"`,
-`outputs: ["attributes", "enum-attributes"]`, and sorted unique `file_ids`.
+A request has `policy_version: "scalar-metadata-6"`, `offset_mode: "numeric"`,
+`outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
+`template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
 opts into the bounded lifecycle contract; the default request does not.
 It may narrow captured file selection but cannot widen it. A header merely
@@ -43,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v5 and policy
-`scalar-metadata-5` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1/v2/v3/v4 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v6 and policy
+`scalar-metadata-6` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1/v2/v3/v4/v5 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -215,3 +216,46 @@ before requiring policy replay to reject them.
 See the [emitter lifecycle contract](../icg_emit/README.md#opt-in-lifecycle-output)
 for the native differential and configured MemoryManager comparison. Facts v12
 and all captured legacy references remain unchanged.
+
+## Explicit template-member requests
+
+Policy v6 adds the separate `outputs: ["template-attributes"]` profile. Supply
+sorted, unique, nonempty `template_field_ids` identifying the exact containing
+fields to generate. Other output profiles require an empty list. Existing
+metadata requests still reject template records; this opt-in generates fragments,
+not complete containing-record metadata.
+
+```python
+request = request_for(
+    facts,
+    outputs=["template-attributes"],
+    template_field_ids=sorted(selected_field_ids),
+)
+```
+
+`template_instances` records each requested field ID, concrete record ID, primary
+template ID, canonical argument type IDs, rendered C++ type, legacy symbol,
+initializer, and source-order member decisions. Ordinary `declarations` entries
+have `OUTPUT_NOT_REQUESTED` in this profile. Member annotations, I/O exclusions,
+storage and UnitsMap keys retain explicit evidence and undergo exact policy replay.
+
+The bounded profile accepts public direct fields of global ordinary records,
+using global user templates with nonpack type parameters and no defaults.
+Instantiations must be complete, standard-layout primary instantiations without
+bases. Arguments and included members support `int`, `unsigned int`, `double`,
+and fixed arrays; zero-I/O members can be omitted before storage checks. Use and
+definition files must both be explicitly selected and included by file policy.
+
+Legacy names a specialization after its first containing field and reuses that
+name. This profile rejects repeated uses in the captured declaration closure;
+it does not infer legacy traversal order or naming across separate extraction
+requests. Namespaced/nested uses, aliases of the selected specialization, arrays
+of instances, non-type/default/pack arguments, explicit/partial specializations,
+private included members, bitfields, structured/enum arguments and STL remain
+unsupported. No full-program template registry or naming contract is claimed.
+
+The [template comparison](../icg_baseline/template_metadata.py) checks two tables,
+four scalar/array fields and six pointer exclusions from the immutable existing
+`TemplateTest.hh` capture. Generated fragments also replace those two tables in
+the configured simulation's checkpoint/readback gate. See the
+[emitter contract](../icg_emit/README.md#template-member-metadata).

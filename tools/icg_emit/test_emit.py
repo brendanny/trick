@@ -24,6 +24,7 @@ import lifecycle as lifecycle_baseline  # noqa: E402
 import lifecycle_codegen  # noqa: E402
 import memorymanager  # noqa: E402
 import native  # noqa: E402
+import template_metadata  # noqa: E402
 
 from tools.icg_emit import emit  # noqa: E402
 from tools.icg_policy import cases, resolve, rules  # noqa: E402
@@ -54,7 +55,7 @@ class EmitterTests(unittest.TestCase):
             and k not in ("CPATH", "CPLUS_INCLUDE_PATH", "C_INCLUDE_PATH")
         }
 
-    def extract(self, header, *, outputs=None):
+    def extract(self, header, *, outputs=None, template_fields=()):
         p = subprocess.run(
             [str(EXTRACTOR), "--source-root", str(header.parent), str(header), "--"],
             capture_output=True,
@@ -62,15 +63,202 @@ class EmitterTests(unittest.TestCase):
         )
         self.assertEqual(p.returncode, 0, p.stderr.decode())
         facts = json.loads(p.stdout)
-        request = resolve.request_for(facts, outputs=outputs)
+        ids = sorted(
+            n["id"]
+            for n in facts["declarations"]
+            if n["kind"] == "field" and n["qualified_name"] in template_fields
+        )
+        self.assertEqual(len(ids), len(template_fields))
+        request = resolve.request_for(facts, outputs=outputs, template_field_ids=ids)
         return facts, request, resolve.resolve(facts, request)
 
     def model(
-        self, source=cases.HEADER + "struct Model { int x; };\n", *, outputs=None
+        self,
+        source=cases.HEADER + "struct Model { int x; };\n",
+        *,
+        outputs=None,
+        template_fields=(),
     ):
         header = self.work / "model.hh"
         header.write_text(source)
-        return self.extract(header, outputs=outputs)
+        return self.extract(header, outputs=outputs, template_fields=template_fields)
+
+    def test_template_legacy_candidate_native_gate(self):
+        report = template_metadata.capture(EXTRACTOR, self.work, COMPILER)
+        self.assertEqual(
+            (
+                report["compared_tables"],
+                report["compared_fields"],
+                report["excluded_fields"],
+            ),
+            (2, 4, 6),
+        )
+        self.assertEqual(report["status"], "compared")
+
+    def test_template_arrays_annotations_and_explicit_selection(self):
+        source = (
+            "template<class A, class B> struct Pair {\n"
+            "A a; /* trick_units(m) */\nB b; /* *o (rad) angles */\n};\n"
+            "template<class T> struct Unsupported { T* p; };\n"
+            "struct Model { Pair<unsigned int[2], double[2][3]> chosen; Unsupported<int> other; };"
+        )
+        facts, request, model = self.model(
+            cases.HEADER + source,
+            outputs=["template-attributes"],
+            template_fields=["Model::chosen"],
+        )
+        self.assertEqual(len(model["template_instances"]), 1)
+        instance = model["template_instances"][0]
+        self.assertEqual(instance["cpp_type"], "Pair<unsigned int[2], double[2][3]>")
+        symbol = instance["symbol"]
+        self.compile(
+            emit.render(facts, request, model),
+            f"""
+init_attr{symbol}_c_intf();
+auto* rows = attr{symbol};
+if (rows[0].type != TRICK_UNSIGNED_INTEGER || rows[0].index[0].size != 2 || std::string(rows[0].units) != "m") throw std::runtime_error("first member");
+if (rows[1].num_index != 2 || rows[1].index[0].size != 2 || rows[1].index[1].size != 3 || rows[1].io != 5 || std::string(rows[1].units) != "rad") throw std::runtime_error("second member");
+""",
+        )
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+            resolve.resolve(facts, resolve.request_for(facts))
+        for changed in (
+            dict(request, template_field_ids=[]),
+            dict(request, template_field_ids=request["template_field_ids"] * 2),
+            dict(request, outputs=resolve.OUTPUTS),
+            dict(request, template_field_ids=["decl:" + "0" * 64]),
+        ):
+            with self.assertRaises(rules.PolicyError):
+                resolve.resolve(facts, changed)
+
+    def test_template_policy_mutations_require_exact_replay(self):
+        facts = json.loads(
+            template_metadata.extract(EXTRACTOR, ROOT, self.work).read_text()
+        )
+        request = template_metadata.request_for(facts)
+        model = resolve.resolve(facts, request)
+        for mutate in (
+            lambda i: i.update(symbol="invented"),
+            lambda i: i.update(field_id=request["template_field_ids"][0]),
+            lambda i: i.update(cpp_type="TTT1<double, int>"),
+            lambda i: i["argument_type_ids"].reverse(),
+            lambda i: i["fields"][0]["metadata"].update(units_map_key="wrong"),
+            lambda i: i["fields"][0]["metadata"]["storage"].update(dimensions=[7]),
+        ):
+            changed = deepcopy(model)
+            # Mutate the array instance, whose request ID is not assumed to sort first.
+            instance = changed["template_instances"][0]
+            old = deepcopy(instance)
+            mutate(instance)
+            if instance == old:
+                instance["field_id"] = "decl:" + "0" * 64
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                emit.write(facts, request, changed, self.work / "forbidden.cpp")
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_template_unsupported_or_ambiguous_uses_publish_nothing(self):
+        prefix = "template<class T> struct Box { T value; };\n"
+        for source in (
+            prefix + "struct Model { Box<int> chosen; Box<int> other; };",
+            prefix + "struct Model { Box<int*> chosen; };",
+            prefix + "struct Model { Box<Box<int>> chosen; };",
+            prefix + "struct Model { const Box<int> chosen; };",
+            prefix + "using Alias = Box<int>; struct Model { Alias chosen; };",
+            prefix + "struct Model { Box<int> chosen[2]; };",
+            prefix
+            + "class Model { Box<int> chosen; public: int get() const { return chosen.value; } };",
+            prefix + "struct Model { Box<int> chosen; /* ** */\n};",
+            "template<class T=int> struct Box { T value; }; struct Model { Box<> chosen; };",
+            "template<class T, int N> struct Box { T value[N]; }; struct Model { Box<int, 2> chosen; };",
+            "template<class T> struct Box { T value; }; template<> struct Box<int> { int value; }; struct Model { Box<int> chosen; };",
+            "namespace n { template<class T> struct Box { T value; }; } struct Model { n::Box<int> chosen; };",
+            "/* PURPOSE: (excluded) ICG: (No) */\n"
+            + prefix
+            + "struct Model { Box<int> chosen; };",
+        ):
+            with self.subTest(source=source), self.assertRaises(rules.PolicyError):
+                emit.write(
+                    *self.model(
+                        source
+                        if source.startswith("/* PURPOSE:")
+                        else cases.HEADER + source,
+                        outputs=["template-attributes"],
+                        template_fields=["Model::chosen"],
+                    ),
+                    self.work / "forbidden.cpp",
+                )
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_template_emitted_mutations_fail_independent_native_probe(self):
+        facts = json.loads(
+            template_metadata.extract(EXTRACTOR, ROOT, self.work).read_text()
+        )
+        _, candidate = template_metadata.generate(facts, self.work / "generated")
+        report = dict(
+            records=template_metadata.EXPECTED,
+            enums={},
+            record_bindings=template_metadata.BINDINGS,
+        )
+        symbol = template_metadata.BINDINGS["TTT1<int, double>"]["symbol"]
+        for label, changed in (
+            ("extent", candidate.replace("{{2, 0}", "{{7, 0}", 1)),
+            ("offset", candidate.replace("  8, NULL", "  0, NULL", 1)),
+            (
+                "units",
+                candidate.replace(
+                    'map->add_param("TTT1<int, double>_aa", "1")',
+                    'map->add_param("TTT1<int, double>_aa", "rad")',
+                ),
+            ),
+            ("table", candidate.replace("attr" + symbol + "[]", "attrWrong[]")),
+            (
+                "linkage",
+                candidate.replace("init_attr" + symbol + "_c_intf", "wrong_c_intf"),
+            ),
+        ):
+            self.assertNotEqual(changed, candidate)
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                native.capture(
+                    facts,
+                    changed,
+                    report,
+                    dict(id="template-members"),
+                    self.work / label,
+                    COMPILER,
+                    source_name="candidate.cpp",
+                )
+
+    def test_template_overlay_dispatches_candidate_and_cannot_fall_back(self):
+        facts = json.loads(
+            template_metadata.extract(EXTRACTOR, ROOT, self.work).read_text()
+        )
+        _, candidate = template_metadata.generate(facts, self.work / "generated")
+        symbol = template_metadata.BINDINGS["TTT1<int, double>"]["symbol"]
+        # This containing-record reference stays outside the renamed legacy block.
+        original = (
+            template_metadata.reference()
+            + f"\nATTRIBUTES* containing_record() {{ init_attr{symbol}(); return attr{symbol}; }}\n"
+        )
+        changed = candidate.replace("  8, NULL", "  0, NULL")
+        replacement = template_metadata.overlay(
+            original, changed, template_metadata.SYMBOLS
+        )
+        self.compile(
+            replacement,
+            'if (containing_record()[1].offset != 0) throw std::runtime_error("legacy fallback");',
+        )
+        missing = candidate.replace("attr" + symbol + "[]", "attrWrong[]")
+        with self.assertRaisesRegex(ValueError, "native link failed"):
+            self.compile(
+                template_metadata.overlay(original, missing, template_metadata.SYMBOLS),
+                "containing_record();",
+                "missing",
+            )
+        with self.assertRaisesRegex(
+            template_metadata.b.BaselineError, "already installed"
+        ):
+            template_metadata.overlay(replacement, candidate, template_metadata.SYMBOLS)
 
     def test_lifecycle_legacy_candidate_native_gate(self):
         report = lifecycle_codegen.capture(

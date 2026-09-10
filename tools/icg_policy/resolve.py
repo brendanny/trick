@@ -15,14 +15,19 @@ from jsonschema import Draft202012Validator, ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tools.icg_policy import enums, lifecycle, rules, storage  # noqa: E402
+from tools.icg_policy import enums, lifecycle, rules, storage, templates  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-5"
+POLICY_VERSION = "scalar-metadata-6"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
-OUTPUT_PROFILES = [OUTPUTS, ["lifecycle"], [*OUTPUTS, "lifecycle"]]
+OUTPUT_PROFILES = [
+    OUTPUTS,
+    ["lifecycle"],
+    [*OUTPUTS, "lifecycle"],
+    ["template-attributes"],
+]
 
 
 def digest(value: object) -> str:
@@ -37,12 +42,18 @@ def model_digest(model: dict) -> str:
     return digest({key: value for key, value in model.items() if key != "digest"})
 
 
-def request_for(facts: dict, *, outputs: list[str] | None = None) -> dict:
+def request_for(
+    facts: dict,
+    *,
+    outputs: list[str] | None = None,
+    template_field_ids: list[str] | None = None,
+) -> dict:
     return dict(
         file_ids=list(facts["provenance"]["selection"]["file_ids"]),
         outputs=list(OUTPUTS if outputs is None else outputs),
         offset_mode="numeric",
         policy_version=POLICY_VERSION,
+        template_field_ids=list(template_field_ids or []),
     )
 
 
@@ -68,6 +79,17 @@ def validate_inputs(facts: dict, request: dict) -> None:
         raise rules.PolicyError(
             "ICG_POLICY_REQUEST",
             "request exceeds captured selection or is empty/noncanonical",
+        )
+    fields = request["template_field_ids"]
+    if (
+        not isinstance(fields, list)
+        or any(not isinstance(i, str) for i in fields)
+        or fields != sorted(set(fields))
+        or bool(fields) != (request["outputs"] == ["template-attributes"])
+    ):
+        raise rules.PolicyError(
+            "ICG_POLICY_REQUEST",
+            "template field IDs require an explicit, nonempty template-only request",
         )
 
 
@@ -175,6 +197,9 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
             metadata=None,
         )
         decisions[identifier] = result
+        if request["outputs"] == ["template-attributes"]:
+            result["rule"] = "OUTPUT_NOT_REQUESTED"
+            return result
         parent = declarations.get(node.get("semantic_parent_id"))
         ancestor = node
         while (
@@ -328,7 +353,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=5,
+        schema_version=6,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(
@@ -342,6 +367,9 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         input_digest=digest(identity),
         files=[policies[i] for i in sorted(policies)],
         declarations=[decisions[i] for i in sorted(decisions)],
+        template_instances=templates.resolve(facts, request, effective, policies)
+        if request["outputs"] == ["template-attributes"]
+        else [],
     )
     model["digest"] = model_digest(model)
     return model

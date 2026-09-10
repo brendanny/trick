@@ -6,7 +6,8 @@ Perl configuration processor, legacy ICG, SWIG, generated-source compilation,
 linking, and the Trick executable. It does not substitute the new extractor or
 alter the existing template or I/O models. The lifecycle case compares the
 observed MemoryManager operations with separately extracted facts, then relinks
-with candidate lifecycle exports and repeats the checks.
+with candidate lifecycle exports and repeats the checks. The template case
+relinks two candidate metadata tables and repeats checkpoint/readback.
 
 ## Reproduce
 
@@ -19,13 +20,17 @@ Use a fresh checkout or worktree. Install the dependencies in
   CC=gcc-13 CXX=g++-13 PYTHON_VERSION=3
 make -j2 no_dp TRICK_VERBOSE_BUILD=1 ICG_CLANGLIBS=-lclang-cpp
 /usr/bin/python3 tools/icg_baseline/simulation.py \
-  --case templates --output /tmp/icg-simulation-evidence/templates --jobs 2
+  --case templates --extractor /tmp/icg-extract/trick-icg-extract \
+  --output /tmp/icg-simulation-evidence/templates --jobs 2
 /usr/bin/python3 tools/icg_baseline/simulation.py \
   --case io --output /tmp/icg-simulation-evidence/io --jobs 2
 python3 tools/icg_baseline/simulation.py \
   --case memorymanager --extractor /tmp/icg-extract/trick-icg-extract \
   --output /tmp/icg-simulation-evidence/memorymanager --jobs 2
 ```
+
+Build the standalone extractor and install `jsonschema` in the runner interpreter
+as shown in the workflow before running the template or MemoryManager cases.
 
 This lane is Linux x86-64, LLVM 17.0.6, GCC 13, Python 3.12, and SWIG 4.2.
 It builds Trick core and its current bindings. Java tools, data products, X11,
@@ -77,6 +82,28 @@ portable goldens. Root-derived SWIG names, generated ordering, and SIE appends
 are not normalized away. A successful capture does not imply zero churn or
 textual equivalence between all build stages. The existing isolated-header
 goldens continue to be checked separately.
+
+## Candidate template metadata
+
+After the legacy template runs, `template_metadata.py` extracts the unchanged
+model and generates just the `TTT1<int, double>` and
+`TTT1<int[2], double[3]>` metadata fragments. It checks the original headers against
+the immutable capture. Explicit containing-field IDs select these uses; the
+independent comparison checks their captured symbols and field expectations.
+
+An isolated overlay renames old table/init/size/UnitsMap definitions inside their
+two generated blocks and preserves the original ABI references in the containing
+record. Forward declarations allow those references to resolve to the appended
+candidate. Legacy lifecycle helpers and all other metadata/registries remain.
+The simulation must recompile/relink without ICG overwriting the overlay, and
+`runtime-candidate` must match both the independent expected checkpoint/readback
+values and `runtime-rebuilt` observations.
+
+`candidate-templates/` retains original/candidate/overlay sources, request, model,
+symbols and hashes, build command and log. Native negative controls prove changed
+candidate offsets reach the containing record and a missing candidate table
+cannot fall back to its renamed legacy definition. This is a comparison adapter,
+not production template/STL integration or a binding replacement.
 
 ## MemoryManager lifecycle contract
 

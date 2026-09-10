@@ -11,17 +11,18 @@
     "input_digest",
     "files",
     "declarations",
-    "digest"
+    "digest",
+    "template_instances"
   ],
   "properties": {
     "schema_version": {
-      "const": 5
+      "const": 6
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-5"
+      "const": "scalar-metadata-6"
     },
     "facts": {
       "type": "object",
@@ -57,7 +58,8 @@
         "file_ids",
         "outputs",
         "offset_mode",
-        "policy_version"
+        "policy_version",
+        "template_field_ids"
       ],
       "properties": {
         "file_ids": {
@@ -82,6 +84,9 @@
               "attributes",
               "enum-attributes",
               "lifecycle"
+            ],
+            [
+              "template-attributes"
             ]
           ]
         },
@@ -89,7 +94,15 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-5"
+          "const": "scalar-metadata-6"
+        },
+        "template_field_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^decl:[a-f0-9]{64}$"
+          }
         }
       }
     },
@@ -489,11 +502,67 @@
     "digest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "template_instances": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field_id",
+          "record_id",
+          "primary_template_id",
+          "argument_type_ids",
+          "cpp_type",
+          "symbol",
+          "init_function",
+          "fields"
+        ],
+        "properties": {
+          "field_id": {
+            "type": "string",
+            "pattern": "^decl:[a-f0-9]{64}$"
+          },
+          "record_id": {
+            "type": "string",
+            "pattern": "^decl:[a-f0-9]{64}$"
+          },
+          "primary_template_id": {
+            "type": "string",
+            "pattern": "^decl:[a-f0-9]{64}$"
+          },
+          "argument_type_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^type:[a-f0-9]{64}$"
+            }
+          },
+          "cpp_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "symbol": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "init_function": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/properties/declarations/items"
+            }
+          }
+        }
+      }
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v5.schema.json",
-  "title": "Bounded legacy metadata and lifecycle policy v5",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v6.schema.json",
+  "title": "Bounded legacy metadata, lifecycle and template-use policy v6",
   "$defs": {
     "source": {
       "type": "object",

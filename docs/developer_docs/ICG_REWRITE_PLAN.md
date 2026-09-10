@@ -616,8 +616,8 @@ This sequence creates usable evidence early and prevents the project from becomi
 
 ### 20.1 Next milestone: generate and execute legacy metadata
 
-Status: facts v12 input evidence, bounded resolved policy v5 and metadata emitter
-v4 are implemented with compiled legacy/candidate/native gates. Broader generated
+Status: facts v12 input evidence, bounded resolved policy v6 and metadata emitter
+v5 are implemented with compiled legacy/candidate/native gates. Broader generated
 behavior and production integration remain pending.
 This milestone responds to the architectural review at `6a50207`, checked against
 `eea673ae`. The intervening identity/failure-path and macOS test-environment fixes
@@ -766,7 +766,20 @@ while retaining legacy metadata/registration and requires identical runtime
 observations. This remains a positive-count, nonthrowing ownership contract;
 exception recovery, over-alignment and arbitrary class allocation are not supported.
 
-Next widen to template/STL emission using the existing independent gates.
+The first template emission increment is implemented with policy v6 / emitter v5.
+Explicit containing-field requests emit two scalar/array specialization tables
+from the existing `TemplateTest.hh` corpus. Independent captured/native probes
+compare four fields and six I/O exclusions, with policy and source mutations.
+The configured template simulation replaces those two metadata definitions,
+preserves containing-record references to candidate symbols, and requires the
+same checkpoint/readback observations after rebuilding. Legacy first-use naming
+is bounded to unambiguous direct global uses; repeated/nested uses, non-type or
+pack/default arguments, specialization policy, template registries and STL
+callbacks remain unsupported. Facts v12 and captured references are unchanged.
+
+Next characterize legacy first-use naming and dependency closure for repeated
+and nested template members, then widen template/STL emission through the existing
+independent and configured runtime gates.
 Broader scalar/qualified/structured fields and general annotation policy remain
 separate coverage extensions.
 The backend remains a development metadata/lifecycle subset without production build,

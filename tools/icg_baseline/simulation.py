@@ -196,8 +196,8 @@ def capture(args: argparse.Namespace) -> int:
     root = args.root.resolve()
     manifest = b.load_manifest(HERE / "corpus.json", root)
     case_id = args.case
-    if case_id == "memorymanager" and args.extractor is None:
-        raise b.BaselineError("--case memorymanager requires --extractor")
+    if case_id in ("memorymanager", "templates") and args.extractor is None:
+        raise b.BaselineError(f"--case {case_id} requires --extractor")
     case = next(case for case in manifest["cases"] if case["id"] == case_id)
     sim = b.contained(root, case["directory"])
     require_fresh_simulation(sim)
@@ -252,18 +252,30 @@ def capture(args: argparse.Namespace) -> int:
             b.write_changed(output / "configuration" / path.name, path.read_bytes())
     try:
         facts = None
-        if case_id == "memorymanager":
+        if case_id in ("memorymanager", "templates"):
             import memorymanager
+            import template_metadata
 
-            facts = memorymanager.extract(args.extractor, root, output)
+            candidate_module = (
+                memorymanager if case_id == "memorymanager" else template_metadata
+            )
+            facts = candidate_module.extract(args.extractor, root, output)
             report["extractor_sha256"] = b.digest(args.extractor.read_bytes())
-            report["lifecycle_source_sha256"] = {
+            report[
+                "lifecycle_source_sha256"
+                if case_id == "memorymanager"
+                else "template_source_sha256"
+            ] = {
                 name: b.digest((root / name).read_bytes())
-                for name in memorymanager.INPUTS
+                for name in candidate_module.INPUTS
             }
             report["comparison_inputs_sha256"] = {
                 name: b.digest((HERE / name).read_bytes())
-                for name in ("memorymanager.py", "lifecycle.py")
+                for name in (
+                    ("memorymanager.py", "lifecycle.py")
+                    if case_id == "memorymanager"
+                    else ("template_metadata.py", "native.py", "native_probe.hh")
+                )
             }
         for label in ("cold", "warm", "forced", "rebuilt"):
             # trick-CP forwards unrecognized arguments to the S_define parser.
@@ -317,11 +329,12 @@ def capture(args: argparse.Namespace) -> int:
                         output / "cold/snapshot.json", output / label / "snapshot.json"
                     )
             report[f"cold_{label}_equal"] = code == 0
-        if case_id == "memorymanager":
-            # Preserve the completed legacy run and its metadata/registry. Only
-            # lifecycle C exports are supplied by the independently generated TU.
-            candidate_output = output / "candidate-lifecycle"
-            target, overlay = memorymanager.install_candidate(
+        if case_id in ("memorymanager", "templates"):
+            # Preserve the completed legacy run. The overlay removes old
+            # definitions of exactly the candidate's audited ABI entries.
+            candidate_kind = "lifecycle" if case_id == "memorymanager" else "templates"
+            candidate_output = output / f"candidate-{candidate_kind}"
+            target, overlay = candidate_module.install_candidate(
                 facts, sim, candidate_output
             )
             old_binary = b.digest(executable(sim).read_bytes())
@@ -344,10 +357,10 @@ def capture(args: argparse.Namespace) -> int:
                 ).returncode
             if code or target.read_text() != overlay:
                 raise b.BaselineError(
-                    "candidate lifecycle rebuild failed or regenerated the overlay"
+                    "candidate rebuild failed or regenerated the overlay"
                 )
             if b.digest(executable(sim).read_bytes()) == old_binary:
-                raise b.BaselineError("candidate lifecycle executable was not relinked")
+                raise b.BaselineError("candidate executable was not relinked")
             report["stages"]["candidate-build"] = "success"
             report["stages"]["runtime-candidate"] = runtime(
                 sim,
@@ -358,15 +371,17 @@ def capture(args: argparse.Namespace) -> int:
                 case_id,
                 facts,
             )
-            for name in ("observations.json", "memorymanager.json"):
+            for name in (
+                ("observations.json", "memorymanager.json")
+                if case_id == "memorymanager"
+                else ("observations.json",)
+            ):
                 previous = json.loads((output / "runtime-rebuilt" / name).read_text())
                 candidate = json.loads(
                     (output / "runtime-candidate" / name).read_text()
                 )
                 if b.json_bytes(previous) != b.json_bytes(candidate):
-                    raise b.BaselineError(
-                        "candidate lifecycle runtime differs from legacy"
-                    )
+                    raise b.BaselineError("candidate runtime differs from legacy")
         # Full generated snapshots are observations, not yet approved portable
         # goldens. Runtime expectations above are the explicit behavioral gate.
         report["status"] = "success"
@@ -391,7 +406,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=b.DEFAULT_ROOT)
     parser.add_argument("--case", choices=RUNTIME_INPUTS, default="templates")
     parser.add_argument(
-        "--extractor", type=Path, help="required for the MemoryManager facts comparison"
+        "--extractor",
+        type=Path,
+        help="required for template and MemoryManager candidate comparisons",
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--jobs", type=positive_integer, default=2)

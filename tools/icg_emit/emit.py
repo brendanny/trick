@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-4"
+VERSION = "scalar-metadata-emitter-5"
 
 
 def literal(value: str) -> str:
@@ -90,7 +90,7 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
         for i, d in decisions.items()
         if d["decision"] == "include" and nodes[i]["kind"] in ("record", "enum")
     ]
-    if not selected:
+    if not selected and not resolved["template_instances"]:
         raise PolicyError(
             "ICG_EMIT_EMPTY", "request selects no record or enum metadata"
         )
@@ -126,12 +126,29 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
     ]
     if "lifecycle" in request["outputs"]:
         chunks.append(lifecycle.PREAMBLE)
+    work = [
+        (node, decisions[node["id"]]["metadata"], qualified(node, nodes), decisions)
+        for node in selected
+    ]
+    for instance in resolved["template_instances"]:
+        # An alias avoids passing template-argument commas to the offsetof macro.
+        alias = "IcgTemplate_" + instance["symbol"]
+        chunks.append(f"using {alias} = ::{instance['cpp_type']};\n")
+        work.append((
+            nodes[instance["record_id"]],
+            dict(
+                symbol=instance["symbol"],
+                init_function=instance["init_function"],
+                lifecycle=None,
+            ),
+            alias,
+            {d["declaration_id"]: d for d in instance["fields"]},
+        ))
     # A stable order independent of the supplied declaration-array ordering.
-    for node in sorted(
-        selected, key=lambda n: decisions[n["id"]]["metadata"]["symbol"]
+    for node, meta, name, field_decisions in sorted(
+        work, key=lambda item: item[1]["symbol"]
     ):
-        meta = decisions[node["id"]]["metadata"]
-        symbol, name = meta["symbol"], qualified(node, nodes)
+        symbol = meta["symbol"]
         chunks.append(
             f'static_assert(sizeof(::{name}) * CHAR_BIT == {node["size_bits"]} && alignof(::{name}) * CHAR_BIT == {node["alignment_bits"]}, "ICG layout mismatch: {name}");\n'
         )
@@ -157,7 +174,7 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
             continue
         if meta["lifecycle"] is not None:
             chunks.append(lifecycle.render(node, meta, name))
-        if "attributes" not in request["outputs"]:
+        if not set(request["outputs"]) & {"attributes", "template-attributes"}:
             continue
         if not node["standard_layout"]:
             raise PolicyError(
@@ -184,7 +201,7 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                 )
         rows, checks, units = [], [], []
         for identifier in node["field_ids"]:
-            decision = decisions[identifier]
+            decision = field_decisions[identifier]
             if decision["decision"] != "include":
                 continue
             field, annotation = nodes[identifier], decision["metadata"]["annotation"]

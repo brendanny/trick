@@ -31,6 +31,11 @@ def identifier(value: str) -> str:
     return value
 
 
+def record_symbol(name: str, report: dict) -> str:
+    binding = report.get("record_bindings", {}).get(name)
+    return identifier(binding["symbol"] if binding else name).replace("::", "__")
+
+
 def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str:
     declarations = {
         node["qualified_name"]: node
@@ -38,10 +43,19 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
         if node["kind"] in ("record", "enum")
     }
     nodes = {n["id"]: n for n in document["declarations"]}
-    calls = []
+    calls, aliases = [], []
     for name, fields in report["records"].items():
-        identifier(name)
-        symbol = name.replace("::", "__")
+        binding = report.get("record_bindings", {}).get(name)
+        cpp_name = (
+            identifier(name) if binding is None else f"ProbeTemplate{len(aliases)}"
+        )
+        if binding:
+            if not re.fullmatch(
+                r"[A-Za-z_][A-Za-z0-9_ <>,\[\]]*", binding["cpp_type"], re.ASCII
+            ):
+                raise ValueError("unsupported native template spelling")
+            aliases.append(f"using {cpp_name} = ::{binding['cpp_type']};\n")
+        symbol = record_symbol(name, report)
         record = declarations[name]
         unit_containers = []
         while record is not None:
@@ -49,24 +63,26 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
                 unit_containers.insert(0, record["name"])
             record = nodes.get(record.get("semantic_parent_id"))
         unit_prefix = "__".join(unit_containers)
+        if binding:
+            unit_prefix = binding["units_prefix"]
         native_fields = []
         for field in fields:
             member = identifier(field["name"])
-            type_name = f"decltype({name}::{member})"
+            type_name = f"decltype({cpp_name}::{member})"
             if field["bit_width"] is None:
                 native_fields.append(
-                    f'probe::member<{type_name}>("{member}", offsetof({name}, {member}) * CHAR_BIT)'
+                    f'probe::member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT)'
                 )
             else:
                 if field["type"] != "unsigned int":
                     raise ValueError("native bitfield probe supports unsigned int only")
                 native_fields.append(
-                    f'probe::bitfield<{name}, {type_name}>("{member}", '
-                    f"[]({name}& value, {type_name} bits) {{ value.{member} = bits; }})"
+                    f'probe::bitfield<{cpp_name}, {type_name}>("{member}", '
+                    f"[]({cpp_name}& value, {type_name} bits) {{ value.{member} = bits; }})"
                 )
         calls.append(
             f"init_attr{symbol}_c_intf();\n"
-            f'probe::record<{name}>("{name}", "{unit_prefix}", attr{symbol}, '
+            f"probe::record<{cpp_name}>({json.dumps(name)}, {json.dumps(unit_prefix)}, attr{symbol}, "
             f"io_src_sizeof_{symbol}(), {{{', '.join(native_fields)}}});"
         )
     enum_calls = []
@@ -88,7 +104,8 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
     separator = '\nstd::cout << ",";\n'
     return (
         f'#include "{source_name}"\n#include "native_probe.hh"\n'
-        "void verify_metadata_linkage();\n"
+        + "".join(aliases)
+        + "void verify_metadata_linkage();\n"
         'int main() {\ntry {\nverify_metadata_linkage();\nstd::cout << "{\\"records\\":[";\n'
         + separator.join(calls)
         + '\nstd::cout << "],\\"enums\\":[";\n'
@@ -193,7 +210,11 @@ def linkage_source(document: dict, report: dict) -> str:
         ("enums", "enum", "ENUM_ATTR"),
     ):
         for name in report[group]:
-            symbol = identifier(name).replace("::", "__")
+            symbol = (
+                record_symbol(name, report)
+                if group == "records"
+                else identifier(name).replace("::", "__")
+            )
             declarations.append(
                 f'extern "C" {{ extern {row_type} {prefix}{symbol}[]; size_t io_src_sizeof_{symbol}(); }}\n'
             )
