@@ -81,9 +81,19 @@ class RuleTests(unittest.TestCase):
 
 
 class ExtractionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if EXTRACTOR is None or COMPILER is None:
+            raise RuntimeError(
+                "Policy integration tests require --extractor and --compiler. "
+                "Run python tools/icg_policy/test_resolve.py --extractor "
+                "build/icg-extract/trick-icg-extract --compiler /path/to/c++ "
+                "or ctest --test-dir build/icg-extract -R icg_policy_integration "
+                "--output-on-failure. For rules only, run python -m unittest "
+                "tools.icg_policy.test_resolve.RuleTests."
+            )
+
     def setUp(self):
-        if EXTRACTOR is None:
-            self.skipTest("use --extractor for actual frontend tests")
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.work = Path(self.temp.name).resolve()
@@ -374,8 +384,6 @@ class ExtractionTests(unittest.TestCase):
             resolve.validate(facts, request, model)
 
     def test_compilation_checks_operation_specific_friend_permission(self):
-        if COMPILER is None:
-            self.skipTest("use --compiler for native access checks")
         for declaration, allowed in (
             ("friend void init_attrModel();", True),
             ("friend void init_attrModel(int);", False),
@@ -563,9 +571,9 @@ class ExtractionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--extractor", type=Path)
-    parser.add_argument("--compiler", type=Path)
+    parser.add_argument("--extractor", type=Path, required=True)
+    parser.add_argument("--compiler", type=Path, required=True)
     args, rest = parser.parse_known_args()
-    EXTRACTOR = args.extractor.resolve() if args.extractor else None
-    COMPILER = args.compiler
+    EXTRACTOR = args.extractor.resolve()
+    COMPILER = args.compiler.absolute()
     unittest.main(argv=[sys.argv[0], *rest])

@@ -177,8 +177,15 @@ the resolver derives exclusions from source/environment evidence.
 
 ## Verification
 
+The integration suite requires both the extractor and C++ compiler. Plain
+`python -m unittest discover -s tools/icg_policy` exits nonzero with setup
+instructions instead of reporting success with skipped frontend tests. Select
+`RuleTests` explicitly for the tool-independent rules, or use CTest/the script
+below for the full suite.
+
 ```sh
 python -m unittest tools.icg_policy.test_resolve.RuleTests -v
+ctest --test-dir build/icg-extract -R icg_policy_integration --output-on-failure
 python tools/icg_policy/test_resolve.py --extractor build/icg-extract/trick-icg-extract --compiler /usr/bin/g++ -v
 python tools/icg_policy/characterize.py \
   --extractor build/icg-extract/trick-icg-extract \

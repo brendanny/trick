@@ -800,12 +800,24 @@ The configured simulation now replaces the structured parent alongside its four
 previous scalar/array tables and repeats nonzero nested checkpoint restoration.
 Facts v12, existing fixture headers and immutable snapshots remain unchanged.
 
-Next characterize template enum arguments/member rows and pointer/reference
-storage, then widen template/STL emission through the existing independent and
-configured runtime gates. Cross-file root ordering, namespaces,
+The generated scalar field profile is still exactly `int`, `unsigned int`, and
+`double`, plus unsigned-int bitfields and fixed arrays. `bool`, `float`, `char`,
+and `long` fields remain unsupported even though facts can represent them.
+Prioritize live legacy characterization and generation of these common scalars
+before widening template enum arguments/member rows and pointer/reference
+storage. Require independent legacy/native comparisons, ABI checks, and runtime
+round trips as coverage expands; adding names to `KINDS` alone is insufficient.
+Then widen template/STL emission through the existing independent and configured
+runtime gates. Cross-file root ordering, namespaces,
 non-type/default/pack arguments and template registries remain separate work.
-Broader scalar/qualified/structured fields and general annotation policy remain
+Broader qualified/structured fields and general annotation policy remain
 separate coverage extensions.
+
+Review follow-up adds candidate table completeness checks before installing a
+template overlay and makes unconfigured policy/emitter discovery fail with the
+actual test commands. The native missing-symbol control remains independent of
+that early check.
+
 The backend remains a development metadata/lifecycle subset without production build,
 registry, or SIE integration. Template extraction alone is not STL emission parity.
 

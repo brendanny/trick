@@ -37,9 +37,18 @@ LIFECYCLE_LEAK_CHECK = False
 
 
 class EmitterTests(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         if EXTRACTOR is None or COMPILER is None:
-            self.skipTest("requires --extractor and --compiler")
+            raise RuntimeError(
+                "Emitter tests require --extractor and --compiler. "
+                "Run python tools/icg_emit/test_emit.py --extractor "
+                "build/icg-extract/trick-icg-extract --compiler /path/to/c++ "
+                "or ctest --test-dir build/icg-extract -R icg_emit_integration "
+                "--output-on-failure."
+            )
+
+    def setUp(self):
         if ARTIFACTS is None:
             self.temp = tempfile.TemporaryDirectory()
             self.addCleanup(self.temp.cleanup)
@@ -401,10 +410,13 @@ if (rows[1].num_index != 2 || rows[1].index[0].size != 2 || rows[1].index[1].siz
             replacement,
             'if (containing_record()[1].offset != 0) throw std::runtime_error("legacy fallback");',
         )
-        missing = candidate.replace("attr" + symbol + "[]", "attrWrong[]")
+        # Corrupt the candidate after overlay validation to retain the independent
+        # link-level proof that renamed legacy definitions cannot satisfy it.
+        prefix, installed = replacement.split(template_metadata.MARKER, 1)
+        missing = installed.replace("attr" + symbol + "[]", "attrWrong[]")
         with self.assertRaisesRegex(ValueError, "native link failed"):
             self.compile(
-                template_metadata.overlay(original, missing, template_metadata.SYMBOLS),
+                prefix + template_metadata.MARKER + missing,
                 "containing_record();",
                 "missing",
             )
@@ -412,6 +424,61 @@ if (rows[1].num_index != 2 || rows[1].index[0].size != 2 || rows[1].index[1].siz
             template_metadata.b.BaselineError, "already installed"
         ):
             template_metadata.overlay(replacement, candidate, template_metadata.SYMBOLS)
+
+    def test_template_overlay_checks_candidate_tables_before_writing(self):
+        facts_path = template_metadata.extract(EXTRACTOR, ROOT, self.work)
+        facts = json.loads(facts_path.read_text())
+        model, candidate = template_structured.generate(facts, self.work / "generated")
+        symbol = template_structured.SYMBOL
+        match = re.search(
+            rf"^ATTRIBUTES attr{symbol}\[\].*?}};\n",
+            candidate,
+            re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        table = match[0]
+        target = self.work / "sim/build/io_TemplateTest.cpp"
+        target.parent.mkdir(parents=True)
+        original = template_structured.reference()
+        target.write_text(original)
+        for label, changed in (
+            ("empty", ""),
+            ("renamed", candidate.replace("attr" + symbol + "[]", "attrWrong[]")),
+            ("dropped", candidate.replace(table, "")),
+            (
+                "declaration-only",
+                candidate.replace(table, f"ATTRIBUTES attr{symbol}[];"),
+            ),
+            ("repeated", candidate + "\n" + table),
+        ):
+            output = self.work / label
+            with (
+                self.subTest(label=label),
+                self.assertRaisesRegex(
+                    template_metadata.b.BaselineError,
+                    "template candidate table definitions mismatch",
+                ),
+            ):
+                template_metadata.install_candidate(
+                    facts_path,
+                    target.parents[1],
+                    output,
+                    generator=lambda _facts, _output: (model, changed),
+                    symbols=template_structured.SYMBOLS,
+                )
+            self.assertEqual(target.read_text(), original)
+            self.assertFalse((output / "overlay.cpp").exists())
+            self.assertFalse((output / "overlay.json").exists())
+        installed, replacement = template_metadata.install_candidate(
+            facts_path,
+            target.parents[1],
+            self.work / "valid",
+            generator=lambda _facts, _output: (model, candidate),
+            symbols=template_structured.SYMBOLS,
+        )
+        self.assertEqual(installed, target)
+        self.assertEqual(target.read_text(), replacement)
+        self.assertTrue(replacement.endswith(candidate))
 
     def test_lifecycle_legacy_candidate_native_gate(self):
         report = lifecycle_codegen.capture(

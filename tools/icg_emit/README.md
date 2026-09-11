@@ -5,6 +5,14 @@ and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
 
+**Supported scalar field types are exactly `int`, `unsigned int`, and `double`.**
+The backend also emits unsigned-int bitfields and fixed arrays of those scalars.
+`bool`, `float`, `char`, `short`, `long`, and the remaining builtin types are not
+yet supported fields; a required unsupported field fails the request. Separate
+profiles cover enum tables (not enum-valued fields), lifecycle exports, and the
+bounded structured template members described below. Extraction covers more types
+than generation, so successful facts extraction does not establish emitter coverage.
+
 ```sh
 python tools/icg_policy/resolve.py facts.json --request request.json > resolved.json
 python tools/icg_emit/emit.py facts.json --request request.json \
@@ -12,7 +20,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1/v2/v3/v4/v5 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v7 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -35,8 +43,8 @@ checks each observed source file's digest before rendering. Numeric private-fiel
 metadata does not itself need member access. An init-function friend grants no
 lifecycle, STL, registry, or binding permission.
 
-Emitter v5 supports standard-layout records in the bounded scalar/array policy and
-scoped/unscoped enum values representable by `ENUM_ATTR.int` that agree with
+Ordinary-record metadata supports standard-layout records in the bounded
+scalar/array policy and scoped/unscoped enum values representable by `ENUM_ATTR.int` that agree with
 legacy's signed integer conversion. Enum labels, C++ names, values, order and
 modifier bits come from explicit policy decisions; the emitter does not derive
 them again. Field storage, dimensions and UnitsMap keys are likewise resolved
@@ -50,11 +58,12 @@ bitfields, conflicting init-function signatures, and empty selections are explic
 errors. These emitter limits are
 narrower than successful fact extraction or policy resolution.
 
-Arrays require one to eight fixed positive extents, each fitting signed
-`INDEX.int`. Const/volatile, pointer/reference and structured/enum elements remain
-rejected. UnitsMap keys retain enclosing record names but omit namespaces,
-correcting the prior emitter's namespace prefix. Ambiguous selected-field key
-collisions are policy errors.
+In ordinary-record metadata, arrays require one to eight fixed positive extents,
+each fitting signed `INDEX.int`. Const/volatile, pointer/reference and
+structured/enum elements remain rejected. The explicit template profile also
+supports its bounded structured arrays. UnitsMap keys retain enclosing record
+names but omit namespaces, correcting the prior emitter's namespace prefix.
+Ambiguous selected-field key collisions are policy errors.
 
 Output includes the original translation-unit header and embeds the emitter
 version and policy/input digests. Compile it with the model's matching target and
@@ -163,6 +172,14 @@ a candidate table and requires link failure; a changed-offset control proves the
 containing record sees the candidate. Policy mutations with recomputed hashes and
 emitted dimension/offset/UnitsMap/symbol mutations must fail separate checks.
 
+Before changing generated simulation sources, the overlay requires exactly one
+candidate table definition for every selected symbol and rejects missing,
+unexpected or duplicate tables. Forward declarations do not count as definitions.
+An invalid candidate raises `template candidate table definitions mismatch` at
+installation; no overlay source or success evidence is written. A separate link
+control still proves that renamed legacy definitions cannot satisfy a missing
+candidate table.
+
 Structured template fields start with `size=0` and `attr=NULL`, as in legacy ICG.
 Their type-name strings use the child's cached first-use symbol. The guarded
 initializer calls the real `MemoryManager::add_attr_info` for each structured row,
@@ -250,5 +267,20 @@ fail. Rehashed policy
 mutations, changed source files, unsupported requests, and incremental writes
 are tested independently of the emitter's expected output text.
 
-General annotations, inheritance, template/STL emission, and broader lifecycle
-exception/ownership handling remain subsequent milestones.
+Run the configured integration suites with their actual extractor and C++ compiler:
+
+```sh
+ctest --test-dir build/icg-extract -R 'icg_(emit|policy)_integration' --output-on-failure
+python tools/icg_emit/test_emit.py \
+  --extractor build/icg-extract/trick-icg-extract --compiler /usr/bin/g++ -v
+```
+
+Plain `python -m unittest discover -s tools/icg_emit` intentionally exits nonzero
+with these instructions: it cannot run the integration suite without native tools.
+The optional lifecycle sanitizer check remains a separate configured Linux lane.
+
+Next characterize common builtin scalars against live legacy output, starting with
+`bool`, `float`, `char`, and `long`, then admit the measured storage/ABI contracts
+through independent native and runtime gates. General annotations, inheritance,
+broader template/STL emission, and lifecycle exception/ownership handling remain
+subsequent milestones.

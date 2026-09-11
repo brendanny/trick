@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import subprocess
+from collections import Counter
 from pathlib import Path
 
 import array_metadata
@@ -234,6 +235,18 @@ def capture(extractor: Path, output: Path, compiler: Path) -> dict:
 def overlay(original: str, candidate: str, symbols: set[str]) -> str:
     if MARKER in original or "icg_baseline_legacy_attr" in original:
         raise b.BaselineError("template overlay already installed")
+    # Only definitions count: a forward declaration cannot replace a legacy table.
+    definitions = Counter(
+        re.findall(r"^ATTRIBUTES attr(\w+)\[\]\s*=\s*\{", candidate, re.MULTILINE)
+    )
+    if definitions != Counter(symbols):
+        missing = sorted(symbols - definitions.keys())
+        unexpected = sorted(definitions.keys() - symbols)
+        repeated = sorted(name for name, count in definitions.items() if count != 1)
+        raise b.BaselineError(
+            "template candidate table definitions mismatch: "
+            f"missing={missing}, unexpected={unexpected}, repeated={repeated}"
+        )
     declarations = ['#include "trick/attributes.h"\n']
     for symbol, block in blocks(original, symbols).items():
         names = [
