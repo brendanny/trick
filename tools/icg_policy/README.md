@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v8**, not C++, and does not replace production ICG.
+It emits **resolved policy v9**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-8"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-9"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
 `template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
@@ -44,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v8 and policy
-`scalar-metadata-8` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1/v2/v3/v4/v5/v6/v7 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v9 and policy
+`scalar-metadata-9` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1–v8 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -74,6 +74,16 @@ zero-I/O omissions have null storage. Canonical type IDs expand scalar/array ali
 Fixed arrays support at most eight positive extents, each representable by signed
 `INDEX.int`. Incomplete/zero/oversized extents and excessive rank produce
 `ICG_POLICY_ARRAY_EXTENT` or `ICG_POLICY_ARRAY_RANK`.
+
+Policy v9 supports exactly `bool`, `char`, `float`, `int`, `unsigned int`, `long`,
+and `double` field bases and aliases/fixed arrays of those bases. The emitter
+checks the existing little-endian LP64 ABI, one-byte bool/char and IEEE binary32
+float. Plain `char` follows native signedness; signed/unsigned character types,
+`short`, unsigned/wider integers, `long double`, qualifiers and pointer/reference
+fields remain unsupported. Only unsigned-int bitfields are characterized.
+The [scalar corpus](../icg_baseline/scalars/README.md) records independent legacy,
+native and configured MemoryManager evidence; this wider field set also applies
+to the existing bounded lifecycle and template profiles.
 
 The [array corpus](../icg_baseline/arrays/README.md) also establishes the legacy
 UnitsMap key convention: enclosing records joined by `__`, followed by `_field`,
@@ -226,7 +236,7 @@ and all captured legacy references remain unchanged.
 
 ## Explicit template-member requests
 
-Policy v8 supports the separate `outputs: ["template-attributes"]` profile. Supply
+Policy v9 supports the separate `outputs: ["template-attributes"]` profile. Supply
 sorted, unique, nonempty `template_field_ids` identifying the exact containing
 fields to generate. Other output profiles require an empty list. Existing
 metadata requests still reject template records; this opt-in generates fragments,
@@ -247,7 +257,7 @@ retains the sorted explicit requests (empty for automatic dependencies), and
 `dependency_record_ids` identifies the included structured child tables. Each
 entry also records the concrete record, primary template, argument type IDs,
 C++ spelling, cached legacy symbol,
-initializer and field decisions. Schema v8 requires exact replay of this evidence.
+initializer and field decisions. Schema v9 requires exact replay of this evidence.
 
 Traversal starts with selected global ordinary records whose template fields
 are all in one physical file. Roots and fields follow physical source order,
@@ -262,7 +272,7 @@ from the declaration closure. Traversed definitions must be included by file pol
 
 Requests may select public unqualified objects or fixed arrays, including aliases
 and nested fields reachable through template members. Emitted tables cover
-`int`, `unsigned int`, `double`, nested specializations of those templates, and
+`bool`, `char`, `float`, `int`, `unsigned int`, `long`, `double`, nested specializations of those templates, and
 fixed arrays of supported scalar or structured types; zero-I/O members are omitted
 before storage checks. Structured fields carry the concrete child record/type IDs,
 its cached legacy symbol, C++ storage spelling and dimensions. Emitted element

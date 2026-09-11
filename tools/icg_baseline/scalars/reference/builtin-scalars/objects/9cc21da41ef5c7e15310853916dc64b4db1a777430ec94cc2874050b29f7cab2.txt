@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/scalars/fixtures/Scalars.hh
+${SIM_ROOT}/input.cpp

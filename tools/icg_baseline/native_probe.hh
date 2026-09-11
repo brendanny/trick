@@ -113,6 +113,14 @@ namespace probe
     {
         switch (type)
         {
+        case TRICK_BOOLEAN:
+            return "TRICK_BOOLEAN";
+        case TRICK_CHARACTER:
+            return "TRICK_CHARACTER";
+        case TRICK_FLOAT:
+            return "TRICK_FLOAT";
+        case TRICK_LONG:
+            return "TRICK_LONG";
         case TRICK_INTEGER:
             return "TRICK_INTEGER";
         case TRICK_UNSIGNED_INTEGER:

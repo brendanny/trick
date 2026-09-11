@@ -9,6 +9,14 @@ observed MemoryManager operations with separately extracted facts, then relinks
 with candidate lifecycle exports and repeats the checks. The template case
 relinks five candidate metadata tables and repeats checkpoint/readback.
 
+The same configured workflow also runs the standalone
+[scalar MemoryManager gate](../scalars/README.md): separate legacy/candidate
+executables register two external records with 13 bool/char/float/long fields,
+arrays and aliases. Compact decimal and expanded hexadecimal checkpoints must
+restore every mutated value, including long limits and float extremes/subnormals.
+Three deliberate mutations must fail at execution. This uses the configured
+Trick archives and does not alter the three simulation models below.
+
 ## Reproduce
 
 Use a fresh checkout or worktree. Install the dependencies in

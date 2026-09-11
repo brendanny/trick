@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 8
+      "const": 9
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-8"
+      "const": "scalar-metadata-9"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-8"
+          "const": "scalar-metadata-9"
         },
         "template_field_ids": {
           "type": "array",
@@ -593,8 +593,8 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v8.schema.json",
-  "title": "Bounded legacy metadata, lifecycle and template-use policy v8",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v9.schema.json",
+  "title": "Bounded legacy metadata, lifecycle and template-use policy v9",
   "$defs": {
     "source": {
       "type": "object",
@@ -728,8 +728,12 @@
         },
         "type_name": {
           "enum": [
+            "bool",
+            "char",
+            "float",
             "int",
             "unsigned int",
+            "long",
             "double"
           ]
         },
@@ -739,8 +743,12 @@
         },
         "trick_type": {
           "enum": [
+            "TRICK_BOOLEAN",
+            "TRICK_CHARACTER",
+            "TRICK_FLOAT",
             "TRICK_INTEGER",
             "TRICK_UNSIGNED_INTEGER",
+            "TRICK_LONG",
             "TRICK_DOUBLE",
             "TRICK_UNSIGNED_BITFIELD"
           ]

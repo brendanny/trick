@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "scope": "isolated-legacy-headers",
+  "cases": [
+    {
+      "id": "builtin-scalars",
+      "header": "tools/icg_baseline/scalars/fixtures/Scalars.hh",
+      "covers": [
+        "bool, float, char and long metadata",
+        "scalar and multidimensional fixed-array storage",
+        "scalar and array aliases",
+        "native LP64 padding and offsets",
+        "real MemoryManager checkpoint round trips"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "legacy-metadata",
+      "required": true,
+      "patterns": [
+        "build/**/io_*.cpp"
+      ]
+    },
+    {
+      "id": "registry",
+      "required": true,
+      "patterns": [
+        "build/class_map.cpp"
+      ]
+    },
+    {
+      "id": "registry-declarations",
+      "required": true,
+      "patterns": [
+        "build/extern_init_attr.h"
+      ]
+    },
+    {
+      "id": "icg-make",
+      "required": true,
+      "patterns": [
+        "build/Makefile_io_src"
+      ]
+    },
+    {
+      "id": "icg-dependencies",
+      "required": true,
+      "patterns": [
+        "build/Makefile_ICG"
+      ]
+    },
+    {
+      "id": "icg-link",
+      "required": true,
+      "patterns": [
+        "build/io_link_list",
+        "build/trickify_io_link_list"
+      ]
+    },
+    {
+      "id": "icg-processed",
+      "required": true,
+      "patterns": [
+        "build/ICG_processed"
+      ]
+    },
+    {
+      "id": "icg-policy",
+      "required": false,
+      "patterns": [
+        "build/ICG_ext_lib",
+        "build/ICG_no_found"
+      ]
+    },
+    {
+      "id": "sie-classes",
+      "required": true,
+      "patterns": [
+        "build/classes.resource"
+      ]
+    }
+  ]
+}

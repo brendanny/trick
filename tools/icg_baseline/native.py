@@ -20,8 +20,12 @@ import baseline as b
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = Path(__file__).with_name("native_probe.hh")
 KINDS = {
+    "bool": "TRICK_BOOLEAN",
+    "char": "TRICK_CHARACTER",
+    "float": "TRICK_FLOAT",
     "int": "TRICK_INTEGER",
     "unsigned int": "TRICK_UNSIGNED_INTEGER",
+    "long": "TRICK_LONG",
     "double": "TRICK_DOUBLE",
 }
 
@@ -311,6 +315,35 @@ def capture(
     validate(document, report, evidence["observations"])
     result_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
     return evidence
+
+
+def configured_link_flags(root: Path, output: Path) -> tuple[str, ...]:
+    # Use the configured build's actual archives and external link dependencies.
+    # Keep the circular archive grouping used by the production MM unit tests.
+    config = {}
+    for option in ("--libdir", "--libs", "--ldflags"):
+        argv = [str(root / "bin/trick-config"), option]
+        run = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            check=True,
+            env=dict(os.environ, TRICK_HOME=str(root)),
+            timeout=30,
+        )
+        config[option] = dict(argv=argv, stdout=run.stdout, stderr=run.stderr)
+    libraries = sorted(Path(config["--libdir"]["stdout"].strip()).glob("*.a"))
+    if not libraries:
+        raise b.BaselineError("configured comparison requires built Trick archives")
+    config["archive_sha256"] = {str(p): b.digest(p.read_bytes()) for p in libraries}
+    (output / "link-config.json").write_bytes(b.json_bytes(config))
+    return tuple([
+        "-rdynamic",
+        "-Wl,--start-group",
+        *shlex.split(config["--libs"]["stdout"]),
+        "-Wl,--end-group",
+        *shlex.split(config["--ldflags"]["stdout"]),
+    ])
 
 
 def execute(

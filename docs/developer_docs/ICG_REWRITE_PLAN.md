@@ -800,13 +800,24 @@ The configured simulation now replaces the structured parent alongside its four
 previous scalar/array tables and repeats nonzero nested checkpoint restoration.
 Facts v12, existing fixture headers and immutable snapshots remain unchanged.
 
-The generated scalar field profile is still exactly `int`, `unsigned int`, and
-`double`, plus unsigned-int bitfields and fixed arrays. `bool`, `float`, `char`,
-and `long` fields remain unsupported even though facts can represent them.
-Prioritize live legacy characterization and generation of these common scalars
-before widening template enum arguments/member rows and pointer/reference
-storage. Require independent legacy/native comparisons, ABI checks, and runtime
-round trips as coverage expands; adding names to `KINDS` alone is insufficient.
+Policy v9 / emitter v8 add `bool`, `float`, `char`, and `long` fields, arrays and
+aliases. The supported scalar base set is now exactly those four plus `int`,
+`unsigned int` and `double`; bitfields remain unsigned-int only. Three new
+immutable legacy snapshots cover two records / 13 fields. Independent compiled
+legacy/candidate/native comparisons and seven mutations check type codes, sizes,
+dimensions and UnitsMap, with explicit bool/char/binary32 and LP64 ABI guards.
+Template-table and lifecycle-construction tests cover the shared storage policy.
+The configured real MemoryManager gate compares two complete checkpoint round
+trips, including false/zero values, character strings, 64-bit integer limits,
+float extremes/subnormals and negative zero. Three controls must fail at execution:
+long truncation, disabled boolean checkpoint permissions, and omitted restoration.
+Native observations and checkpoint bytes must match between separate legacy and
+candidate executables. Facts v12 and all earlier references remain unchanged.
+
+Next characterize the remaining integer/character widths and signedness variants,
+then template enum arguments/member rows and pointer/reference storage. Continue
+requiring independent legacy/native comparisons, ABI checks and runtime round
+trips; adding names to `KINDS` alone is insufficient.
 Then widen template/STL emission through the existing independent and configured
 runtime gates. Cross-file root ordering, namespaces,
 non-type/default/pack arguments and template registries remain separate work.

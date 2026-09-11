@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-7"
+VERSION = "scalar-metadata-emitter-8"
 
 
 def literal(value: str) -> str:
@@ -117,12 +117,13 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
         f"// Input identity: {resolved['input_digest']}.\n"
         f"// Requested outputs: {', '.join(request['outputs'])}. No STL, registries, SIE, or build files.\n"
         "#define TRICK_IN_IOSRC\n"
-        "#include <climits>\n#include <cstddef>\n#include <type_traits>\n"
+        "#include <climits>\n#include <cstddef>\n#include <limits>\n#include <type_traits>\n"
         '#include "trick/attributes.h"\n#include "trick/UnitsMap.hh"\n'
         f'#include "{header}"\n'
         "#if !defined(__BYTE_ORDER__) || __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__\n"
         '#error "ICG metadata requires the audited little-endian target"\n#endif\n'
         'static_assert(CHAR_BIT == 8 && sizeof(int) == 4 && sizeof(double) == 8 && sizeof(long) == 8 && sizeof(void*) == 8, "ICG scalar ABI mismatch");\n'
+        'static_assert(sizeof(bool) == 1 && sizeof(char) == 1 && sizeof(float) == 4 && std::numeric_limits<float>::is_iec559 && std::numeric_limits<float>::digits == 24, "ICG bool/char/float ABI mismatch");\n'
     ]
     if "lifecycle" in request["outputs"]:
         chunks.append(lifecycle.PREAMBLE)

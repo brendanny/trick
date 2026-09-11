@@ -5,10 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import shlex
 import shutil
-import subprocess
 from pathlib import Path
 
 import array_metadata
@@ -97,32 +94,7 @@ def check(facts: dict, root: Path, output: Path, compiler: Path) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     result = output / "comparison.json"
     result.unlink(missing_ok=True)
-    # Use the configured build's actual archives and external link dependencies.
-    # Keep the circular archive grouping used by the production MM unit tests.
-    config = {}
-    for option in ("--libdir", "--libs", "--ldflags"):
-        argv = [str(root / "bin/trick-config"), option]
-        run = subprocess.run(
-            argv,
-            capture_output=True,
-            text=True,
-            check=True,
-            env=dict(os.environ, TRICK_HOME=str(root)),
-            timeout=30,
-        )
-        config[option] = dict(argv=argv, stdout=run.stdout, stderr=run.stderr)
-    libraries = sorted(Path(config["--libdir"]["stdout"].strip()).glob("*.a"))
-    if not libraries:
-        raise b.BaselineError("structured comparison requires built Trick archives")
-    config["archive_sha256"] = {str(p): b.digest(p.read_bytes()) for p in libraries}
-    (output / "link-config.json").write_bytes(b.json_bytes(config))
-    flags = tuple([
-        "-rdynamic",
-        "-Wl,--start-group",
-        *shlex.split(config["--libs"]["stdout"]),
-        "-Wl,--end-group",
-        *shlex.split(config["--ldflags"]["stdout"]),
-    ])
+    flags = native.configured_link_flags(root, output)
     model, candidate = generate(facts, output / "generated")
     expected = dict(records=EXPECTED, enums={}, record_bindings=BINDINGS)
     case = dict(id="structured-template-members")

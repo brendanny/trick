@@ -1,17 +1,18 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v8,
+This standalone development backend consumes **facts v12, resolved policy v9,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
 
-**Supported scalar field types are exactly `int`, `unsigned int`, and `double`.**
-The backend also emits unsigned-int bitfields and fixed arrays of those scalars.
-`bool`, `float`, `char`, `short`, `long`, and the remaining builtin types are not
-yet supported fields; a required unsupported field fails the request. Separate
-profiles cover enum tables (not enum-valued fields), lifecycle exports, and the
-bounded structured template members described below. Extraction covers more types
-than generation, so successful facts extraction does not establish emitter coverage.
+**Supported scalar field types are exactly `bool`, `char`, `float`, `int`,
+`unsigned int`, `long`, and `double`.** The backend also emits unsigned-int
+bitfields and fixed arrays of those scalars. `short`, explicitly signed/unsigned
+character types, unsigned/wider integer types, and `long double` remain unsupported;
+a required unsupported field fails the request. Separate profiles cover enum
+tables (not enum-valued fields), lifecycle exports, and bounded structured template
+members. Extraction covers more types than generation, so successful facts
+extraction does not establish emitter coverage.
 
 ```sh
 python tools/icg_policy/resolve.py facts.json --request request.json > resolved.json
@@ -20,7 +21,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1–v7 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v8 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -51,7 +52,7 @@ them again. Field storage, dimensions and UnitsMap keys are likewise resolved
 explicitly. Generated checks verify the full native field type and that its
 storage fits inside the record. Its target profile is
 little-endian LP64 x86-64/AArch64 Linux or macOS, with eight-bit bytes, 32-bit int,
-and 64-bit double. Bitfields must fit a complete in-object 32-bit storage unit.
+one-byte bool/char, IEEE binary32 float, and 64-bit long/double. Bitfields must fit a complete in-object 32-bit storage unit.
 For metadata output, non-standard-layout records, wider enum values, unsigned narrow values that legacy
 sign-extends incorrectly, unsafe packed
 bitfields, conflicting init-function signatures, and empty selections are explicit
@@ -138,7 +139,7 @@ This is a test overlay, not production ICG/build integration.
 
 ## Template-member metadata
 
-Emitter v7 accepts `outputs=["template-attributes"]` with explicit containing
+Emitter v8 accepts `outputs=["template-attributes"]` with explicit containing
 field IDs. It emits each selected specialization and its structured dependency
 closure: scalar/array/structured tables, sentinels,
 initializer/C wrapper, size function and UnitsMap entries. It uses resolved
@@ -279,8 +280,16 @@ Plain `python -m unittest discover -s tools/icg_emit` intentionally exits nonzer
 with these instructions: it cannot run the integration suite without native tools.
 The optional lifecycle sanitizer check remains a separate configured Linux lane.
 
-Next characterize common builtin scalars against live legacy output, starting with
-`bool`, `float`, `char`, and `long`, then admit the measured storage/ABI contracts
-through independent native and runtime gates. General annotations, inheritance,
-broader template/STL emission, and lifecycle exception/ownership handling remain
-subsequent milestones.
+The [common scalar corpus](../icg_baseline/scalars/README.md) adds two records and
+13 fields with `bool`, `char`, `float`, `long`, arrays and aliases. Seven mutations
+must fail compiled comparisons. The configured Linux gate links separate legacy
+and candidate programs against real Trick archives and compares two complete
+MemoryManager checkpoint round trips, including 64-bit integer limits, boolean
+arrays, character strings and hexadecimal float extremes/subnormals/negative zero.
+It requires three runtime mutations to fail at execution. The shared scalar policy
+also has template-table and lifecycle-construction checks on every compiler lane.
+
+Next characterize the remaining integer/character widths and signedness variants,
+then template enum arguments/member rows and pointer/reference storage. General
+annotations, inheritance, broader template/STL emission, and lifecycle
+exception/ownership handling remain subsequent milestones.

@@ -24,6 +24,7 @@ import lifecycle as lifecycle_baseline  # noqa: E402
 import lifecycle_codegen  # noqa: E402
 import memorymanager  # noqa: E402
 import native  # noqa: E402
+import scalar_metadata  # noqa: E402
 import template_metadata  # noqa: E402
 import template_structured  # noqa: E402
 
@@ -887,6 +888,97 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
         result = array_metadata.capture(EXTRACTOR, self.work, COMPILER)
         self.assertEqual(result["status"], "compared")
         self.assertEqual(sum(len(v) for v in result["records"].values()), 9)
+
+    def test_common_scalar_legacy_candidate_native_gate(self):
+        result = scalar_metadata.capture(EXTRACTOR, self.work, COMPILER)
+        self.assertEqual(result["status"], "compared")
+        self.assertEqual(sum(len(v) for v in result["records"].values()), 13)
+
+    def test_common_scalar_mutations_fail_compiled_comparison(self):
+        case, _ = array_metadata.reference(scalar_metadata.HERE)
+        documents = self.extract(ROOT / case["header"])
+        facts = documents[0]
+        report = array_metadata.report_for(facts, scalar_metadata.EXPECTED)
+        candidate = emit.render(*documents)
+        for index, (before, after) in enumerate((
+            ("TRICK_BOOLEAN", "TRICK_CHARACTER"),
+            ("TRICK_CHARACTER", "TRICK_BOOLEAN"),
+            ("TRICK_FLOAT", "TRICK_INTEGER"),
+            ("TRICK_LONG", "TRICK_DOUBLE"),
+            ("TRICK_LONG, sizeof(long)", "TRICK_LONG, sizeof(int)"),
+            ("16, NULL, 2, {{2, 0}, {3, 0}", "16, NULL, 2, {{3, 0}, {2, 0}"),
+            (
+                'map->add_param("ScalarModel_gain", "m")',
+                'map->add_param("wrong_gain", "m")',
+            ),
+        )):
+            with self.subTest(mutation=before):
+                self.assertIn(before, candidate)
+                work = self.work / f"mutation-{index}"
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "compiled ATTRIBUTES differs|native field size/offset/width differs",
+                ):
+                    native.capture(
+                        facts,
+                        candidate.replace(before, after, 1),
+                        report,
+                        case,
+                        work,
+                        COMPILER,
+                        source_name="candidate.cpp",
+                    )
+                self.assertFalse((work / "native.json").exists())
+
+    def test_common_scalars_in_template_tables(self):
+        fields = ("flags", "samples", "codes", "counts")
+        types = ("bool", "float", "char", "long")
+        kinds = ("TRICK_BOOLEAN", "TRICK_FLOAT", "TRICK_CHARACTER", "TRICK_LONG")
+        source = (
+            "template<class T> struct Box { T value; T values[2]; }; struct Model {"
+        )
+        source += (
+            "".join(f"Box<{kind}> {field};" for field, kind in zip(fields, types))
+            + "};"
+        )
+        candidate = emit.render(
+            *self.model(
+                source,
+                outputs=["template-attributes"],
+                template_fields=["Model::" + field for field in fields],
+            )
+        )
+        checks = []
+        for field, kind, code in zip(fields, types, kinds, strict=True):
+            symbol = f"Model_{field}_Box_{kind}_"
+            checks.append(f"init_attr{symbol}_c_intf();")
+            for index in (0, 1):
+                checks.append(
+                    f'if (attr{symbol}[{index}].type != {code} || attr{symbol}[{index}].size != sizeof({kind})) throw std::runtime_error("template scalar type/size");'
+                )
+            checks.append(
+                f'if (attr{symbol}[1].index[0].size != 2) throw std::runtime_error("template array shape");'
+            )
+        self.compile(candidate, "\n".join(checks))
+
+    def test_common_scalars_in_lifecycle_initialization(self):
+        source = "struct Model { bool flag = true; float gain = 1.25F; char code = 'A'; long count = (1L << 40) + 9; };"
+        candidate = emit.render(
+            *self.model(source, outputs=[*resolve.OUTPUTS, "lifecycle"])
+        )
+        self.compile(
+            candidate,
+            """
+auto* values = static_cast<Model*>(io_src_allocate_Model(2));
+if (!values) throw std::runtime_error("allocation failed");
+for (int i = 0; i < 2; ++i) {
+    if (!values[i].flag || values[i].gain != 1.25F || values[i].code != 'A' ||
+        values[i].count != (1L << 40) + 9) throw std::runtime_error("scalar constructor values");
+}
+io_src_destruct_Model(values, 2);
+free(values);
+""",
+        )
 
     def test_array_mutations_fail_compiled_comparison(self):
         case, _ = array_metadata.reference()

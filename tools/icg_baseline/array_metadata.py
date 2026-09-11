@@ -56,18 +56,19 @@ EXPECTED = {
 }
 
 
-def reference() -> tuple[dict, str]:
-    manifest = json.loads((HERE / "corpus.json").read_text())
-    provenance = json.loads((REFERENCE / "provenance.json").read_text())
-    if b.digest((HERE / "corpus.json").read_bytes()) != provenance["manifest_sha256"]:
-        raise ValueError("array manifest differs from captured input")
+def reference(here: Path = HERE) -> tuple[dict, str]:
+    reference = here / "reference"
+    manifest = json.loads((here / "corpus.json").read_text())
+    provenance = json.loads((reference / "provenance.json").read_text())
+    if b.digest((here / "corpus.json").read_bytes()) != provenance["manifest_sha256"]:
+        raise ValueError("metadata manifest differs from captured input")
     (case,) = manifest["cases"]
     if (
         b.digest((d.ROOT / case["header"]).read_bytes())
         != provenance["source_sha256"][case["header"]]
     ):
-        raise ValueError("array fixture differs from captured input")
-    path = REFERENCE / case["id"] / "cold.json"
+        raise ValueError("metadata fixture differs from captured input")
+    path = reference / case["id"] / "cold.json"
     (metadata,) = [
         a
         for a in json.loads(path.read_text())["artifacts"].values()
@@ -76,18 +77,18 @@ def reference() -> tuple[dict, str]:
     return case, b.artifact_text(path, metadata)
 
 
-def report_for(facts: dict) -> dict:
+def report_for(facts: dict, expected_records: dict = EXPECTED) -> dict:
     nodes = {n["id"]: n for n in facts["declarations"]}
     types = {t["id"]: t for t in facts["types"]}
     records = {n["qualified_name"]: n for n in nodes.values() if n["kind"] == "record"}
-    if set(records) != set(EXPECTED) or any(
+    if set(records) != set(expected_records) or any(
         n["kind"] == "enum" for n in nodes.values()
     ):
-        raise ValueError("array fixture record/enum selection differs")
-    for name, expected in EXPECTED.items():
+        raise ValueError("metadata fixture record/enum selection differs")
+    for name, expected in expected_records.items():
         fields = [nodes[i] for i in records[name]["field_ids"]]
         if [f["name"] for f in fields] != [f["name"] for f in expected]:
-            raise ValueError("array field order/selection differs")
+            raise ValueError("metadata field order/selection differs")
         for node, row in zip(fields, expected, strict=True):
             shape = []
             type_node = types[types[node["type_id"]]["canonical_id"]]
@@ -102,20 +103,27 @@ def report_for(facts: dict) -> dict:
                 or int(node["offset_bits"]) != row["offset_bits"]
             ):
                 raise ValueError(
-                    "array facts differ from independent shape/layout expectations"
+                    "metadata facts differ from independent type/shape/layout expectations"
                 )
-    return dict(records=EXPECTED, enums={})
+    return dict(records=expected_records, enums={})
 
 
-def check(facts: dict, output: Path, compiler: Path) -> dict:
+def check(
+    facts: dict,
+    output: Path,
+    compiler: Path,
+    *,
+    here: Path = HERE,
+    expected_records: dict = EXPECTED,
+) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     result = output / "comparison.json"
     result.unlink(missing_ok=True)
-    case, legacy = reference()
+    case, legacy = reference(here)
     request = resolve.request_for(facts)
     model = resolve.resolve(facts, request)
-    report = report_for(facts)
+    report = report_for(facts, expected_records)
     for name, value in (("facts", facts), ("request", request), ("resolved", model)):
         (output / f"{name}.json").write_text(
             json.dumps(value, indent=2, sort_keys=True) + "\n"
@@ -126,10 +134,10 @@ def check(facts: dict, output: Path, compiler: Path) -> dict:
     for source in (legacy, candidate):
         symbols = re.findall(r"^ATTRIBUTES attr(\w+)\[\]", source, re.M)
         if (
-            sorted(symbols) != sorted(n.replace("::", "__") for n in EXPECTED)
+            sorted(symbols) != sorted(n.replace("::", "__") for n in expected_records)
             or "ENUM_ATTR enum" in source
         ):
-            raise ValueError("array source table selection differs")
+            raise ValueError("metadata source table selection differs")
     old = native.capture(facts, legacy, report, case, output / "legacy", compiler)
     new = native.capture(
         facts,
@@ -141,7 +149,7 @@ def check(facts: dict, output: Path, compiler: Path) -> dict:
         source_name="candidate.cpp",
     )
     if old["observations"] != new["observations"]:
-        raise ValueError("array legacy/candidate/native observations differ")
+        raise ValueError("legacy/candidate/native metadata observations differ")
     report.update(
         status="compared",
         legacy=old,
@@ -154,11 +162,18 @@ def check(facts: dict, output: Path, compiler: Path) -> dict:
     return report
 
 
-def capture(extractor: Path, output: Path, compiler: Path) -> dict:
+def capture(
+    extractor: Path,
+    output: Path,
+    compiler: Path,
+    *,
+    here: Path = HERE,
+    expected_records: dict = EXPECTED,
+) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     (output / "comparison.json").unlink(missing_ok=True)
-    case, _ = reference()
+    case, _ = reference(here)
     source = output / "S_source.hh"
     source.write_text(f'#include "{d.ROOT / case["header"]}"\n')
     env = {
@@ -183,7 +198,13 @@ def capture(extractor: Path, output: Path, compiler: Path) -> dict:
     (output / "facts.json").write_bytes(p.stdout)
     (output / "extract.stderr").write_bytes(p.stderr)
     p.check_returncode()
-    return check(json.loads(p.stdout), output, compiler)
+    return check(
+        json.loads(p.stdout),
+        output,
+        compiler,
+        here=here,
+        expected_records=expected_records,
+    )
 
 
 if __name__ == "__main__":

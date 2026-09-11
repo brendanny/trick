@@ -5,8 +5,12 @@ from __future__ import annotations
 from tools.icg_policy.rules import PolicyError
 
 KINDS = {
+    "bool": "TRICK_BOOLEAN",
+    "char": "TRICK_CHARACTER",
+    "float": "TRICK_FLOAT",
     "int": "TRICK_INTEGER",
     "unsigned int": "TRICK_UNSIGNED_INTEGER",
+    "long": "TRICK_LONG",
     "double": "TRICK_DOUBLE",
 }
 

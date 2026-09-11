@@ -73,7 +73,7 @@ class RuleTests(unittest.TestCase):
                 / "trick_source/codegen/TrickCodeGen/ir/fixtures/minimal-record.json"
             ).read_text()
         )
-        for version in range(6):
+        for version in range(9):
             request = resolve.request_for(facts)
             request["policy_version"] = f"scalar-metadata-{version}"
             with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_REQUEST"):
@@ -312,7 +312,7 @@ class ExtractionTests(unittest.TestCase):
             ("int x[2147483648ULL];", "ICG_POLICY_ARRAY_EXTENT"),
             ("int x[0];", "ICG_POLICY_ARRAY_EXTENT"),
             ("int lead; int x[];", "ICG_POLICY_ARRAY_EXTENT"),
-            ("float x[2];", "ICG_POLICY_TYPE"),
+            ("long double x[2];", "ICG_POLICY_TYPE"),
             ("using Row = const int[2]; Row x;", "ICG_POLICY_TYPE"),
         ):
             with self.subTest(declaration=declaration):
@@ -327,6 +327,27 @@ class ExtractionTests(unittest.TestCase):
                     for d in model["declarations"]
                 )
             )
+
+    def test_common_scalar_extension_keeps_other_types_and_bitfields_closed(self):
+        for field in (
+            "short value;",
+            "signed char value;",
+            "unsigned char value;",
+            "unsigned long value;",
+            "long long value;",
+            "long double value;",
+            "wchar_t value;",
+            "bool value : 1;",
+            "char value : 3;",
+            "long value : 3;",
+            "const bool value;",
+            "volatile long value;",
+            "float* value;",
+        ):
+            with self.subTest(field=field):
+                facts = self.extract(f"struct Model {{ {field} }};")
+                with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+                    resolve.resolve(facts, resolve.request_for(facts))
 
     def test_omitted_array_does_not_require_storage_or_claim_unit_key(self):
         _, _, model = self.model(

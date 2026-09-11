@@ -22,7 +22,9 @@ repeated initialization.
   declaration order. Starts and unused entries are zero. Rank eight is supported;
   higher ranks, incomplete/zero extents and extents exceeding signed `INDEX.int`
   are rejected before any candidate is published.
-- The supported bases remain unqualified `int`, `unsigned int` and `double`.
+- This original corpus covers unqualified `int`, `unsigned int` and `double`.
+  Policy v9 also admits `bool`, `char`, `float` and `long` through the separate
+  [scalar corpus](../scalars/README.md), including arrays of those bases.
   Pointer/reference, const/volatile, record/enum and other scalar element policies
   remain outside this increment. Explicit zero-I/O fields can still be omitted
   before type validation.

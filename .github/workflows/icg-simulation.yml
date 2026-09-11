@@ -88,6 +88,12 @@ jobs:
             -DPython3_EXECUTABLE="$PWD/build/icg-schema-venv/bin/python" \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=-Werror
           cmake --build build/icg-extract --parallel 2
+      - name: Compare builtin scalar metadata and MemoryManager checkpoint readback
+        if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
+        run: |
+          build/icg-schema-venv/bin/python tools/icg_baseline/scalar_runtime.py \
+            --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
+            --output build/icg-simulation-evidence/scalars
       - name: Compare legacy and candidate template checkpoint readback
         if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
         run: |
