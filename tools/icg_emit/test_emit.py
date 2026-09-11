@@ -27,7 +27,7 @@ import native  # noqa: E402
 import template_metadata  # noqa: E402
 
 from tools.icg_emit import emit  # noqa: E402
-from tools.icg_policy import cases, resolve, rules  # noqa: E402
+from tools.icg_policy import cases, resolve, rules, template_characterize  # noqa: E402
 
 EXTRACTOR = None
 COMPILER = None
@@ -91,9 +91,98 @@ class EmitterTests(unittest.TestCase):
                 report["compared_fields"],
                 report["excluded_fields"],
             ),
-            (2, 4, 6),
+            (4, 6, 6),
         )
         self.assertEqual(report["status"], "compared")
+
+    def test_template_first_use_paths_and_repeated_requests(self):
+        for name, (
+            body,
+            symbol,
+            requested,
+            path,
+        ) in template_characterize.CASES.items():
+            with self.subTest(case=name):
+                facts, request, model = self.model(
+                    template_characterize.PREFIX + body + "\n",
+                    outputs=["template-attributes"],
+                    template_fields=requested,
+                )
+                (instance,) = model["template_instances"]
+                nodes = {n["id"]: n for n in facts["declarations"]}
+                self.assertEqual(instance["symbol"], symbol)
+                self.assertEqual(
+                    instance["requested_field_ids"], request["template_field_ids"]
+                )
+                self.assertEqual(
+                    [nodes[i]["qualified_name"] for i in instance["dependency_path"]],
+                    path,
+                )
+                # Graph serialization order must never become legacy visitation order.
+                changed = deepcopy(facts)
+                changed["declarations"].reverse()
+                changed["types"].reverse()
+                changed["provenance"]["selection"]["roots"].reverse()
+                self.assertEqual(
+                    resolve.resolve(changed, request)["template_instances"],
+                    model["template_instances"],
+                )
+
+    def test_template_unselected_consumer_file_is_rejected(self):
+        definitions = self.work / "definitions.hh"
+        definitions.write_text(
+            cases.HEADER + "template<class T> struct Box { T value; };\n"
+        )
+        first = self.work / "first.hh"
+        first.write_text(
+            cases.HEADER
+            + '#include "definitions.hh"\nstruct First { Box<int> first; };\n'
+        )
+        header = self.work / "model.hh"
+        header.write_text(
+            cases.HEADER + '#include "first.hh"\nstruct Model { Box<int> chosen; };\n'
+        )
+        process = subprocess.run(
+            [
+                str(EXTRACTOR),
+                "--source-root",
+                str(self.work),
+                "--select-file",
+                str(definitions),
+                "--select-file",
+                str(header),
+                str(header),
+                "--",
+            ],
+            capture_output=True,
+            env=self.env,
+            check=True,
+        )
+        facts = json.loads(process.stdout)
+        chosen = next(
+            n["id"]
+            for n in facts["declarations"]
+            if n["qualified_name"] == "Model::chosen"
+        )
+        request = resolve.request_for(
+            facts, outputs=["template-attributes"], template_field_ids=[chosen]
+        )
+        with self.assertRaisesRegex(rules.PolicyError, "every captured user file"):
+            resolve.resolve(facts, request)
+
+    def test_template_cross_file_first_use_is_rejected(self):
+        included = self.work / "included.hh"
+        included.write_text(
+            cases.HEADER
+            + "template<class T> struct Box { T value; };\nstruct First { Box<int> first; };\n"
+        )
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TEMPLATE"):
+            self.model(
+                cases.HEADER
+                + '#include "included.hh"\nstruct Model { Box<int> chosen; };\n',
+                outputs=["template-attributes"],
+                template_fields=["Model::chosen"],
+            )
 
     def test_template_arrays_annotations_and_explicit_selection(self):
         source = (
@@ -141,6 +230,8 @@ if (rows[1].num_index != 2 || rows[1].index[0].size != 2 || rows[1].index[1].siz
             lambda i: i.update(symbol="invented"),
             lambda i: i.update(field_id=request["template_field_ids"][0]),
             lambda i: i.update(cpp_type="TTT1<double, int>"),
+            lambda i: i.update(dependency_path=[request["template_field_ids"][0]]),
+            lambda i: i.update(requested_field_ids=["decl:" + "0" * 64]),
             lambda i: i["argument_type_ids"].reverse(),
             lambda i: i["fields"][0]["metadata"].update(units_map_key="wrong"),
             lambda i: i["fields"][0]["metadata"]["storage"].update(dimensions=[7]),
@@ -160,12 +251,9 @@ if (rows[1].num_index != 2 || rows[1].index[0].size != 2 || rows[1].index[1].siz
     def test_template_unsupported_or_ambiguous_uses_publish_nothing(self):
         prefix = "template<class T> struct Box { T value; };\n"
         for source in (
-            prefix + "struct Model { Box<int> chosen; Box<int> other; };",
             prefix + "struct Model { Box<int*> chosen; };",
             prefix + "struct Model { Box<Box<int>> chosen; };",
             prefix + "struct Model { const Box<int> chosen; };",
-            prefix + "using Alias = Box<int>; struct Model { Alias chosen; };",
-            prefix + "struct Model { Box<int> chosen[2]; };",
             prefix
             + "class Model { Box<int> chosen; public: int get() const { return chosen.value; } };",
             prefix + "struct Model { Box<int> chosen; /* ** */\n};",

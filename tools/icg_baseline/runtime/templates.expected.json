@@ -5,26 +5,107 @@
   "before": {
     "integer": 1000,
     "real": 2000.25,
-    "integers": [1, 2],
-    "reals": [1.25, -2.5, 3.75],
+    "integers": [
+      1,
+      2
+    ],
+    "reals": [
+      1.25,
+      -2.5,
+      3.75
+    ],
     "enum": 0,
-    "enums": [0, 1]
+    "enums": [
+      0,
+      1
+    ],
+    "nested": {
+      "integer": 17,
+      "reals": [
+        [
+          1.5,
+          -2.25
+        ],
+        [
+          3.5,
+          4.75
+        ],
+        [
+          -5.5,
+          6.25
+        ]
+      ]
+    }
   },
   "mutated": {
     "integer": -10,
     "real": -20.5,
-    "integers": [-1, -2],
-    "reals": [-1.25, 2.5, -3.75],
+    "integers": [
+      -1,
+      -2
+    ],
+    "reals": [
+      -1.25,
+      2.5,
+      -3.75
+    ],
     "enum": 1,
-    "enums": [1, 0]
+    "enums": [
+      1,
+      0
+    ],
+    "nested": {
+      "integer": -17,
+      "reals": [
+        [
+          -1.5,
+          2.25
+        ],
+        [
+          -3.5,
+          -4.75
+        ],
+        [
+          5.5,
+          -6.25
+        ]
+      ]
+    }
   },
   "restored": {
     "integer": 1000,
     "real": 2000.25,
-    "integers": [1, 2],
-    "reals": [1.25, -2.5, 3.75],
+    "integers": [
+      1,
+      2
+    ],
+    "reals": [
+      1.25,
+      -2.5,
+      3.75
+    ],
     "enum": 0,
-    "enums": [0, 1]
+    "enums": [
+      0,
+      1
+    ],
+    "nested": {
+      "integer": 17,
+      "reals": [
+        [
+          1.5,
+          -2.25
+        ],
+        [
+          3.5,
+          4.75
+        ],
+        [
+          -5.5,
+          6.25
+        ]
+      ]
+    }
   },
   "restore_status": 0,
   "nested_binding_available": false

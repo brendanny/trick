@@ -1,4 +1,4 @@
-"""Per-use metadata for direct, global, scalar/array class-template members.
+"""First-use metadata for bounded, reachable scalar/array template tables.
 
 Types and arguments are followed by graph IDs; only the legacy ABI spelling is
 rendered here. Dependent patterns never become runtime tables of their own.
@@ -23,6 +23,14 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
 
     def fail(message: str) -> None:
         raise rules.PolicyError("ICG_POLICY_TEMPLATE", message)
+
+    # An unselected header can contain an earlier consumer absent from the
+    # supported-declaration closure. Require coverage before inferring first use.
+    if any(
+        f["classification"] == "user" and f["id"] not in request["file_ids"]
+        for f in files.values()
+    ):
+        fail("template traversal requires every captured user file to be selected")
 
     def identifier(node: dict) -> str:
         if not re.fullmatch(r"[A-Za-z_]\w*", node["name"], re.ASCII):
@@ -52,57 +60,42 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
             file["comments"][index]["payload"] if index is not None else None
         )
 
-    instances, symbols, unit_values = [], set(), {}
-    for field_id in request["template_field_ids"]:
-        use = nodes.get(field_id)
-        if use is None or use["kind"] != "field":
-            fail("template request must identify field declarations")
-        owner = nodes.get(use["semantic_parent_id"])
-        if (
-            owner is None
-            or owner["id"] not in roots
-            or owner["kind"] != "record"
-            or owner.get("semantic_parent_id") is not None
-            or owner.get("primary_template_id")
-            or owner["bases"]
-            or use["access"] != "public"
-            or use["bitfield"]
+    def target(field: dict) -> dict | None:
+        node = types[types[field["type_id"]]["canonical_id"]]
+        while node["kind"] in (
+            "array",
+            "pointer",
+            "lvalue_reference",
+            "rvalue_reference",
         ):
+            child = node.get("element_id") or node.get("pointee_id")
+            node = types[types[child]["canonical_id"]]
+        record = nodes.get(node.get("declaration_id"))
+        return record if record and record.get("primary_template_id") else None
+
+    # Serialized graph IDs are not source order. Limit competing ordinary roots
+    # to one physical file until include/namespace traversal is characterized.
+    owners = []
+    for node in nodes.values():
+        if node["kind"] != "record" or node.get("primary_template_id"):
+            continue
+        uses = [nodes[i] for i in node["field_ids"] if target(nodes[i])]
+        if not uses:
+            continue
+        selected(node)
+        if not any(annotation(use)[1]["io"] for use in uses):
+            continue
+        if node["id"] not in roots or node.get("semantic_parent_id") or node["bases"]:
             fail(
-                "template use requires a public direct field of a selected global ordinary record"
+                "template traversal requires selected global ordinary roots without bases"
             )
-        selected(owner)
-        if annotation(use)[1]["io"] == 0:
-            fail("explicit template request selects an I/O-disabled field")
-        type_node = types[use["type_id"]]
-        if (
-            type_node["kind"] != "record"
-            or type_node["id"] != type_node["canonical_id"]
-            or any(type_node["qualifiers"].values())
-        ):
-            fail(
-                "template use requires a direct unqualified specialization, without aliases or arrays of instances"
-            )
-        record = nodes[type_node["declaration_id"]]
-        # Legacy caches the first field-based name for a specialization. Source
-        # traversal across repeated/nested uses is not modeled by this profile.
-        # Refuse ambiguity instead of inventing a second table or a first-use order.
-        for other in nodes.values():
-            if other["kind"] != "field" or other["id"] == field_id:
-                continue
-            other_type = types[types[other["type_id"]]["canonical_id"]]
-            while other_type["kind"] in (
-                "array",
-                "pointer",
-                "lvalue_reference",
-                "rvalue_reference",
-            ):
-                child = other_type.get("element_id") or other_type.get("pointee_id")
-                other_type = types[types[child]["canonical_id"]]
-            if other_type["id"] == type_node["id"] and annotation(other)[1]["io"]:
-                fail(
-                    "repeated template uses require a characterized legacy first-use naming policy"
-                )
+        owners.append(node)
+    if len({n["source"]["spelling"]["file_id"] for n in owners}) > 1:
+        fail(
+            "template first-use order across ordinary roots in different files is not characterized"
+        )
+
+    def primary_for(record: dict) -> dict:
         primary = nodes.get(record.get("primary_template_id"))
         if (
             primary is None
@@ -124,6 +117,74 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
             )
         selected(primary)
         selected(record)
+        return primary
+
+    first_uses, reached = {}, {}
+
+    def visit(owner: dict, path: list[str]) -> None:
+        for use in sorted(
+            (nodes[i] for i in owner["field_ids"]),
+            key=lambda n: n["source"]["spelling"]["offset"],
+        ):
+            member_id = use["id"]
+            record = target(use)
+            if record is None or annotation(use)[1]["io"] == 0:
+                continue
+            if use["access"] != "public" or use["static"] or use["bitfield"]:
+                fail("template traversal requires public nonstatic fields")
+            selected(record)
+            if (
+                record["bases"]
+                or any(
+                    nodes[i]["kind"] != "alias"
+                    for i in record["nested_declaration_ids"]
+                )
+                or not record["complete"]
+            ):
+                fail(
+                    "template traversal requires complete definitions without bases or nested declarations"
+                )
+            primary_for(record)
+            reached[member_id] = record["id"]
+            if record["id"] in first_uses:
+                continue
+            dependency_path = path + [member_id]
+            # Legacy inserts into its cache before recursively visiting members.
+            first_uses[record["id"]] = dependency_path
+            visit(record, dependency_path)
+
+    for owner in sorted(owners, key=lambda n: n["source"]["spelling"]["offset"]):
+        visit(owner, [])
+
+    requested = {}
+    for field_id in request["template_field_ids"]:
+        use = nodes.get(field_id)
+        if use is None or use["kind"] != "field" or field_id not in reached:
+            fail(
+                "template request must identify an active field reachable from the selected roots"
+            )
+        type_node = types[types[use["type_id"]]["canonical_id"]]
+        while type_node["kind"] == "array":
+            if (
+                type_node["extent"] is None
+                or not 1 <= int(type_node["extent"]) <= 2147483647
+            ):
+                fail("template array use requires a positive fixed extent")
+            type_node = types[types[type_node["element_id"]]["canonical_id"]]
+        if type_node["kind"] != "record" or any(type_node["qualifiers"].values()):
+            fail(
+                "template request requires an unqualified object or fixed array of objects"
+            )
+        requested.setdefault(reached[field_id], []).append(field_id)
+
+    instances, symbols, unit_values = [], set(), {}
+    for record_id, requested_fields in requested.items():
+        path = first_uses[record_id]
+        field_id = path[-1]
+        use = nodes[field_id]
+        owner = nodes[use["semantic_parent_id"]]
+        record = nodes[record_id]
+        primary = primary_for(record)
         arguments = []
         for arg in record["template_arguments"]:
             if arg["kind"] != "type":
@@ -157,8 +218,8 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
             included = value["io"] != 0
             if included and member["access"] != "public":
                 fail("template member access requires a public field")
-            if included and member["bitfield"]:
-                fail("template bitfield emission is not characterized")
+            if included and (member["bitfield"] or member["static"]):
+                fail("template bitfield/static emission is not characterized")
             key = cpp_type + "_" + identifier(member)
             if included:
                 if key in unit_values and unit_values[key] != value["units"]:
@@ -193,6 +254,8 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
         instances.append(
             dict(
                 field_id=field_id,
+                requested_field_ids=sorted(requested_fields),
+                dependency_path=path,
                 record_id=record["id"],
                 primary_template_id=primary["id"],
                 argument_type_ids=[a["type_id"] for a in record["template_arguments"]],

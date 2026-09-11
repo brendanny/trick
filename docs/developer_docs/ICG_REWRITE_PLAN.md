@@ -773,13 +773,24 @@ compare four fields and six I/O exclusions, with policy and source mutations.
 The configured template simulation replaces those two metadata definitions,
 preserves containing-record references to candidate symbols, and requires the
 same checkpoint/readback observations after rebuilding. Legacy first-use naming
-is bounded to unambiguous direct global uses; repeated/nested uses, non-type or
-pack/default arguments, specialization policy, template registries and STL
-callbacks remain unsupported. Facts v12 and captured references are unchanged.
+was bounded to unambiguous direct global uses in that increment. Facts v12 and captured references are unchanged.
 
-Next characterize legacy first-use naming and dependency closure for repeated
-and nested template members, then widen template/STL emission through the existing
-independent and configured runtime gates.
+Policy v7 / emitter v6 add bounded first-use traversal. Selected global ordinary
+roots in one physical file and their instantiated members follow source order.
+Canonical aliases, arrays and pointer/reference dependencies reuse a specialization
+cache populated before recursive visitation; zero-I/O fields do not claim names.
+Each selected table retains its requested field IDs and first-use dependency path.
+Eight live legacy cases cover repeated/nested uses, root order, aliases/arrays,
+pointer/reference first use, I/O-disabled first use and recursive dependencies, with independent native probes.
+The immutable template comparison and configured overlay now cover four tables
+and six fields, adding the nested `Foo<int>` and `Foo<double[2]>` leaves. Runtime
+checks assign nonzero nested values through MemoryManager, mutate them and require
+checkpoint restoration, retaining the existing opaque-SWIG observation.
+
+Next characterize and emit structured template-member rows and their attribute
+registration dependencies, then widen template/STL emission through the existing
+independent and configured runtime gates. Cross-file root ordering, namespaces,
+non-type/default/pack arguments and template registries remain separate work.
 Broader scalar/qualified/structured fields and general annotation policy remain
 separate coverage extensions.
 The backend remains a development metadata/lifecycle subset without production build,

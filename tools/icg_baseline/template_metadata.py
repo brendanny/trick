@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare two captured template-use tables and install a simulation test overlay."""
+"""Compare four captured template-use tables and install a simulation test overlay."""
 
 from __future__ import annotations
 
@@ -25,6 +25,18 @@ INPUTS = (
 )
 # Independent expectations from the immutable legacy capture and native types.
 BINDINGS = {
+    "Foo<int>": dict(
+        symbol="TTT1_aa_Foo_int_",
+        cpp_type="Foo<int>",
+        units_prefix="Foo<int>",
+        field="TTT1<Foo<int>, Foo<double[2]>[3]>::aa",
+    ),
+    "Foo<double[2]>": dict(
+        symbol="TTT1_bb_Foo_double_2__",
+        cpp_type="Foo<double[2]>",
+        units_prefix="Foo<double[2]>",
+        field="TTT1<Foo<int>, Foo<double[2]>[3]>::bb",
+    ),
     "TTT1<int, double>": dict(
         symbol="TemplateTest_TTT_var_scalar_builtins_TTT1_int__double_",
         cpp_type="TTT1<int, double>",
@@ -39,6 +51,8 @@ BINDINGS = {
     ),
 }
 EXPECTED = {
+    "Foo<int>": [array_metadata.field("t", "int", 0, mods=4)],
+    "Foo<double[2]>": [array_metadata.field("t", "double", 0, (2,), mods=4)],
     "TTT1<int, double>": [
         array_metadata.field("aa", "int", 0),
         array_metadata.field("bb", "double", 8),
@@ -135,6 +149,8 @@ def extract(extractor: Path, root: Path, output: Path) -> Path:
         str(root),
         "--select-file",
         str(header),
+        "--select-file",
+        str(root / INPUTS[1]),
         str(header),
         "--",
     ]
@@ -188,8 +204,8 @@ def check(facts: dict, output: Path, compiler: Path) -> dict:
         status="compared",
         legacy=old,
         candidate=new,
-        compared_tables=2,
-        compared_fields=4,
+        compared_tables=4,
+        compared_fields=6,
         excluded_fields=6,
         resolved_digest=model["digest"],
         legacy_sha256=b.digest(legacy.encode()),

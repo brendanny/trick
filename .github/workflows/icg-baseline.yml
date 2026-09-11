@@ -90,6 +90,13 @@ jobs:
             --legacy build/legacy-baseline/trick-ICG-baseline \
             --udunits-xml /usr/share/xml/udunits/udunits2.xml \
             --output build/policy-evidence
+      - name: Compare template first-use traversal with unchanged legacy ICG
+        run: |
+          python tools/icg_policy/template_characterize.py \
+            --extractor build/policy-extractor/trick-icg-extract \
+            --legacy build/legacy-baseline/trick-ICG-baseline \
+            --udunits-xml /usr/share/xml/udunits/udunits2.xml \
+            --output build/template-policy-evidence
       - name: Capture cold, warm, and forced output against checked-in references
         run: |
           python tools/icg_baseline/legacy.py \
@@ -131,6 +138,7 @@ jobs:
           path: |
             build/legacy-evidence
             build/policy-evidence
+            build/template-policy-evidence
             build/lifecycle-reference-evidence
             build/enum-reference-evidence
             build/array-reference-evidence

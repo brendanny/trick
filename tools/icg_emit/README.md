@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v6,
+This standalone development backend consumes **facts v12, resolved policy v7,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -129,10 +129,10 @@ This is a test overlay, not production ICG/build integration.
 
 ## Template-member metadata
 
-Emitter v5 accepts `outputs=["template-attributes"]` with explicit containing
+Emitter v6 accepts `outputs=["template-attributes"]` with explicit containing
 field IDs. It emits the selected specialization's scalar/array table, sentinel,
 initializer/C wrapper, size function and UnitsMap entries. It uses resolved
-per-use symbols and type spellings; a generated C++ alias makes native `offsetof`
+first-use symbols and type spellings; a generated C++ alias makes native `offsetof`
 checks safe for template types containing commas. Selection and limits are in the
 [template policy](../icg_policy/README.md#explicit-template-member-requests).
 
@@ -143,18 +143,21 @@ python tools/icg_baseline/template_metadata.py \
 ```
 
 The comparison uses the unchanged `TemplateTest.hh` and its existing immutable
-legacy capture. It selects two complete generated blocks by independently
+legacy capture. It selects four complete generated blocks by independently
 specified symbol names, preserving their original bodies. Legacy and candidate
 compile in separate executables against the same real Trick headers and UnitsMap.
-Independent native types and manual expectations compare two tables, four fields,
+Independent native types and manual expectations compare four tables, six fields,
 array shapes, offsets, sizes, annotations, sentinels, C linkage and six zero-I/O
 pointer exclusions. Expected symbols and layouts are specified independently of production policy.
 No legacy snapshot or fixture is regenerated for this increment.
 
 The configured simulation overlay renames the old definitions of those metadata
 entries while preserving containing-record references to the original ABI names.
-Only candidate tables can satisfy those references. Rebuild/relink and unchanged
-checkpoint/readback observations are required. A native negative control removes
+Only candidate tables can satisfy those references. The nested `Foo<int>` and
+`Foo<double[2]>` leaves use cached first-use names reached through the outer `TTT1`.
+Rebuild/relink and identical checkpoint/readback observations are required,
+including nonzero nested scalar/array values assigned, mutated and restored
+through the real MemoryManager. A native negative control removes
 a candidate table and requires link failure; a changed-offset control proves the
 containing record sees the candidate. Policy mutations with recomputed hashes and
 emitted dimension/offset/UnitsMap/symbol mutations must fail separate checks.

@@ -7,7 +7,7 @@ linking, and the Trick executable. It does not substitute the new extractor or
 alter the existing template or I/O models. The lifecycle case compares the
 observed MemoryManager operations with separately extracted facts, then relinks
 with candidate lifecycle exports and repeats the checks. The template case
-relinks two candidate metadata tables and repeats checkpoint/readback.
+relinks four candidate metadata tables and repeats checkpoint/readback.
 
 ## Reproduce
 
@@ -86,18 +86,21 @@ goldens continue to be checked separately.
 ## Candidate template metadata
 
 After the legacy template runs, `template_metadata.py` extracts the unchanged
-model and generates just the `TTT1<int, double>` and
-`TTT1<int[2], double[3]>` metadata fragments. It checks the original headers against
+model and generates the `TTT1<int, double>`, `TTT1<int[2], double[3]>`,
+`Foo<int>` and `Foo<double[2]>` metadata fragments. It checks the original headers against
 the immutable capture. Explicit containing-field IDs select these uses; the
 independent comparison checks their captured symbols and field expectations.
 
 An isolated overlay renames old table/init/size/UnitsMap definitions inside their
-two generated blocks and preserves the original ABI references in the containing
+four generated blocks and preserves the original ABI references in the containing
 record. Forward declarations allow those references to resolve to the appended
 candidate. Legacy lifecycle helpers and all other metadata/registries remain.
 The simulation must recompile/relink without ICG overwriting the overlay, and
 `runtime-candidate` must match both the independent expected checkpoint/readback
-values and `runtime-rebuilt` observations.
+values and `runtime-rebuilt` observations. Nested leaves have nonzero integer
+and array values assigned through MemoryManager checkpoint input, mutated, then
+restored. Separate checkpoints observe each state despite opaque nested SWIG
+bindings. Missing/duplicate assignments or wrong dimensions fail the probe.
 
 `candidate-templates/` retains original/candidate/overlay sources, request, model,
 symbols and hashes, build command and log. Native negative controls prove changed

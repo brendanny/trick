@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v6**, not C++, and does not replace production ICG.
+It emits **resolved policy v7**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-6"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-7"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
 `template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
@@ -44,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v6 and policy
-`scalar-metadata-6` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1/v2/v3/v4/v5 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v7 and policy
+`scalar-metadata-7` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1/v2/v3/v4/v5/v6 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -219,7 +219,7 @@ and all captured legacy references remain unchanged.
 
 ## Explicit template-member requests
 
-Policy v6 adds the separate `outputs: ["template-attributes"]` profile. Supply
+Policy v7 supports the separate `outputs: ["template-attributes"]` profile. Supply
 sorted, unique, nonempty `template_field_ids` identifying the exact containing
 fields to generate. Other output profiles require an empty list. Existing
 metadata requests still reject template records; this opt-in generates fragments,
@@ -233,29 +233,45 @@ request = request_for(
 )
 ```
 
-`template_instances` records each requested field ID, concrete record ID, primary
-template ID, canonical argument type IDs, rendered C++ type, legacy symbol,
-initializer, and source-order member decisions. Ordinary `declarations` entries
-have `OUTPUT_NOT_REQUESTED` in this profile. Member annotations, I/O exclusions,
-storage and UnitsMap keys retain explicit evidence and undergo exact policy replay.
+`template_instances` has one entry per selected specialization, deduplicating
+repeated requests. `field_id` identifies the first active use, `requested_field_ids`
+retains the sorted explicit requests, and `dependency_path` records the field-ID
+path from an ordinary root to that first use. Each entry also records the concrete
+record, primary template, argument type IDs, C++ spelling, cached legacy symbol,
+initializer and field decisions. Schema v7 requires exact replay of this evidence.
 
-The bounded profile accepts public direct fields of global ordinary records,
-using global user templates with nonpack type parameters and no defaults.
-Instantiations must be complete, standard-layout primary instantiations without
-bases. Arguments and included members support `int`, `unsigned int`, `double`,
-and fixed arrays; zero-I/O members can be omitted before storage checks. Use and
-definition files must both be explicitly selected and included by file policy.
+Traversal starts with selected global ordinary records whose template fields
+are all in one physical file. Roots and fields follow physical source order,
+independent of serialized graph IDs. It expands canonical aliases, arrays and
+pointer/reference targets, skips zero-I/O uses before visiting their types, and
+caches each specialization **before** visiting its members. This preserves first
+use across repeated fields and terminates recursive dependencies. Template
+arguments alone do not claim a name; a member that visits that type does.
+Every captured user file, including the translation unit and definition headers,
+must be selected: an unselected header could hide an earlier ordinary consumer
+from the declaration closure. Traversed definitions must be included by file policy.
 
-Legacy names a specialization after its first containing field and reuses that
-name. This profile rejects repeated uses in the captured declaration closure;
-it does not infer legacy traversal order or naming across separate extraction
-requests. Namespaced/nested uses, aliases of the selected specialization, arrays
-of instances, non-type/default/pack arguments, explicit/partial specializations,
-private included members, bitfields, structured/enum arguments and STL remain
-unsupported. No full-program template registry or naming contract is claimed.
+Requests may select public unqualified objects or fixed arrays, including aliases
+and nested fields reachable through template members. Emitted tables still cover
+only `int`, `unsigned int`, `double`, and fixed arrays of those types; zero-I/O
+members are omitted before storage checks. Traversed templates must be complete,
+standard-layout global primary instantiations without bases or nested declarations
+(other than aliases), using nonpack type parameters without defaults.
 
-The [template comparison](../icg_baseline/template_metadata.py) checks two tables,
-four scalar/array fields and six pointer exclusions from the immutable existing
-`TemplateTest.hh` capture. Generated fragments also replace those two tables in
-the configured simulation's checkpoint/readback gate. See the
+Cross-file ordinary-root order, namespaces, private/static template uses,
+non-type/default/pack arguments, explicit/partial specializations, structured/enum
+table emission, bitfields and STL remain unsupported. Traversal can reach an outer
+structured template to select its scalar/array leaf tables; it does not emit that
+outer table automatically. This is a bounded extraction-scope naming contract,
+not a full-program template registry.
+
+[Live characterization](template_characterize.py) independently checks eight cases:
+repeated requests, source ordering across ordinary roots, a zero-I/O first use,
+canonical alias/array use, pointer/reference first use, nested first use and recursive dependencies. It compiles
+legacy and candidate leaf tables separately against native C++ expectations.
+The [template comparison](../icg_baseline/template_metadata.py) checks four tables,
+six scalar/array fields and six pointer exclusions from the immutable existing
+`TemplateTest.hh` capture, including `Foo<int>` and `Foo<double[2]>` nested leaves.
+Those four tables also replace legacy definitions in the configured simulation's
+checkpoint/readback gate. See the
 [emitter contract](../icg_emit/README.md#template-member-metadata).

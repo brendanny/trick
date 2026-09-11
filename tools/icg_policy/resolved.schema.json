@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 6
+      "const": 7
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-6"
+      "const": "scalar-metadata-7"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-6"
+          "const": "scalar-metadata-7"
         },
         "template_field_ids": {
           "type": "array",
@@ -516,7 +516,9 @@
           "cpp_type",
           "symbol",
           "init_function",
-          "fields"
+          "fields",
+          "requested_field_ids",
+          "dependency_path"
         ],
         "properties": {
           "field_id": {
@@ -555,14 +557,32 @@
             "items": {
               "$ref": "#/properties/declarations/items"
             }
+          },
+          "requested_field_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^decl:[a-f0-9]{64}$"
+            }
+          },
+          "dependency_path": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^decl:[a-f0-9]{64}$"
+            }
           }
         }
       }
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v6.schema.json",
-  "title": "Bounded legacy metadata, lifecycle and template-use policy v6",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v7.schema.json",
+  "title": "Bounded legacy metadata, lifecycle and template-use policy v7",
   "$defs": {
     "source": {
       "type": "object",

@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-5"
+VERSION = "scalar-metadata-emitter-6"
 
 
 def literal(value: str) -> str:
