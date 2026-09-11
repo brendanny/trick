@@ -7,7 +7,7 @@ linking, and the Trick executable. It does not substitute the new extractor or
 alter the existing template or I/O models. The lifecycle case compares the
 observed MemoryManager operations with separately extracted facts, then relinks
 with candidate lifecycle exports and repeats the checks. The template case
-relinks four candidate metadata tables and repeats checkpoint/readback.
+relinks five candidate metadata tables and repeats checkpoint/readback.
 
 ## Reproduce
 
@@ -85,14 +85,25 @@ goldens continue to be checked separately.
 
 ## Candidate template metadata
 
-After the legacy template runs, `template_metadata.py` extracts the unchanged
-model and generates the `TTT1<int, double>`, `TTT1<int[2], double[3]>`,
-`Foo<int>` and `Foo<double[2]>` metadata fragments. It checks the original headers against
-the immutable capture. Explicit containing-field IDs select these uses; the
-independent comparison checks their captured symbols and field expectations.
+The template comparison extracts the unchanged model and generates the
+`TTT1<int, double>`, `TTT1<int[2], double[3]>`, `Foo<int>`, `Foo<double[2]>` and
+`TTT1<Foo<int>, Foo<double[2]>[3]>` metadata fragments. It checks the original
+headers against the immutable capture. Explicit containing-field IDs select the
+three outer uses; structured dependency closure includes the two `Foo` leaves.
+The independent comparison checks captured symbols and field expectations.
+
+Before the simulation builds, `template_structured.py` links separate full legacy
+and candidate probes against the configured Trick archives using `trick-config`.
+The real MemoryManager must resolve the exact child table pointers and sizes.
+Native checks require zero/null structured rows before initialization and verify
+the repeat-call guard. Five controls remove a registration, change a child lookup,
+preinitialize a size, bypass the guard, or remove a child export. Each must fail
+at its intended run/link stage; compilation failures and timeouts do not count.
+`structured-native/` retains sources, commands, observations, mutation failures,
+link configuration and archive digests. These probes use no MemoryManager stubs.
 
 An isolated overlay renames old table/init/size/UnitsMap definitions inside their
-four generated blocks and preserves the original ABI references in the containing
+five generated blocks and preserves the original ABI references in the containing
 record. Forward declarations allow those references to resolve to the appended
 candidate. Legacy lifecycle helpers and all other metadata/registries remain.
 The simulation must recompile/relink without ICG overwriting the overlay, and

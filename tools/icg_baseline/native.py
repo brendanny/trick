@@ -1,7 +1,8 @@
 """Compile actual legacy metadata and compare it with facts and native layout.
 
 This probe supports the audited scalar/array/unsigned-bitfield/enum fixtures.
-It links the real Trick UnitsMap implementation, without stubs.
+Structured records additionally require the configured real MemoryManager.
+It links real Trick implementations, without stubs.
 """
 
 from __future__ import annotations
@@ -44,6 +45,11 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
     }
     nodes = {n["id"]: n for n in document["declarations"]}
     calls, aliases = [], []
+    structured = any(
+        "structured_record" in f
+        for fields in report["records"].values()
+        for f in fields
+    )
     for name, fields in report["records"].items():
         binding = report.get("record_bindings", {}).get(name)
         cpp_name = (
@@ -69,7 +75,12 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
         for field in fields:
             member = identifier(field["name"])
             type_name = f"decltype({cpp_name}::{member})"
-            if field["bit_width"] is None:
+            if "structured_record" in field:
+                child_symbol = record_symbol(field["structured_record"], report)
+                native_fields.append(
+                    f'probe::structured_member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT, attr{child_symbol})'
+                )
+            elif field["bit_width"] is None:
                 native_fields.append(
                     f'probe::member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT)'
                 )
@@ -104,9 +115,12 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
     separator = '\nstd::cout << ",";\n'
     return (
         f'#include "{source_name}"\n#include "native_probe.hh"\n'
+        + ('#include "trick/MemoryManager.hh"\n' if structured else "")
         + "".join(aliases)
         + "void verify_metadata_linkage();\n"
-        'int main() {\ntry {\nverify_metadata_linkage();\nstd::cout << "{\\"records\\":[";\n'
+        + "int main() {\ntry {\n"
+        + ("Trick::MemoryManager memory_manager;\n" if structured else "")
+        + 'verify_metadata_linkage();\nstd::cout << "{\\"records\\":[";\n'
         + separator.join(calls)
         + '\nstd::cout << "],\\"enums\\":[";\n'
         + separator.join(enum_calls)
@@ -174,7 +188,11 @@ def validate(document: dict, report: dict, observed: dict) -> None:
                     raise ValueError(f"{label}: invalid compiled field storage")
                 if row["offset_bytes"] + total_size > item["size_bytes"]:
                     raise ValueError(f"{label}: field extends beyond native record")
-                kind = "TRICK_UNSIGNED_BITFIELD" if width else KINDS[field["type"]]
+                kind = (
+                    "TRICK_STRUCTURED"
+                    if "structured_record" in field
+                    else ("TRICK_UNSIGNED_BITFIELD" if width else KINDS[field["type"]])
+                )
                 expected = dict(
                     name=field["name"],
                     type=field["type"],
@@ -204,7 +222,7 @@ def validate(document: dict, report: dict, observed: dict) -> None:
 def linkage_source(document: dict, report: dict) -> str:
     """Link public entry points from a separate translation unit, without output."""
     declarations = []
-    calls = []
+    calls, preflight = [], []
     for group, prefix, row_type in (
         ("records", "attr", "ATTRIBUTES"),
         ("enums", "enum", "ENUM_ATTR"),
@@ -223,11 +241,31 @@ def linkage_source(document: dict, report: dict) -> str:
             )
             if group == "records":
                 declarations.append(f'extern "C" void init_attr{symbol}_c_intf();\n')
+                structured_rows = [
+                    i
+                    for i, field in enumerate(report["records"][name])
+                    if "structured_record" in field
+                ]
+                for index in structured_rows:
+                    preflight.append(
+                        f'    if (attr{symbol}[{index}].size != 0 || attr{symbol}[{index}].attr) throw std::runtime_error("structured row initialized before init");\n'
+                    )
                 calls.extend([f"    init_attr{symbol}_c_intf();\n"] * 2)
+                if structured_rows:
+                    row = f"attr{symbol}[{structured_rows[0]}]"
+                    calls.append(f"    const auto saved_{symbol} = {row}.size;\n")
+                    calls.append(
+                        f"    {row}.size = -1;\n    init_attr{symbol}_c_intf();\n"
+                    )
+                    calls.append(
+                        f'    if ({row}.size != -1) throw std::runtime_error("structured initialization is not guarded");\n'
+                    )
+                    calls.append(f"    {row}.size = saved_{symbol};\n")
     return (
         '#include "trick/attributes.h"\n#include <stdexcept>\n'
         + "".join(declarations)
         + "void verify_metadata_linkage() {\n"
+        + "".join(preflight)
         + "".join(calls)
         + "}\n"
     )
@@ -243,6 +281,7 @@ def capture(
     *,
     source_name: str = "legacy.cpp",
     compile_flags: tuple[str, ...] = (),
+    link_flags: tuple[str, ...] = (),
 ) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -266,7 +305,9 @@ def capture(
     ]
     if case["id"] == "anonymous-enum":
         sources.append(ROOT / "test/SIM_anon_enum/models/starter.cpp")
-    evidence = execute(sources, output, compiler, compile_flags=compile_flags)
+    evidence = execute(
+        sources, output, compiler, compile_flags=compile_flags, link_flags=link_flags
+    )
     validate(document, report, evidence["observations"])
     result_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
     return evidence

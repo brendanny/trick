@@ -787,9 +787,22 @@ and six fields, adding the nested `Foo<int>` and `Foo<double[2]>` leaves. Runtim
 checks assign nonzero nested values through MemoryManager, mutate them and require
 checkpoint restoration, retaining the existing opaque-SWIG observation.
 
-Next characterize and emit structured template-member rows and their attribute
-registration dependencies, then widen template/STL emission through the existing
-independent and configured runtime gates. Cross-file root ordering, namespaces,
+Policy v8 / emitter v7 add structured template rows and their transitive by-value
+dependency closure. A parent request includes and deduplicates its child tables.
+Rows retain cached first-use names and begin with zero size/null attributes;
+guarded initialization calls the real MemoryManager to resolve exported child
+sizes, tables and initializers. Complete legacy/candidate sources compile on every
+compiler lane. A configured native comparison links each source separately to
+actual Trick archives and checks five tables, eight fields, nine I/O exclusions,
+initial state, child pointer identity and repeated initialization. Five deliberate
+registration/export/guard mutations must fail at their intended runtime/link stage.
+The configured simulation now replaces the structured parent alongside its four
+previous scalar/array tables and repeats nonzero nested checkpoint restoration.
+Facts v12, existing fixture headers and immutable snapshots remain unchanged.
+
+Next characterize template enum arguments/member rows and pointer/reference
+storage, then widen template/STL emission through the existing independent and
+configured runtime gates. Cross-file root ordering, namespaces,
 non-type/default/pack arguments and template registries remain separate work.
 Broader scalar/qualified/structured fields and general annotation policy remain
 separate coverage extensions.

@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-6"
+VERSION = "scalar-metadata-emitter-7"
 
 
 def literal(value: str) -> str:
@@ -144,6 +144,8 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
             alias,
             {d["declaration_id"]: d for d in instance["fields"]},
         ))
+    if any(i["dependency_record_ids"] for i in resolved["template_instances"]):
+        chunks.append('#include "trick/MemoryManager.hh"\n')
     # A stable order independent of the supplied declaration-array ordering.
     for node, meta, name, field_decisions in sorted(
         work, key=lambda item: item[1]["symbol"]
@@ -199,7 +201,7 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                     "ICG_EMIT_INIT",
                     f"friend declaration conflicts with the generated init signature: {name}",
                 )
-        rows, checks, units = [], [], []
+        rows, checks, units, registrations = [], [], [], []
         for identifier in node["field_ids"]:
             decision = field_decisions[identifier]
             if decision["decision"] != "include":
@@ -243,6 +245,12 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                     checks.append(
                         f'    static_assert(std::is_same<decltype(::{name}::{field["name"]}), {storage["cpp_type"]}>::value, "ICG field type mismatch");\n'
                     )
+            structured = storage["trick_type"] == "TRICK_STRUCTURED"
+            if structured:
+                row = f"attr{symbol}[{len(rows)}]"
+                registrations.append(
+                    f"    trick_MM->add_attr_info(std::string({row}.type_name), &{row}, __FILE__, __LINE__);\n"
+                )
             rows.append(
                 attribute(
                     name=field["name"],
@@ -252,7 +260,9 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                     io=annotation["io"],
                     mods=annotation["mods"],
                     kind=storage["trick_type"],
-                    size="4" if width else f"sizeof({spelling})",
+                    size="0"
+                    if structured
+                    else ("4" if width else f"sizeof({spelling})"),
                     offset=offset,
                     width=width,
                     shift=shift,
@@ -274,7 +284,17 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                 ("inline " if namespace["inline"] else "")
                 + f"namespace {namespace['name']} {{\n"
             )
-        chunks.append(f"void init_attr{symbol}() {{\n" + "".join(checks) + "}\n")
+        initialization = ""
+        if registrations:
+            # Match legacy initialization before recursive MemoryManager lookup.
+            initialization = (
+                "    static bool initialized = false;\n"
+                "    if (initialized) return;\n"
+                "    initialized = true;\n" + "".join(registrations)
+            )
+        chunks.append(
+            f"void init_attr{symbol}() {{\n" + "".join(checks) + initialization + "}\n"
+        )
         chunks.extend("}\n" for _ in namespaces)
         chunks.append(
             'extern "C" {\n'

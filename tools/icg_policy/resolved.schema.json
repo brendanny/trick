@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 7
+      "const": 8
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-7"
+      "const": "scalar-metadata-8"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-7"
+          "const": "scalar-metadata-8"
         },
         "template_field_ids": {
           "type": "array",
@@ -465,6 +465,9 @@
                       },
                       {
                         "$ref": "#/$defs/field_storage"
+                      },
+                      {
+                        "$ref": "#/$defs/structured_storage"
                       }
                     ]
                   },
@@ -518,7 +521,8 @@
           "init_function",
           "fields",
           "requested_field_ids",
-          "dependency_path"
+          "dependency_path",
+          "dependency_record_ids"
         ],
         "properties": {
           "field_id": {
@@ -560,7 +564,7 @@
           },
           "requested_field_ids": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 0,
             "uniqueItems": true,
             "items": {
               "type": "string",
@@ -575,14 +579,22 @@
               "type": "string",
               "pattern": "^decl:[a-f0-9]{64}$"
             }
+          },
+          "dependency_record_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^decl:[a-f0-9]{64}$"
+            }
           }
         }
       }
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v7.schema.json",
-  "title": "Bounded legacy metadata, lifecycle and template-use policy v7",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v8.schema.json",
+  "title": "Bounded legacy metadata, lifecycle and template-use policy v8",
   "$defs": {
     "source": {
       "type": "object",
@@ -945,6 +957,48 @@
               ]
             }
           }
+        }
+      }
+    },
+    "structured_storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "element_type_id",
+        "type_name",
+        "cpp_type",
+        "trick_type",
+        "dimensions",
+        "record_id"
+      ],
+      "properties": {
+        "element_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
+        },
+        "type_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "cpp_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trick_type": {
+          "const": "TRICK_STRUCTURED"
+        },
+        "dimensions": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "record_id": {
+          "type": "string",
+          "pattern": "^decl:[a-f0-9]{64}$"
         }
       }
     }

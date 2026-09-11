@@ -1,4 +1,4 @@
-// Native observations for the audited scalar, array and enum metadata fixtures.
+// Native observations for the audited scalar, array, enum and structured metadata fixtures.
 // Include after the unmodified, materialized legacy translation unit.
 #include <climits>
 #include <cstring>
@@ -42,6 +42,7 @@ namespace probe
             size_t width;
             std::vector<size_t> dimensions;
             size_t total_size;
+            const void* attributes = nullptr;
     };
 
     template <typename Value, size_t... I> Field member(const char* name, size_t offset, std::index_sequence<I...>)
@@ -57,6 +58,13 @@ namespace probe
     template <typename Value> Field member(const char* name, size_t offset)
     {
         return member<Value>(name, offset, std::make_index_sequence<std::rank<Value>::value> {});
+    }
+
+    template <typename Value> Field structured_member(const char* name, size_t offset, const ATTRIBUTES* attributes)
+    {
+        auto field       = member<Value>(name, offset);
+        field.attributes = attributes;
+        return field;
     }
 
     inline void dimensions(const std::vector<size_t>& values)
@@ -111,6 +119,8 @@ namespace probe
             return "TRICK_UNSIGNED_INTEGER";
         case TRICK_DOUBLE:
             return "TRICK_DOUBLE";
+        case TRICK_STRUCTURED:
+            return "TRICK_STRUCTURED";
         case TRICK_UNSIGNED_BITFIELD:
             return "TRICK_UNSIGNED_BITFIELD";
         default:
@@ -118,13 +128,13 @@ namespace probe
         }
     }
 
-    inline void defaults(const ATTRIBUTES& row)
+    inline void defaults(const ATTRIBUTES& row, const void* attributes = nullptr)
     {
         require(row.name && row.type_name && row.units && row.alias && row.user_defined && row.des,
                 "null ATTRIBUTES string");
         require(!*row.alias && !*row.user_defined && row.io > 0 && row.io <= 15 && row.range_min == 0
                     && row.range_max == 0 && row.language == Language_CPP && (row.mods == 0 || row.mods == 4)
-                    && !row.attr && row.num_index >= 0 && row.num_index <= TRICK_MAX_INDEX
+                    && row.attr == attributes && row.num_index >= 0 && row.num_index <= TRICK_MAX_INDEX
                     && row.stl_type == TRICK_STL_UNKNOWN && row.stl_elem_type == TRICK_NUMBER_OF_TYPES
                     && !row.stl_elem_type_name && !row.checkpoint_stl && !row.post_checkpoint_stl && !row.restore_stl
                     && !row.clear_stl && !row.get_stl_size && !row.get_stl_element && !row.set_stl_element,
@@ -161,7 +171,7 @@ namespace probe
         for (size_t i = 0; i + 1 < N; ++i)
         {
             const auto& row = rows[i];
-            defaults(row);
+            defaults(row, fields[i].attributes);
             require(*row.name, "premature compiled ATTRIBUTES sentinel");
             if (i)
                 std::cout << ',';

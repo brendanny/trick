@@ -1,4 +1,4 @@
-"""First-use metadata for bounded, reachable scalar/array template tables.
+"""First-use metadata for bounded, reachable scalar/array/structured template tables.
 
 Types and arguments are followed by graph IDs; only the legacy ABI spelling is
 rendered here. Dependent patterns never become runtime tables of their own.
@@ -177,40 +177,88 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
             )
         requested.setdefault(reached[field_id], []).append(field_id)
 
-    instances, symbols, unit_values = [], set(), {}
-    for record_id, requested_fields in requested.items():
-        path = first_uses[record_id]
-        field_id = path[-1]
-        use = nodes[field_id]
-        owner = nodes[use["semantic_parent_id"]]
-        record = nodes[record_id]
-        primary = primary_for(record)
-        arguments = []
-        for arg in record["template_arguments"]:
-            if arg["kind"] != "type":
-                fail("template argument is outside the scalar/array type profile")
-            arguments.append(
-                storage.resolve(
-                    dict(
-                        type_id=arg["type_id"],
-                        name="argument",
-                        qualified_name=record["qualified_name"],
-                        bitfield=False,
-                    ),
-                    types,
-                )["cpp_type"]
+    def shape(type_id: str) -> tuple[dict, list[int]]:
+        node = types[types[type_id]["canonical_id"]]
+        dimensions = []
+        while node["kind"] == "array":
+            if node["extent"] is None or not 1 <= int(node["extent"]) <= 2147483647:
+                fail("template storage requires positive fixed array extents")
+            dimensions.append(int(node["extent"]))
+            if len(dimensions) > 8:
+                fail("template storage exceeds TRICK_MAX_INDEX")
+            node = types[types[node["element_id"]]["canonical_id"]]
+        if any(node["qualifiers"].values()):
+            fail("template storage requires unqualified types")
+        return node, dimensions
+
+    def cpp_type(type_id: str) -> str:
+        node, dimensions = shape(type_id)
+        if node["kind"] == "record":
+            name = record_cpp(nodes[node["declaration_id"]])
+        else:
+            name = storage.resolve(
+                dict(
+                    type_id=node["id"],
+                    name="argument",
+                    qualified_name="template argument",
+                    bitfield=False,
+                ),
+                types,
+            )["cpp_type"]
+        return name + "".join(f"[{extent}]" for extent in dimensions)
+
+    spellings = {}
+
+    def record_cpp(record: dict) -> str:
+        if record["id"] not in spellings:
+            primary = primary_for(record)
+            if any(a["kind"] != "type" for a in record["template_arguments"]):
+                fail("template argument is outside the type profile")
+            spellings[record["id"]] = (
+                identifier(primary)
+                + "<"
+                + ", ".join(
+                    cpp_type(a["type_id"]) for a in record["template_arguments"]
+                )
+                + ">"
             )
-        cpp_type = identifier(primary) + "<" + ", ".join(arguments) + ">"
+        return spellings[record["id"]]
+
+    symbols = {}
+
+    def symbol_for(record: dict) -> str:
+        if record["id"] not in first_uses:
+            fail("structured dependency has no active first-use evidence")
+        use = nodes[first_uses[record["id"]][-1]]
+        owner = nodes[use["semantic_parent_id"]]
         symbol = (
             identifier(owner)
             + "_"
             + identifier(use)
             + "_"
-            + re.sub(r"[^A-Za-z0-9_]", "_", cpp_type)
+            + re.sub(r"[^A-Za-z0-9_]", "_", record_cpp(record))
         )
-        if symbol in symbols:
+        if symbol in symbols and symbols[symbol] != record["id"]:
             fail("legacy template symbol collision")
-        symbols.add(symbol)
+        symbols[symbol] = record["id"]
+        return symbol
+
+    instances, pending, unit_values = {}, set(), {}
+
+    def include(record_id: str) -> None:
+        if record_id in instances:
+            return
+        if record_id in pending:
+            fail("recursive by-value template storage is not supported")
+        pending.add(record_id)
+        record = nodes[record_id]
+        primary = primary_for(record)
+        if not 0 < int(record["size_bits"]) <= 2147483647 * 8:
+            fail("template element size must fit positive ATTRIBUTES.size")
+        path = first_uses[record_id]
+        name = record_cpp(record)
+        symbol = symbol_for(record)
+        dependencies = set()
         fields = []
         for member_id in record["field_ids"]:
             member = nodes[member_id]
@@ -220,7 +268,24 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
                 fail("template member access requires a public field")
             if included and (member["bitfield"] or member["static"]):
                 fail("template bitfield/static emission is not characterized")
-            key = cpp_type + "_" + identifier(member)
+            key = name + "_" + identifier(member)
+            member_storage = None
+            if included:
+                element, dimensions = shape(member["type_id"])
+                if element["kind"] == "record":
+                    child = nodes[element["declaration_id"]]
+                    member_storage = dict(
+                        element_type_id=element["id"],
+                        record_id=child["id"],
+                        type_name=symbol_for(child),
+                        cpp_type=cpp_type(member["type_id"]),
+                        trick_type="TRICK_STRUCTURED",
+                        dimensions=dimensions,
+                    )
+                    dependencies.add(child["id"])
+                    include(child["id"])
+                else:
+                    member_storage = storage.resolve(member, types)
             if included:
                 if key in unit_values and unit_values[key] != value["units"]:
                     fail("legacy template UnitsMap key collision")
@@ -246,23 +311,26 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
                             legacy_prefix_indices=[],
                             compatibility=None,
                         ),
-                        storage=storage.resolve(member, types) if included else None,
+                        storage=member_storage,
                         units_map_key=key,
                     ),
                 )
             )
-        instances.append(
-            dict(
-                field_id=field_id,
-                requested_field_ids=sorted(requested_fields),
-                dependency_path=path,
-                record_id=record["id"],
-                primary_template_id=primary["id"],
-                argument_type_ids=[a["type_id"] for a in record["template_arguments"]],
-                cpp_type=cpp_type,
-                symbol=symbol,
-                init_function="init_attr" + symbol,
-                fields=fields,
-            )
+        instances[record_id] = dict(
+            field_id=path[-1],
+            requested_field_ids=sorted(requested.get(record_id, [])),
+            dependency_path=path,
+            dependency_record_ids=sorted(dependencies),
+            record_id=record_id,
+            primary_template_id=primary["id"],
+            argument_type_ids=[a["type_id"] for a in record["template_arguments"]],
+            cpp_type=name,
+            symbol=symbol,
+            init_function="init_attr" + symbol,
+            fields=fields,
         )
-    return sorted(instances, key=lambda instance: instance["symbol"])
+        pending.remove(record_id)
+
+    for record_id in requested:
+        include(record_id)
+    return sorted(instances.values(), key=lambda instance: instance["symbol"])

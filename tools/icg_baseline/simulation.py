@@ -254,10 +254,10 @@ def capture(args: argparse.Namespace) -> int:
         facts = None
         if case_id in ("memorymanager", "templates"):
             import memorymanager
-            import template_metadata
+            import template_structured
 
             candidate_module = (
-                memorymanager if case_id == "memorymanager" else template_metadata
+                memorymanager if case_id == "memorymanager" else template_structured
             )
             facts = candidate_module.extract(args.extractor, root, output)
             report["extractor_sha256"] = b.digest(args.extractor.read_bytes())
@@ -274,9 +274,25 @@ def capture(args: argparse.Namespace) -> int:
                 for name in (
                     ("memorymanager.py", "lifecycle.py")
                     if case_id == "memorymanager"
-                    else ("template_metadata.py", "native.py", "native_probe.hh")
+                    else (
+                        "template_metadata.py",
+                        "template_structured.py",
+                        "native.py",
+                        "native_probe.hh",
+                    )
                 )
             }
+            if case_id == "templates":
+                compiler_name = env.get("TRICK_CXX", "g++")
+                compiler = shutil.which(compiler_name)
+                if compiler is None:
+                    raise b.BaselineError("configured C++ compiler not found")
+                report["structured_native"] = template_structured.check(
+                    json.loads(facts.read_text()),
+                    root,
+                    output / "structured-native",
+                    Path(compiler).absolute(),
+                )
         for label in ("cold", "warm", "forced", "rebuilt"):
             # trick-CP forwards unrecognized arguments to the S_define parser.
             # Parallelism belongs in MAKEFLAGS; named targets go to Make.

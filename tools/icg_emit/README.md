@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v7,
+This standalone development backend consumes **facts v12, resolved policy v8,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -129,8 +129,9 @@ This is a test overlay, not production ICG/build integration.
 
 ## Template-member metadata
 
-Emitter v6 accepts `outputs=["template-attributes"]` with explicit containing
-field IDs. It emits the selected specialization's scalar/array table, sentinel,
+Emitter v7 accepts `outputs=["template-attributes"]` with explicit containing
+field IDs. It emits each selected specialization and its structured dependency
+closure: scalar/array/structured tables, sentinels,
 initializer/C wrapper, size function and UnitsMap entries. It uses resolved
 first-use symbols and type spellings; a generated C++ alias makes native `offsetof`
 checks safe for template types containing commas. Selection and limits are in the
@@ -162,8 +163,28 @@ a candidate table and requires link failure; a changed-offset control proves the
 containing record sees the candidate. Policy mutations with recomputed hashes and
 emitted dimension/offset/UnitsMap/symbol mutations must fail separate checks.
 
-These fragments do not emit containing-record tables, template lifecycle helpers,
-STL callbacks or template registries. Other template and enum tables, lifecycle,
+Structured template fields start with `size=0` and `attr=NULL`, as in legacy ICG.
+Their type-name strings use the child's cached first-use symbol. The guarded
+initializer calls the real `MemoryManager::add_attr_info` for each structured row,
+which finds the exported size, table and C initializer and recursively initializes
+the child. The guard is set before lookup and preserves legacy repeated-call
+behavior. Generated static assertions check native structured size, offset and
+array shape independently of that dynamic initialization.
+
+The configured [structured comparison](../icg_baseline/template_structured.py)
+adds the outer `TTT1<Foo<int>, Foo<double[2]>[3]>` table. It compiles complete legacy
+and candidate sources in separate executables linked to actual Trick archives.
+Native checks cover five tables, eight fields, nine I/O exclusions, zero/null
+preinitialization state, resolved child sizes/pointers and initialization guards.
+Missing registration, wrong child lookup, premature size initialization, an absent
+guard and a missing child export must fail at the expected runtime/link stage.
+The simulation overlay replaces all five tables and repeats nonzero nested
+checkpoint restoration through MemoryManager. Every compiler lane additionally
+compiles both complete structured sources; the linked MemoryManager comparison is
+currently the configured Linux lane.
+
+These fragments do not emit ordinary containing-record tables, template lifecycle
+helpers, STL callbacks or global template registries. Other metadata, lifecycle,
 registration and bindings in the configured simulation remain legacy-generated.
 
 ## Failure and incremental behavior

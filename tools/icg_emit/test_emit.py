@@ -25,6 +25,7 @@ import lifecycle_codegen  # noqa: E402
 import memorymanager  # noqa: E402
 import native  # noqa: E402
 import template_metadata  # noqa: E402
+import template_structured  # noqa: E402
 
 from tools.icg_emit import emit  # noqa: E402
 from tools.icg_policy import cases, resolve, rules, template_characterize  # noqa: E402
@@ -220,6 +221,68 @@ if (rows[1].num_index != 2 || rows[1].index[0].size != 2 || rows[1].index[1].siz
             with self.assertRaises(rules.PolicyError):
                 resolve.resolve(facts, changed)
 
+    def test_template_structured_closure_and_compiled_layout(self):
+        facts = json.loads(
+            template_metadata.extract(EXTRACTOR, ROOT, self.work).read_text()
+        )
+        model, candidate = template_structured.generate(facts, self.work / "generated")
+        instances = {i["cpp_type"]: i for i in model["template_instances"]}
+        self.assertEqual(set(instances), set(template_structured.BINDINGS))
+        parent = instances[template_structured.OUTER]
+        children = [instances[name] for name in ("Foo<int>", "Foo<double[2]>")]
+        self.assertEqual(
+            parent["dependency_record_ids"], sorted(c["record_id"] for c in children)
+        )
+        self.assertTrue(all(c["requested_field_ids"] == [] for c in children))
+        included = [d for d in parent["fields"] if d["decision"] == "include"]
+        for field, child in zip(included, children, strict=True):
+            self.assertEqual(
+                field["metadata"]["storage"]["record_id"], child["record_id"]
+            )
+            self.assertEqual(field["metadata"]["storage"]["type_name"], child["symbol"])
+        # Compile complete legacy and candidate sources on every compiler lane.
+        # The configured gate links both to the real MemoryManager and runs them.
+        for name, source in (
+            ("legacy", template_structured.reference()),
+            ("candidate", candidate),
+        ):
+            cpp = self.work / (name + ".cpp")
+            cpp.write_text(source)
+            process = subprocess.run(
+                [
+                    str(COMPILER),
+                    "-std=c++17",
+                    "-Wall",
+                    "-Wextra",
+                    "-Werror",
+                    "-I" + str(ROOT / "include"),
+                    "-c",
+                    str(cpp),
+                    "-o",
+                    str(cpp.with_suffix(".o")),
+                ],
+                capture_output=True,
+                env=self.env,
+            )
+            self.assertEqual(process.returncode, 0, process.stderr.decode())
+        request = model["request"]
+        for mutate in (
+            lambda m: m["template_instances"].pop(0),
+            lambda m: m["template_instances"][-1].update(dependency_record_ids=[]),
+            lambda m: m["template_instances"][-1]["fields"][0]["metadata"][
+                "storage"
+            ].update(type_name="wrong_child"),
+            lambda m: m["template_instances"][-1]["fields"][0]["metadata"][
+                "storage"
+            ].update(record_id=parent["record_id"]),
+        ):
+            changed = deepcopy(model)
+            mutate(changed)
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                emit.write(facts, request, changed, self.work / "forbidden.cpp")
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
     def test_template_policy_mutations_require_exact_replay(self):
         facts = json.loads(
             template_metadata.extract(EXTRACTOR, ROOT, self.work).read_text()
@@ -252,7 +315,9 @@ if (rows[1].num_index != 2 || rows[1].index[0].size != 2 || rows[1].index[1].siz
         prefix = "template<class T> struct Box { T value; };\n"
         for source in (
             prefix + "struct Model { Box<int*> chosen; };",
-            prefix + "struct Model { Box<Box<int>> chosen; };",
+            prefix + "struct Value { int x; }; struct Model { Box<Value> chosen; };",
+            prefix
+            + "template<class T> struct Huge { T values[536870912]; }; struct Model { Box<Huge<int>> chosen; };",
             prefix + "struct Model { const Box<int> chosen; };",
             prefix
             + "class Model { Box<int> chosen; public: int get() const { return chosen.value; } };",

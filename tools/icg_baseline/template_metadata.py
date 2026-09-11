@@ -88,7 +88,7 @@ def blocks(source: str, symbols: set[str]) -> dict[str, str]:
     return result
 
 
-def reference(root: Path = d.ROOT) -> str:
+def reference(root: Path = d.ROOT, *, symbols: set[str] = SYMBOLS) -> str:
     provenance = json.loads((d.REFERENCE / "provenance.json").read_text())
     for name in INPUTS:
         if b.digest((root / name).read_bytes()) != provenance["source_sha256"][name]:
@@ -105,12 +105,12 @@ def reference(root: Path = d.ROOT) -> str:
     return (
         '#define TRICK_IN_IOSRC\n#include <stdlib.h>\n#include "trick/attributes.h"\n#include "trick/UnitsMap.hh"\n'
         f'#include "{root / INPUTS[0]}"\n'
-        + "\n".join(blocks(original, SYMBOLS).values())
+        + "\n".join(blocks(original, symbols).values())
         + "\n"
     )
 
 
-def request_for(facts: dict) -> dict:
+def request_for(facts: dict, bindings: dict = BINDINGS) -> dict:
     fields = {
         n["qualified_name"]: n["id"]
         for n in facts["declarations"]
@@ -120,21 +120,29 @@ def request_for(facts: dict) -> dict:
         facts,
         outputs=["template-attributes"],
         template_field_ids=sorted(
-            fields[binding["field"]] for binding in BINDINGS.values()
+            fields[binding["field"]] for binding in bindings.values()
         ),
     )
 
 
-def generate(facts: dict, output: Path) -> tuple[dict, str]:
+def generate(
+    facts: dict,
+    output: Path,
+    *,
+    bindings: dict = BINDINGS,
+    request_bindings: dict | None = None,
+) -> tuple[dict, str]:
     output.mkdir(parents=True, exist_ok=True)
-    request = request_for(facts)
+    request = request_for(
+        facts, bindings if request_bindings is None else request_bindings
+    )
     model = resolve.resolve(facts, request)
     for name, value in (("request", request), ("resolved", model)):
         (output / f"{name}.json").write_bytes(b.json_bytes(value))
     path = output / "candidate.cpp"
     emit.write(facts, request, model, path)
     actual = {i["cpp_type"]: i["symbol"] for i in model["template_instances"]}
-    if actual != {name: binding["symbol"] for name, binding in BINDINGS.items()}:
+    if actual != {name: binding["symbol"] for name, binding in bindings.items()}:
         raise b.BaselineError("resolved template symbols differ from captured bindings")
     return model, path.read_text()
 
@@ -248,9 +256,16 @@ def overlay(original: str, candidate: str, symbols: set[str]) -> str:
     return "".join(declarations) + original + "\n" + MARKER + "\n" + candidate
 
 
-def install_candidate(facts_path: Path, sim: Path, output: Path) -> tuple[Path, str]:
+def install_candidate(
+    facts_path: Path,
+    sim: Path,
+    output: Path,
+    *,
+    generator=generate,
+    symbols: set[str] = SYMBOLS,
+) -> tuple[Path, str]:
     output.mkdir(parents=True, exist_ok=False)
-    model, candidate = generate(json.loads(facts_path.read_text()), output)
+    model, candidate = generator(json.loads(facts_path.read_text()), output)
     sources = [
         p
         for p in (sim / "build").rglob("io_*.cpp")
@@ -261,7 +276,7 @@ def install_candidate(facts_path: Path, sim: Path, output: Path) -> tuple[Path, 
         raise b.BaselineError("expected one generated template source for the overlay")
     target = sources[0]
     original = target.read_text()
-    replacement = overlay(original, candidate, SYMBOLS)
+    replacement = overlay(original, candidate, symbols)
     (output / "legacy-original.cpp").write_text(original)
     (output / "overlay.cpp").write_text(replacement)
     (output / "overlay.json").write_bytes(
@@ -272,7 +287,7 @@ def install_candidate(facts_path: Path, sim: Path, output: Path) -> tuple[Path, 
                 candidate_sha256=b.digest(candidate.encode()),
                 overlay_sha256=b.digest(replacement.encode()),
                 resolved_digest=model["digest"],
-                symbols=sorted(SYMBOLS),
+                symbols=sorted(symbols),
             )
         )
     )
