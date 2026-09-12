@@ -1,0 +1,2 @@
+build${TRICK_ROOT}/tools/icg_baseline/integers/fixtures/io_Integers.o
+build/class_map.o

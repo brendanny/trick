@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-8"
+VERSION = "scalar-metadata-emitter-9"
 
 
 def literal(value: str) -> str:
@@ -124,6 +124,7 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
         '#error "ICG metadata requires the audited little-endian target"\n#endif\n'
         'static_assert(CHAR_BIT == 8 && sizeof(int) == 4 && sizeof(double) == 8 && sizeof(long) == 8 && sizeof(void*) == 8, "ICG scalar ABI mismatch");\n'
         'static_assert(sizeof(bool) == 1 && sizeof(char) == 1 && sizeof(float) == 4 && std::numeric_limits<float>::is_iec559 && std::numeric_limits<float>::digits == 24, "ICG bool/char/float ABI mismatch");\n'
+        'static_assert(sizeof(short) == 2 && sizeof(long long) == 8 && std::numeric_limits<unsigned long>::digits == 64 && std::numeric_limits<unsigned long long>::digits == 64, "ICG integer ABI mismatch");\n'
     ]
     if "lifecycle" in request["outputs"]:
         chunks.append(lifecycle.PREAMBLE)
@@ -210,6 +211,12 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
             field, annotation = nodes[identifier], decision["metadata"]["annotation"]
             storage = decision["metadata"]["storage"]
             spelling = storage["type_name"]
+            if spelling == "char":
+                # Legacy uses TRICK_UNSIGNED_CHARACTER when plain char is unsigned.
+                # Facts do not yet carry that target property; reject the mismatch.
+                checks.append(
+                    '    static_assert(std::is_signed<char>::value, "ICG plain-char signedness mismatch");\n'
+                )
             if not re.fullmatch(r"[A-Za-z_]\w*", field["name"], re.ASCII):
                 raise PolicyError(
                     "ICG_EMIT_NAME", "field identifier outside the ASCII ABI profile"

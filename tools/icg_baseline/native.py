@@ -27,6 +27,13 @@ KINDS = {
     "unsigned int": "TRICK_UNSIGNED_INTEGER",
     "long": "TRICK_LONG",
     "double": "TRICK_DOUBLE",
+    "signed char": "TRICK_CHARACTER",
+    "unsigned char": "TRICK_UNSIGNED_CHARACTER",
+    "short": "TRICK_SHORT",
+    "unsigned short": "TRICK_UNSIGNED_SHORT",
+    "unsigned long": "TRICK_UNSIGNED_LONG",
+    "long long": "TRICK_LONG_LONG",
+    "unsigned long long": "TRICK_UNSIGNED_LONG_LONG",
 }
 
 

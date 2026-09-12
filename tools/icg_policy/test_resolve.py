@@ -73,7 +73,7 @@ class RuleTests(unittest.TestCase):
                 / "trick_source/codegen/TrickCodeGen/ir/fixtures/minimal-record.json"
             ).read_text()
         )
-        for version in range(9):
+        for version in range(10):
             request = resolve.request_for(facts)
             request["policy_version"] = f"scalar-metadata-{version}"
             with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_REQUEST"):
@@ -330,13 +330,15 @@ class ExtractionTests(unittest.TestCase):
 
     def test_common_scalar_extension_keeps_other_types_and_bitfields_closed(self):
         for field in (
-            "short value;",
-            "signed char value;",
-            "unsigned char value;",
-            "unsigned long value;",
-            "long long value;",
             "long double value;",
             "wchar_t value;",
+            "char16_t value;",
+            "char32_t value;",
+            "__int128 value;",
+            "unsigned __int128 value;",
+            "unsigned short value : 3;",
+            "unsigned long long value : 3;",
+            "const signed char value;",
             "bool value : 1;",
             "char value : 3;",
             "long value : 3;",

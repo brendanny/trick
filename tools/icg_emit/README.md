@@ -1,15 +1,17 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v9,
+This standalone development backend consumes **facts v12, resolved policy v10,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
 
-**Supported scalar field types are exactly `bool`, `char`, `float`, `int`,
-`unsigned int`, `long`, and `double`.** The backend also emits unsigned-int
-bitfields and fixed arrays of those scalars. `short`, explicitly signed/unsigned
-character types, unsigned/wider integer types, and `long double` remain unsupported;
-a required unsupported field fails the request. Separate profiles cover enum
+**The scalar profile supports 14 base types:** `bool`, `char`, `signed char`,
+`unsigned char`, `short`, `unsigned short`, `int`, `unsigned int`, `long`,
+`unsigned long`, `long long`, `unsigned long long`, `float`, and `double`.
+The backend also emits unsigned-int bitfields, fixed arrays and aliases of those
+scalars. `wchar_t`, `char16_t`, `char32_t`, extended integers such as `__int128`,
+and `long double` remain unsupported; a required unsupported field fails the request.
+Separate profiles cover enum
 tables (not enum-valued fields), lifecycle exports, and bounded structured template
 members. Extraction covers more types than generation, so successful facts
 extraction does not establish emitter coverage.
@@ -21,7 +23,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1–v8 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v9 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -52,7 +54,11 @@ them again. Field storage, dimensions and UnitsMap keys are likewise resolved
 explicitly. Generated checks verify the full native field type and that its
 storage fits inside the record. Its target profile is
 little-endian LP64 x86-64/AArch64 Linux or macOS, with eight-bit bytes, 32-bit int,
-one-byte bool/char, IEEE binary32 float, and 64-bit long/double. Bitfields must fit a complete in-object 32-bit storage unit.
+one-byte bool/char, 16-bit short, IEEE binary32 float, and 64-bit long/long long/double.
+Plain `char` fields require signed native `char`: legacy selects a different type
+code on unsigned-char targets, and facts do not yet record that property. A generated
+assertion rejects this mismatch, including arrays/aliases. Explicit `signed char`
+and `unsigned char` remain distinct and do not depend on plain-char signedness. Bitfields must fit a complete in-object 32-bit storage unit.
 For metadata output, non-standard-layout records, wider enum values, unsigned narrow values that legacy
 sign-extends incorrectly, unsafe packed
 bitfields, conflicting init-function signatures, and empty selections are explicit
@@ -139,7 +145,7 @@ This is a test overlay, not production ICG/build integration.
 
 ## Template-member metadata
 
-Emitter v8 accepts `outputs=["template-attributes"]` with explicit containing
+Emitter v9 accepts `outputs=["template-attributes"]` with explicit containing
 field IDs. It emits each selected specialization and its structured dependency
 closure: scalar/array/structured tables, sentinels,
 initializer/C wrapper, size function and UnitsMap entries. It uses resolved
@@ -289,7 +295,17 @@ arrays, character strings and hexadecimal float extremes/subnormals/negative zer
 It requires three runtime mutations to fail at execution. The shared scalar policy
 also has template-table and lifecycle-construction checks on every compiler lane.
 
-Next characterize the remaining integer/character widths and signedness variants,
-then template enum arguments/member rows and pointer/reference storage. General
+The [integer corpus](../icg_baseline/integers/README.md) adds seven signed/unsigned
+integer bases, with two records / 22 fields and three immutable legacy snapshots.
+Ten compiled mutations check every new type code, full-width size, array shape
+and the distinction between plain and signed character spellings. Template-table
+and lifecycle-construction tests cover all seven; live legacy characterization
+checks their cached first-use template names and leaf metadata. Two real MemoryManager decimal
+checkpoint passes cover compact/expanded arrays, signed minima/maxima, unsigned
+high-bit values and full 64-bit maxima. Six runtime controls must reach execution
+and fail value checks. CI regenerates the references and executes the new gate.
+
+Next characterize wide/Unicode character types separately, then template enum
+arguments/member rows and pointer/reference storage. General
 annotations, inheritance, broader template/STL emission, and lifecycle
 exception/ownership handling remain subsequent milestones.

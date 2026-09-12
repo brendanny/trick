@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
 import array_metadata  # noqa: E402
 import differential  # noqa: E402
 import enum_metadata  # noqa: E402
+import integer_metadata  # noqa: E402
 import lifecycle as lifecycle_baseline  # noqa: E402
 import lifecycle_codegen  # noqa: E402
 import memorymanager  # noqa: E402
@@ -682,7 +683,7 @@ if (io_src_allocate_Model(0) || io_src_allocate_Model(-1)) throw std::runtime_er
         report = differential.compare(facts, legacy, case_id)
         return facts, request, model, legacy, report, case
 
-    def compile(self, candidate, body, directory="probe"):
+    def compile(self, candidate, body, directory="probe", *, compile_flags=()):
         work = self.work / directory
         work.mkdir(parents=True, exist_ok=True)
         (work / "candidate.cpp").write_text(candidate)
@@ -698,6 +699,7 @@ if (io_src_allocate_Model(0) || io_src_allocate_Model(-1)) throw std::runtime_er
             ],
             work,
             COMPILER,
+            compile_flags=compile_flags,
         )
 
     def test_candidate_legacy_and_native_agree(self):
@@ -888,6 +890,137 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
         result = array_metadata.capture(EXTRACTOR, self.work, COMPILER)
         self.assertEqual(result["status"], "compared")
         self.assertEqual(sum(len(v) for v in result["records"].values()), 9)
+
+    def test_integer_legacy_candidate_native_gate(self):
+        result = integer_metadata.capture(EXTRACTOR, self.work, COMPILER)
+        self.assertEqual(result["status"], "compared")
+        self.assertEqual(len(result["records"]), 2)
+        self.assertEqual(sum(len(v) for v in result["records"].values()), 22)
+
+    def test_integer_mutations_fail_compiled_comparison(self):
+        case, _ = array_metadata.reference(integer_metadata.HERE)
+        documents = self.extract(ROOT / case["header"])
+        facts = documents[0]
+        report = array_metadata.report_for(facts, integer_metadata.EXPECTED)
+        candidate = emit.render(*documents)
+        for index, (before, after) in enumerate((
+            ("TRICK_CHARACTER,", "TRICK_UNSIGNED_CHARACTER,"),
+            ("TRICK_UNSIGNED_CHARACTER,", "TRICK_CHARACTER,"),
+            ("TRICK_SHORT,", "TRICK_UNSIGNED_SHORT,"),
+            ("TRICK_UNSIGNED_SHORT,", "TRICK_SHORT,"),
+            ("TRICK_UNSIGNED_LONG,", "TRICK_LONG,"),
+            ("TRICK_LONG_LONG,", "TRICK_UNSIGNED_LONG_LONG,"),
+            ("TRICK_UNSIGNED_LONG_LONG,", "TRICK_LONG_LONG,"),
+            (
+                "TRICK_UNSIGNED_LONG_LONG, sizeof(unsigned long long)",
+                "TRICK_UNSIGNED_LONG_LONG, sizeof(unsigned int)",
+            ),
+            ("38, NULL, 2, {{2, 0}, {3, 0}", "38, NULL, 2, {{3, 0}, {2, 0}"),
+            ('"signed_code", "signed char"', '"signed_code", "char"'),
+        )):
+            with self.subTest(mutation=before):
+                self.assertIn(before, candidate)
+                work = self.work / f"mutation-{index}"
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "compiled ATTRIBUTES differs|native field size/offset/width differs",
+                ):
+                    native.capture(
+                        facts,
+                        candidate.replace(before, after, 1),
+                        report,
+                        case,
+                        work,
+                        COMPILER,
+                        source_name="candidate.cpp",
+                    )
+                self.assertFalse((work / "native.json").exists())
+
+    def test_integer_template_tables_preserve_width_and_signedness(self):
+        types = (
+            "signed char",
+            "unsigned char",
+            "short",
+            "unsigned short",
+            "unsigned long",
+            "long long",
+            "unsigned long long",
+        )
+        kinds = (
+            "TRICK_CHARACTER",
+            "TRICK_UNSIGNED_CHARACTER",
+            "TRICK_SHORT",
+            "TRICK_UNSIGNED_SHORT",
+            "TRICK_UNSIGNED_LONG",
+            "TRICK_LONG_LONG",
+            "TRICK_UNSIGNED_LONG_LONG",
+        )
+        source = (
+            "template<class T> struct Box { T value; T values[2]; }; struct Model {"
+        )
+        source += (
+            "".join(f"Box<{kind}> field{index};" for index, kind in enumerate(types))
+            + "};"
+        )
+        candidate = emit.render(
+            *self.model(
+                source,
+                outputs=["template-attributes"],
+                template_fields=[f"Model::field{index}" for index in range(7)],
+            )
+        )
+        checks = []
+        for index, (kind, code) in enumerate(zip(types, kinds, strict=True)):
+            symbol = f"Model_field{index}_Box_{kind.replace(' ', '_')}_"
+            checks.append(f"init_attr{symbol}_c_intf();")
+            for row in (0, 1):
+                checks.append(
+                    f'if (attr{symbol}[{row}].type != {code} || attr{symbol}[{row}].size != sizeof({kind}) || std::string(attr{symbol}[{row}].type_name) != "{kind}") throw std::runtime_error("template integer metadata");'
+                )
+            checks.append(
+                f'if (attr{symbol}[1].num_index != 1 || attr{symbol}[1].index[0].size != 2) throw std::runtime_error("template integer shape");'
+            )
+        self.compile(candidate, "\n".join(checks))
+
+    def test_integer_lifecycle_initialization_preserves_limits(self):
+        candidate = emit.render(
+            *self.model(
+                "struct Model { signed char sc = -128; unsigned char uc = 255; short s = -32768; unsigned short us = 65535; unsigned long ul = ~0UL; long long ll = (-9223372036854775807LL - 1); unsigned long long ull = ~0ULL; };",
+                outputs=[*resolve.OUTPUTS, "lifecycle"],
+            )
+        )
+        self.compile(
+            candidate,
+            """
+    auto* values = static_cast<Model*>(io_src_allocate_Model(2));
+    if (!values) throw std::runtime_error("allocation failed");
+    for (int i = 0; i < 2; ++i) {
+        const auto& v = values[i];
+        if (v.sc != -128 || v.uc != 255 || v.s != -32768 || v.us != 65535 ||
+            v.ul != ~0UL || v.ll != (-9223372036854775807LL - 1) || v.ull != ~0ULL)
+            throw std::runtime_error("integer constructor values");
+    }
+    io_src_destruct_Model(values, 2);
+    free(values);
+    """,
+        )
+
+    def test_plain_char_abi_guard_does_not_conflate_explicit_signedness(self):
+        candidate = emit.render(*self.model("struct Model { char codes[2]; };"))
+        with self.assertRaisesRegex(ValueError, "ICG plain-char signedness mismatch"):
+            self.compile(candidate, "", compile_flags=("-funsigned-char",))
+        candidate = emit.render(
+            *self.model("struct Model { signed char sc; unsigned char uc; };")
+        )
+        self.compile(
+            candidate,
+            """
+    if (attrModel[0].type != TRICK_CHARACTER || attrModel[1].type != TRICK_UNSIGNED_CHARACTER)
+        throw std::runtime_error("explicit character signedness");
+    """,
+            directory="explicit",
+            compile_flags=("-funsigned-char",),
+        )
 
     def test_common_scalar_legacy_candidate_native_gate(self):
         result = scalar_metadata.capture(EXTRACTOR, self.work, COMPILER)

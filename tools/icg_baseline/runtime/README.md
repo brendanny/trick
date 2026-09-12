@@ -261,3 +261,9 @@ capture the minimum stacks and macOS, and select representative medium
 and large/old models. Review and promote stable generated-output references only
 with their actual package/configuration provenance. These two focused simulations
 does not close Phase 0 or establish a performance distribution.
+
+The [integer extension](../integers/README.md) adds a second standalone configured
+MemoryManager gate. `integer_runtime.py` compares two records / 22 fields at
+signed and unsigned boundaries in compact and expanded checkpoints, including
+full 64-bit unsigned maxima. It reuses the scalar runner and adds six independent
+runtime mutations. It does not modify the three simulation models above.

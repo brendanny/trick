@@ -13,11 +13,13 @@ specified independently in `scalar_metadata.py`.
 | `float` | `TRICK_FLOAT` | 4 bytes, IEEE binary32 |
 | `long` | `TRICK_LONG` | 8 bytes on the existing LP64 target profile |
 
-Plain `char` retains its native platform signedness; it is distinct from
-`signed char` and `unsigned char`, which remain unsupported. Other uncharacterized
+This corpus uses signed native plain `char`. The emitter now rejects plain-char
+fields on unsigned-char targets because facts do not yet encode that distinction.
+Explicit `signed char` and `unsigned char` are covered separately in the
+[integer corpus](../integers/README.md). Other uncharacterized
 builtins, qualified or pointer/reference fields, and bitfields with bases other
-than `unsigned int` still fail. This increment changes resolved policy to v9 and
-the emitter to v8; facts remain v12.
+than `unsigned int` still fail. This corpus was introduced with resolved policy v9 and
+emitter v8; facts remain v12. The integer extension advances policy/emitter to v10/v9.
 
 ## Independent metadata and failure controls
 

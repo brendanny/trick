@@ -1,0 +1,154 @@
+  <class name="IntegerModel">
+    <member
+      name="signed_code"
+      type="signed char"
+      io_attributes="15"
+      units="1"
+      description="signed code">
+    </member>
+    <member
+      name="byte"
+      type="unsigned char"
+      io_attributes="15"
+      units="1"
+      description="byte">
+    </member>
+    <member
+      name="small"
+      type="short"
+      io_attributes="15"
+      units="m"
+      description="small">
+    </member>
+    <member
+      name="small_count"
+      type="unsigned short"
+      io_attributes="15"
+      units="1"
+      description="small count">
+    </member>
+    <member
+      name="count"
+      type="unsigned long"
+      io_attributes="15"
+      units="1"
+      description="count">
+    </member>
+    <member
+      name="wide"
+      type="long long"
+      io_attributes="15"
+      units="m"
+      description="wide">
+    </member>
+    <member
+      name="wide_count"
+      type="unsigned long long"
+      io_attributes="15"
+      units="1"
+      description="wide count">
+    </member>
+    <member
+      name="signed_codes"
+      type="signed char"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="bytes"
+      type="unsigned char"
+      io_attributes="15"
+      units="1">
+      <dimension>3</dimension>
+    </member>
+    <member
+      name="smalls"
+      type="short"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>3</dimension>
+    </member>
+    <member
+      name="small_counts"
+      type="unsigned short"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="counts"
+      type="unsigned long"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="wides"
+      type="long long"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="wide_counts"
+      type="unsigned long long"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="icg_integer__Aliases">
+    <member
+      name="signed_code"
+      type="signed char"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="byte"
+      type="unsigned char"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="small"
+      type="short"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="small_count"
+      type="unsigned short"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="count"
+      type="unsigned long"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="wide"
+      type="long long"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="wide_count"
+      type="unsigned long long"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="wide_counts"
+      type="unsigned long long"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+  </class>
+

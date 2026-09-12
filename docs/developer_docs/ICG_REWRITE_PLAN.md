@@ -814,8 +814,22 @@ long truncation, disabled boolean checkpoint permissions, and omitted restoratio
 Native observations and checkpoint bytes must match between separate legacy and
 candidate executables. Facts v12 and all earlier references remain unchanged.
 
-Next characterize the remaining integer/character widths and signedness variants,
-then template enum arguments/member rows and pointer/reference storage. Continue
+Policy v10 / emitter v9 add `signed char`, `unsigned char`, `short`,
+`unsigned short`, `unsigned long`, `long long`, and `unsigned long long` to the
+shared field, array, alias, template and lifecycle profile, bringing it to 14
+scalar bases. A separate [integer corpus](../../tools/icg_baseline/integers/README.md)
+captures three legacy snapshots for two records / 22 fields. Independent native
+comparisons and ten compiled mutations cover signedness codes, widths, array
+shape and character spelling. Two real MemoryManager checkpoint passes cover
+compact/expanded arrays, signed minima/maxima, unsigned high-bit values and full
+64-bit maxima; six runtime controls must fail value restoration. Short/long-long
+ABI assertions are emitted. Plain-char fields reject unsigned native char because
+facts do not yet encode the property that selects legacy's character type code;
+explicit signed/unsigned character fields remain distinct. Facts v12, production
+ICG and earlier fixture/reference bytes remain unchanged.
+
+Next characterize wide/Unicode character storage separately, then template enum
+arguments/member rows and pointer/reference storage. Continue
 requiring independent legacy/native comparisons, ABI checks and runtime round
 trips; adding names to `KINDS` alone is insufficient.
 Then widen template/STL emission through the existing independent and configured

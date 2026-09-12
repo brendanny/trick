@@ -13,6 +13,8 @@ on:
       - 'tools/icg_baseline/array_metadata.py'
       - 'tools/icg_baseline/scalar_metadata.py'
       - 'tools/icg_baseline/scalars/**'
+      - 'tools/icg_baseline/integer_metadata.py'
+      - 'tools/icg_baseline/integers/**'
       - 'tools/icg_baseline/template_metadata.py'
       - 'tools/icg_baseline/template_structured.py'
       - 'tools/icg_baseline/arrays/**'
@@ -41,6 +43,8 @@ on:
       - 'tools/icg_baseline/array_metadata.py'
       - 'tools/icg_baseline/scalar_metadata.py'
       - 'tools/icg_baseline/scalars/**'
+      - 'tools/icg_baseline/integer_metadata.py'
+      - 'tools/icg_baseline/integers/**'
       - 'tools/icg_baseline/template_metadata.py'
       - 'tools/icg_baseline/template_structured.py'
       - 'tools/icg_baseline/arrays/**'
@@ -187,6 +191,13 @@ jobs:
             --extractor build/icg-extract/trick-icg-extract \
             --compiler "$(command -v g++)" \
             --output build/icg-evidence/scalars
+      - name: Compare integer width and signedness metadata with legacy and native layout
+        if: matrix.os == 'ubuntu-24.04' && matrix.llvm == 17 && matrix.python == '3.11'
+        run: |
+          python tools/icg_baseline/integer_metadata.py \
+            --extractor build/icg-extract/trick-icg-extract \
+            --compiler "$(command -v g++)" \
+            --output build/icg-evidence/integers
       - name: Capture lifecycle symbols, facts, execution, and sanitizer evidence
         if: matrix.os == 'ubuntu-24.04' && matrix.llvm == 17 && matrix.python == '3.11'
         run: |

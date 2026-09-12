@@ -117,6 +117,18 @@ namespace probe
             return "TRICK_BOOLEAN";
         case TRICK_CHARACTER:
             return "TRICK_CHARACTER";
+        case TRICK_UNSIGNED_CHARACTER:
+            return "TRICK_UNSIGNED_CHARACTER";
+        case TRICK_SHORT:
+            return "TRICK_SHORT";
+        case TRICK_UNSIGNED_SHORT:
+            return "TRICK_UNSIGNED_SHORT";
+        case TRICK_UNSIGNED_LONG:
+            return "TRICK_UNSIGNED_LONG";
+        case TRICK_LONG_LONG:
+            return "TRICK_LONG_LONG";
+        case TRICK_UNSIGNED_LONG_LONG:
+            return "TRICK_UNSIGNED_LONG_LONG";
         case TRICK_FLOAT:
             return "TRICK_FLOAT";
         case TRICK_LONG:

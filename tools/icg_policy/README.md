@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v9**, not C++, and does not replace production ICG.
+It emits **resolved policy v10**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-9"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-10"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
 `template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
@@ -44,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v9 and policy
-`scalar-metadata-9` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1–v8 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v10 and policy
+`scalar-metadata-10` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1–v9 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -75,15 +75,18 @@ Fixed arrays support at most eight positive extents, each representable by signe
 `INDEX.int`. Incomplete/zero/oversized extents and excessive rank produce
 `ICG_POLICY_ARRAY_EXTENT` or `ICG_POLICY_ARRAY_RANK`.
 
-Policy v9 supports exactly `bool`, `char`, `float`, `int`, `unsigned int`, `long`,
-and `double` field bases and aliases/fixed arrays of those bases. The emitter
-checks the existing little-endian LP64 ABI, one-byte bool/char and IEEE binary32
-float. Plain `char` follows native signedness; signed/unsigned character types,
-`short`, unsigned/wider integers, `long double`, qualifiers and pointer/reference
-fields remain unsupported. Only unsigned-int bitfields are characterized.
-The [scalar corpus](../icg_baseline/scalars/README.md) records independent legacy,
-native and configured MemoryManager evidence; this wider field set also applies
-to the existing bounded lifecycle and template profiles.
+Policy v10 supports `bool`, `char`, `signed char`, `unsigned char`, `short`,
+`unsigned short`, `int`, `unsigned int`, `long`, `unsigned long`, `long long`,
+`unsigned long long`, `float`, and `double` field bases, with aliases and fixed
+arrays. These 14 types share the bounded lifecycle and template storage policy.
+The emitter checks the little-endian LP64 ABI, 16-bit short, 64-bit long long,
+one-byte bool/char and IEEE binary32 float. Plain `char` fields require signed
+native `char`; explicit signed/unsigned character types retain their own spellings
+and legacy type codes. The [scalar](../icg_baseline/scalars/README.md) and
+[integer](../icg_baseline/integers/README.md) corpora provide independent legacy,
+native and real MemoryManager evidence. Wide/Unicode character types, extended
+integers, `long double`, qualifiers and pointer/reference fields remain
+unsupported. Only unsigned-int bitfields are characterized.
 
 The [array corpus](../icg_baseline/arrays/README.md) also establishes the legacy
 UnitsMap key convention: enclosing records joined by `__`, followed by `_field`,
@@ -170,7 +173,7 @@ operation and reject wrong-name, wrong-overload, and exception-specification cas
 These permissions do not grant lifecycle/STL/binding operations access.
 
 The profile covers complete named non-template records without bases, named enums,
-and unqualified `int`, `unsigned int`, and `double` fields, fixed arrays of those
+and the 14 unqualified scalar field bases listed above, fixed arrays of those
 types, their scalar/array aliases, and unsigned-int bitfields. Qualified elements,
 pointer/reference and structured/enum arrays remain outside this policy.
 Explicit zero-I/O fields can be omitted before type-policy checks.
@@ -236,7 +239,7 @@ and all captured legacy references remain unchanged.
 
 ## Explicit template-member requests
 
-Policy v9 supports the separate `outputs: ["template-attributes"]` profile. Supply
+Policy v10 supports the separate `outputs: ["template-attributes"]` profile. Supply
 sorted, unique, nonempty `template_field_ids` identifying the exact containing
 fields to generate. Other output profiles require an empty list. Existing
 metadata requests still reject template records; this opt-in generates fragments,
@@ -257,7 +260,7 @@ retains the sorted explicit requests (empty for automatic dependencies), and
 `dependency_record_ids` identifies the included structured child tables. Each
 entry also records the concrete record, primary template, argument type IDs,
 C++ spelling, cached legacy symbol,
-initializer and field decisions. Schema v9 requires exact replay of this evidence.
+initializer and field decisions. Schema v10 requires exact replay of this evidence.
 
 Traversal starts with selected global ordinary records whose template fields
 are all in one physical file. Roots and fields follow physical source order,
@@ -272,7 +275,7 @@ from the declaration closure. Traversed definitions must be included by file pol
 
 Requests may select public unqualified objects or fixed arrays, including aliases
 and nested fields reachable through template members. Emitted tables cover
-`bool`, `char`, `float`, `int`, `unsigned int`, `long`, `double`, nested specializations of those templates, and
+the 14 scalar base types listed above, nested specializations of those templates, and
 fixed arrays of supported scalar or structured types; zero-I/O members are omitted
 before storage checks. Structured fields carry the concrete child record/type IDs,
 its cached legacy symbol, C++ storage spelling and dimensions. Emitted element
@@ -304,3 +307,8 @@ configured Linux gate links independent legacy/candidate executables against the
 real MemoryManager, checks initialization and pointer identity, and replaces all
 five tables in the simulation checkpoint/readback gate. See the
 [emitter contract](../icg_emit/README.md#template-member-metadata).
+
+The live `template_characterize.py` gate also compares all seven added integer
+argument types with legacy first-use naming and compiled leaf metadata. Its
+multiword type spellings and expected symbols are independent of generation
+policy, alongside the original eight traversal-order cases.

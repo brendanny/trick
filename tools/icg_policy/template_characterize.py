@@ -76,6 +76,17 @@ CASES = {
     ),
 }
 
+# Multiword builtin arguments retain legacy's spelling and cached first-use name.
+INTEGER_CASES = {
+    "signed-char": ("signed char", "Model_first_Box_signed_char_"),
+    "unsigned-char": ("unsigned char", "Model_first_Box_unsigned_char_"),
+    "short": ("short", "Model_first_Box_short_"),
+    "unsigned-short": ("unsigned short", "Model_first_Box_unsigned_short_"),
+    "unsigned-long": ("unsigned long", "Model_first_Box_unsigned_long_"),
+    "long-long": ("long long", "Model_first_Box_long_long_"),
+    "unsigned-long-long": ("unsigned long long", "Model_first_Box_unsigned_long_long_"),
+}
+
 
 def capture(
     extractor: Path, legacy: Path, compiler: Path, output: Path, xml: Path
@@ -101,7 +112,18 @@ def capture(
         cases={},
         legacy_binary_sha256=hashlib.sha256(legacy.read_bytes()).hexdigest(),
     )
-    for name, (body, symbol, requested, expected_path) in CASES.items():
+    cases = {name: (*case, "int") for name, case in CASES.items()}
+    cases.update({
+        name: (
+            f"struct Model {{ Box<{kind}> first; Box<{kind}> chosen; }};",
+            symbol,
+            ["Model::chosen"],
+            ["Model::first"],
+            kind,
+        )
+        for name, (kind, symbol) in INTEGER_CASES.items()
+    })
+    for name, (body, symbol, requested, expected_path, kind) in cases.items():
         work = output / name
         (work / "build").mkdir(parents=True, exist_ok=True)
         header = work / "model.hh"
@@ -114,7 +136,8 @@ def capture(
         old = "\n".join(p.read_text() for p in (work / "build").rglob("io_*.cpp"))
         # Exactly one leaf table: repeated use must never invent a second symbol.
         tables = characterize.metadata(old)
-        if {s for s in tables if s.endswith("_Box_int_")} != {symbol}:
+        suffix = "_Box_" + kind.replace(" ", "_") + "_"
+        if {s for s in tables if s.endswith(suffix)} != {symbol}:
             raise ValueError(f"{name}: legacy first-use tables changed")
         extracted = characterize.run(
             [
@@ -162,13 +185,12 @@ def capture(
             '#include <stdlib.h>\n#include "trick/attributes.h"\n#include "trick/UnitsMap.hh"\n'
             f'#include "{header}"\n' + template_metadata.blocks(old, {symbol})[symbol]
         )
+        cpp_type = f"Box<{kind}>"
         expected = dict(
-            records={"Box<int>": [array_metadata.field("value", "int", 0)]},
+            records={cpp_type: [array_metadata.field("value", kind, 0)]},
             enums={},
             record_bindings={
-                "Box<int>": dict(
-                    symbol=symbol, cpp_type="Box<int>", units_prefix="Box<int>"
-                )
+                cpp_type: dict(symbol=symbol, cpp_type=cpp_type, units_prefix=cpp_type)
             },
         )
         observations = []

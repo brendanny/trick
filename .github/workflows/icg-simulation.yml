@@ -94,6 +94,12 @@ jobs:
           build/icg-schema-venv/bin/python tools/icg_baseline/scalar_runtime.py \
             --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
             --output build/icg-simulation-evidence/scalars
+      - name: Compare integer limits and signedness through MemoryManager checkpoint readback
+        if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
+        run: |
+          build/icg-schema-venv/bin/python tools/icg_baseline/integer_runtime.py \
+            --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
+            --output build/icg-simulation-evidence/integers
       - name: Compare legacy and candidate template checkpoint readback
         if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
         run: |

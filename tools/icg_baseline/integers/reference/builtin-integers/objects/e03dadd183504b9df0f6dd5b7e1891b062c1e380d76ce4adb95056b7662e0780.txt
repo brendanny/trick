@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/integers/fixtures/Integers.hh
+${SIM_ROOT}/input.cpp
