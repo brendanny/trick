@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from tools.icg_policy import rules, storage
+from tools.icg_policy import enums, rules, storage
 
 
 def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list[dict]:
@@ -191,10 +191,32 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
             fail("template storage requires unqualified types")
         return node, dimensions
 
+    def enum_type(node: dict) -> str:
+        declaration = nodes[node["declaration_id"]]
+        selected(declaration)
+        return enums.template_type(declaration, nodes, types)
+
+    def enum_ids(type_id: str) -> set[str]:
+        node, _ = shape(type_id)
+        if node["kind"] == "enum":
+            enum_type(node)
+            return {node["declaration_id"]}
+        if node["kind"] == "record":
+            return set().union(
+                *(
+                    enum_ids(a["type_id"])
+                    for a in nodes[node["declaration_id"]]["template_arguments"]
+                )
+            )
+        return set()
+
     def cpp_type(type_id: str) -> str:
         node, dimensions = shape(type_id)
         if node["kind"] == "record":
             name = record_cpp(nodes[node["declaration_id"]])
+        elif node["kind"] == "enum":
+            # Legacy's canonical template spelling retains the elaborated keyword.
+            name = "enum " + enum_type(node)
         else:
             name = storage.resolve(
                 dict(
@@ -214,13 +236,14 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
             primary = primary_for(record)
             if any(a["kind"] != "type" for a in record["template_arguments"]):
                 fail("template argument is outside the type profile")
+            arguments = ", ".join(
+                cpp_type(a["type_id"]) for a in record["template_arguments"]
+            )
             spellings[record["id"]] = (
                 identifier(primary)
                 + "<"
-                + ", ".join(
-                    cpp_type(a["type_id"]) for a in record["template_arguments"]
-                )
-                + ">"
+                + arguments
+                + (" >" if arguments.endswith(">") else ">")
             )
         return spellings[record["id"]]
 
@@ -259,6 +282,9 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
         name = record_cpp(record)
         symbol = symbol_for(record)
         dependencies = set()
+        enum_dependencies = set().union(
+            *(enum_ids(a["type_id"]) for a in record["template_arguments"])
+        )
         fields = []
         for member_id in record["field_ids"]:
             member = nodes[member_id]
@@ -284,6 +310,17 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
                     )
                     dependencies.add(child["id"])
                     include(child["id"])
+                elif element["kind"] == "enum":
+                    enum_name = enum_type(element)
+                    member_storage = dict(
+                        element_type_id=element["id"],
+                        enum_id=element["declaration_id"],
+                        type_name=enum_name,
+                        cpp_type=enum_name + "".join(f"[{n}]" for n in dimensions),
+                        trick_type="TRICK_ENUMERATED",
+                        dimensions=dimensions,
+                    )
+                    enum_dependencies.add(element["declaration_id"])
                 else:
                     member_storage = storage.resolve(member, types)
             if included:
@@ -321,6 +358,7 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
             requested_field_ids=sorted(requested.get(record_id, [])),
             dependency_path=path,
             dependency_record_ids=sorted(dependencies),
+            dependency_enum_ids=sorted(enum_dependencies),
             record_id=record_id,
             primary_template_id=primary["id"],
             argument_type_ids=[a["type_id"] for a in record["template_arguments"]],

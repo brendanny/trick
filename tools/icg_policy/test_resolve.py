@@ -73,7 +73,7 @@ class RuleTests(unittest.TestCase):
                 / "trick_source/codegen/TrickCodeGen/ir/fixtures/minimal-record.json"
             ).read_text()
         )
-        for version in range(11):
+        for version in range(12):
             request = resolve.request_for(facts)
             request["policy_version"] = f"scalar-metadata-{version}"
             with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_REQUEST"):

@@ -80,6 +80,38 @@ def capture(
     candidate = (output / "metadata/candidate/candidate.cpp").read_text()
     probe = (here / "runtime.cpp").read_text()
     flags = native.configured_link_flags(root, output)
+    return compare(
+        legacy,
+        candidate,
+        probe,
+        output,
+        compiler,
+        flags,
+        metadata=metadata,
+        expected_records=expected_records,
+        mutations=mutations,
+        label=label,
+    )
+
+
+def compare(
+    legacy: str,
+    candidate: str,
+    probe: str,
+    output: Path,
+    compiler: Path,
+    flags: tuple,
+    *,
+    metadata: dict,
+    expected_records: dict,
+    mutations,
+    label: str,
+) -> dict:
+    """Compare full readback/checkpoint bytes and require behavioral mutations."""
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    result = output / "comparison.json"
+    result.unlink(missing_ok=True)
     old = execute(legacy, probe, output / "legacy", compiler, flags)
     new = execute(candidate, probe, output / "candidate", compiler, flags)
     if old["observations"] != new["observations"]:

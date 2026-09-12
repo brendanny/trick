@@ -839,7 +839,19 @@ Template first-use names and lifecycle initialization are checked. Legacy-only
 wide/UTF-32 probes preserve the rejection rationale: `wchar_t` assignment
 truncates and `char32_t` fields are omitted. Facts and production code are unchanged.
 
-Next characterize template enum arguments/member rows, then pointer/reference
+Policy v12 / emitter v11 add named 32-bit int/unsigned-int enum template arguments
+and member storage. The [enum template corpus](../../tools/icg_baseline/template_enums/README.md)
+retains three new legacy snapshots and compares five template tables / 15 fields
+with three enum dependencies / eight enumerators. Guarded real MemoryManager lookup
+populates enum rows from generated size/table exports. Independent checks cover
+legacy elaborated-enum names, namespace spellings, nested closing-angle spacing,
+exact dependency pointers and checkpoint-label conflicts. Seven metadata controls
+and three runtime controls must fail at their designated stages. Two checkpoint
+passes restore every element, preserving symbolic labels and numeric fallback.
+Portable lanes compile both sources; the configured gate executes both against
+actual Trick archives. Facts, production code and earlier references are unchanged.
+
+Next extend ordinary enum-valued record fields, then characterize pointer/reference
 storage. Continue
 requiring independent legacy/native comparisons, ABI checks and runtime round
 trips; adding names to `KINDS` alone is insufficient.

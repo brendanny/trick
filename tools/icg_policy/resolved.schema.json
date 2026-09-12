@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 11
+      "const": 12
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-11"
+      "const": "scalar-metadata-12"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-11"
+          "const": "scalar-metadata-12"
         },
         "template_field_ids": {
           "type": "array",
@@ -284,7 +284,8 @@
               "REQUESTED_METADATA",
               "IO_DISABLED",
               "NUMERIC_OFFSET_METADATA",
-              "OUTPUT_NOT_REQUESTED"
+              "OUTPUT_NOT_REQUESTED",
+              "ENUM_DEPENDENCY"
             ]
           },
           "source": {
@@ -468,6 +469,9 @@
                       },
                       {
                         "$ref": "#/$defs/structured_storage"
+                      },
+                      {
+                        "$ref": "#/$defs/enum_storage"
                       }
                     ]
                   },
@@ -522,7 +526,8 @@
           "fields",
           "requested_field_ids",
           "dependency_path",
-          "dependency_record_ids"
+          "dependency_record_ids",
+          "dependency_enum_ids"
         ],
         "properties": {
           "field_id": {
@@ -587,14 +592,22 @@
               "type": "string",
               "pattern": "^decl:[a-f0-9]{64}$"
             }
+          },
+          "dependency_enum_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^decl:[a-f0-9]{64}$"
+            }
           }
         }
       }
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v10.schema.json",
-  "title": "Bounded legacy metadata, lifecycle and template-use policy v10",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v12.schema.json",
+  "title": "Bounded legacy metadata, lifecycle and template-use policy v12",
   "$defs": {
     "source": {
       "type": "object",
@@ -1019,6 +1032,48 @@
           }
         },
         "record_id": {
+          "type": "string",
+          "pattern": "^decl:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "enum_storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "element_type_id",
+        "type_name",
+        "cpp_type",
+        "trick_type",
+        "dimensions",
+        "enum_id"
+      ],
+      "properties": {
+        "element_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
+        },
+        "type_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "cpp_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trick_type": {
+          "const": "TRICK_ENUMERATED"
+        },
+        "dimensions": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "enum_id": {
           "type": "string",
           "pattern": "^decl:[a-f0-9]{64}$"
         }

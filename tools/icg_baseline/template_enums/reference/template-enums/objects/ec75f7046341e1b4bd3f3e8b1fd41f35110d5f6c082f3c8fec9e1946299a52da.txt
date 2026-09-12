@@ -1,0 +1,184 @@
+  <enumeration name="EnumState">
+    <pair label ="state_negative" value="-3"/>
+    <pair label ="state_zero" value="0"/>
+    <pair label ="state_maximum" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="EnumPhase">
+    <pair label ="EnumPhase::phase_idle" value="0"/>
+    <pair label ="EnumPhase::phase_running" value="2"/>
+    <pair label ="EnumPhase::phase_alias" value="2"/>
+  </enumeration>
+
+  <enumeration name="enum_fixture__Mode">
+    <pair label ="enum_fixture::Mode::mode_zero" value="0"/>
+    <pair label ="enum_fixture::Mode::mode_high" value="2147483647"/>
+  </enumeration>
+
+  <class name="EnumConsumers_plain_EnumBox_enum_EnumState_">
+    <member
+      name="value"
+      type="EnumState"
+      io_attributes="15"
+      units="1"
+      description="selected value">
+    </member>
+    <member
+      name="values"
+      type="EnumState"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="matrix"
+      type="EnumState"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="EnumConsumers_scoped_EnumBox_enum_EnumPhase_">
+    <member
+      name="value"
+      type="EnumPhase"
+      io_attributes="15"
+      units="1"
+      description="selected value">
+    </member>
+    <member
+      name="values"
+      type="EnumPhase"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="matrix"
+      type="EnumPhase"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="EnumConsumers_namespaced_EnumBox_enum_enum_fixture__Mode_">
+    <member
+      name="value"
+      type="enum_fixture__Mode"
+      io_attributes="15"
+      units="1"
+      description="selected value">
+    </member>
+    <member
+      name="values"
+      type="enum_fixture__Mode"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="matrix"
+      type="enum_fixture__Mode"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="EnumConsumers_array_argument_EnumBox_enum_EnumPhase_2__">
+    <member
+      name="value"
+      type="EnumPhase"
+      io_attributes="15"
+      units="1"
+      description="selected value">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="values"
+      type="EnumPhase"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="matrix"
+      type="EnumPhase"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="EnumConsumers_nested_EnumBox_EnumBox_enum_EnumState___">
+    <member
+      name="value"
+      type="EnumConsumers_plain_EnumBox_enum_EnumState_"
+      io_attributes="15"
+      units="1"
+      description="selected value">
+    </member>
+    <member
+      name="values"
+      type="EnumConsumers_plain_EnumBox_enum_EnumState_"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="matrix"
+      type="EnumConsumers_plain_EnumBox_enum_EnumState_"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+  </class>
+
+  <class name="EnumConsumers">
+    <member
+      name="plain"
+      type="EnumConsumers_plain_EnumBox_enum_EnumState_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="scoped"
+      type="EnumConsumers_scoped_EnumBox_enum_EnumPhase_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="namespaced"
+      type="EnumConsumers_namespaced_EnumBox_enum_enum_fixture__Mode_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="array_argument"
+      type="EnumConsumers_array_argument_EnumBox_enum_EnumPhase_2__"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="repeated"
+      type="EnumConsumers_plain_EnumBox_enum_EnumState_"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="nested"
+      type="EnumConsumers_nested_EnumBox_EnumBox_enum_EnumState___"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+

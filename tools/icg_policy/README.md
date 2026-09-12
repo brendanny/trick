@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v11**, not C++, and does not replace production ICG.
+It emits **resolved policy v12**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-11"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-12"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
 `template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
@@ -44,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v11 and policy
-`scalar-metadata-11` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1–v10 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v12 and policy
+`scalar-metadata-12` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1–v11 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -75,7 +75,7 @@ Fixed arrays support at most eight positive extents, each representable by signe
 `INDEX.int`. Incomplete/zero/oversized extents and excessive rank produce
 `ICG_POLICY_ARRAY_EXTENT` or `ICG_POLICY_ARRAY_RANK`.
 
-Policy v11 supports `bool`, `char`, `signed char`, `unsigned char`, `short`,
+Policy v12 supports `bool`, `char`, `signed char`, `unsigned char`, `short`,
 `unsigned short`, `int`, `unsigned int`, `long`, `unsigned long`, `long long`,
 `unsigned long long`, `float`, `double`, and `char16_t` field bases, with aliases and fixed
 arrays. These 15 types share the bounded lifecycle and template storage policy.
@@ -243,7 +243,7 @@ and all captured legacy references remain unchanged.
 
 ## Explicit template-member requests
 
-Policy v11 supports the separate `outputs: ["template-attributes"]` profile. Supply
+Policy v12 supports the separate `outputs: ["template-attributes"]` profile. Supply
 sorted, unique, nonempty `template_field_ids` identifying the exact containing
 fields to generate. Other output profiles require an empty list. Existing
 metadata requests still reject template records; this opt-in generates fragments,
@@ -264,7 +264,7 @@ retains the sorted explicit requests (empty for automatic dependencies), and
 `dependency_record_ids` identifies the included structured child tables. Each
 entry also records the concrete record, primary template, argument type IDs,
 C++ spelling, cached legacy symbol,
-initializer and field decisions. Schema v11 requires exact replay of this evidence.
+initializer and field decisions. Schema v12 requires exact replay of this evidence.
 
 Traversal starts with selected global ordinary records whose template fields
 are all in one physical file. Roots and fields follow physical source order,
@@ -279,8 +279,9 @@ from the declaration closure. Traversed definitions must be included by file pol
 
 Requests may select public unqualified objects or fixed arrays, including aliases
 and nested fields reachable through template members. Emitted tables cover
-the 15 scalar base types listed above, nested specializations of those templates, and
-fixed arrays of supported scalar or structured types; zero-I/O members are omitted
+the 15 scalar base types listed above, the bounded 32-bit enum types described
+below, nested specializations of those templates, and fixed arrays of supported
+types; zero-I/O members are omitted
 before storage checks. Structured fields carry the concrete child record/type IDs,
 its cached legacy symbol, C++ storage spelling and dimensions. Emitted element
 sizes must fit the positive `ATTRIBUTES.size` integer range. Selecting a parent
@@ -319,3 +320,25 @@ policy, alongside the original eight traversal-order cases.
 
 The same live template gate checks `Box<char16_t>` against legacy first-use
 naming and unsigned-short metadata, bringing the gate to 16 cases.
+
+
+## Enum template dependencies
+
+Policy v12 adds named nonempty enums backed by 32-bit `int`/`unsigned int` to
+`template-attributes`, including aliases, fixed arrays, scoped enums and named
+non-inline namespace scopes. Other enum storage, record-nested enums, qualifiers,
+pointers and ordinary record enum fields remain unsupported. The existing enum
+value limits still apply. See the [independent corpus](../icg_baseline/template_enums/README.md).
+
+Each instance records `dependency_enum_ids`; only enums required by selected
+arguments and included fields receive `ENUM_DEPENDENCY` declaration decisions.
+Enum storage records the enum ID, canonical element ID, C++ type, legacy spelling
+and dimensions. The emitter generates the dependency tables/size exports and
+uses guarded real MemoryManager lookup for zero-initialized enum member rows.
+Unrelated enums remain omitted, and ignored dependencies fail the request.
+
+Canonical template spellings retain `enum` and legacy `> >` spacing for adjacent
+closing brackets. Enum member names retain namespace separators; their exported
+table names use underscores. Conflicting values for an identical legacy checkpoint
+label within the emitted closure fail with `ICG_POLICY_ENUM_LABEL`. This prevents
+ambiguous readback between scoped enums whose labels omit their enum names.

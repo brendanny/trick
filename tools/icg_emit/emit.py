@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-10"
+VERSION = "scalar-metadata-emitter-11"
 
 
 def literal(value: str) -> str:
@@ -147,7 +147,10 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
             alias,
             {d["declaration_id"]: d for d in instance["fields"]},
         ))
-    if any(i["dependency_record_ids"] for i in resolved["template_instances"]):
+    if any(
+        i["dependency_record_ids"] or i["dependency_enum_ids"]
+        for i in resolved["template_instances"]
+    ):
         chunks.append('#include "trick/MemoryManager.hh"\n')
     # A stable order independent of the supplied declaration-array ordering.
     for node, meta, name, field_decisions in sorted(
@@ -254,8 +257,11 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                     checks.append(
                         f'    static_assert(std::is_same<decltype(::{name}::{field["name"]}), {storage["cpp_type"]}>::value, "ICG field type mismatch");\n'
                     )
-            structured = storage["trick_type"] == "TRICK_STRUCTURED"
-            if structured:
+            runtime_lookup = storage["trick_type"] in (
+                "TRICK_STRUCTURED",
+                "TRICK_ENUMERATED",
+            )
+            if runtime_lookup:
                 row = f"attr{symbol}[{len(rows)}]"
                 registrations.append(
                     f"    trick_MM->add_attr_info(std::string({row}.type_name), &{row}, __FILE__, __LINE__);\n"
@@ -270,7 +276,7 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                     mods=annotation["mods"],
                     kind=storage["trick_type"],
                     size="0"
-                    if structured
+                    if runtime_lookup
                     else ("4" if width else f"sizeof({spelling})"),
                     offset=offset,
                     width=width,

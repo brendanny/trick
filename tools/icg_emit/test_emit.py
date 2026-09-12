@@ -27,6 +27,7 @@ import lifecycle_codegen  # noqa: E402
 import memorymanager  # noqa: E402
 import native  # noqa: E402
 import scalar_metadata  # noqa: E402
+import template_enum_metadata  # noqa: E402
 import template_metadata  # noqa: E402
 import template_structured  # noqa: E402
 
@@ -107,6 +108,164 @@ class EmitterTests(unittest.TestCase):
             (4, 6, 6),
         )
         self.assertEqual(report["status"], "compared")
+
+    def test_template_enum_legacy_candidate_compile_and_dependencies(self):
+        facts = template_enum_metadata.extract(EXTRACTOR, self.work)
+        template_enum_metadata.report_for(facts)
+        model, candidate = template_enum_metadata.generate(
+            facts, self.work / "generated"
+        )
+        nodes = {n["id"]: n for n in facts["declarations"]}
+        dependencies = [d for d in model["declarations"] if d["decision"] == "include"]
+        self.assertEqual(
+            {nodes[d["declaration_id"]]["qualified_name"] for d in dependencies},
+            set(template_enum_metadata.ENUMS),
+        )
+        self.assertTrue(all(d["rule"] == "ENUM_DEPENDENCY" for d in dependencies))
+        self.assertEqual(len(model["template_instances"]), 5)
+        self.assertEqual(sum(len(i["fields"]) for i in model["template_instances"]), 15)
+        for label, source in (
+            ("legacy", template_enum_metadata.reference()),
+            ("candidate", candidate),
+        ):
+            path = self.work / (label + ".cpp")
+            path.write_text(source.replace("${TRICK_ROOT}", str(ROOT)))
+            p = subprocess.run(
+                [
+                    str(COMPILER),
+                    "-std=c++17",
+                    "-Wall",
+                    "-Wextra",
+                    "-Werror",
+                    "-I" + str(ROOT / "include"),
+                    "-c",
+                    str(path),
+                    "-o",
+                    str(path.with_suffix(".o")),
+                ],
+                capture_output=True,
+                env=self.env,
+            )
+            self.assertEqual(p.returncode, 0, p.stderr.decode())
+        for mutate in (
+            lambda m: m["template_instances"][0].update(dependency_enum_ids=[]),
+            lambda m: m["template_instances"][0]["fields"][0]["metadata"][
+                "storage"
+            ].update(enum_id=m["template_instances"][0]["record_id"]),
+            lambda m: next(
+                d for d in m["declarations"] if d["decision"] == "include"
+            ).update(decision="omit"),
+            lambda m: next(d for d in m["declarations"] if d["decision"] == "include")[
+                "metadata"
+            ]["enum"]["rows"][0].update(value="19"),
+        ):
+            changed = deepcopy(model)
+            mutate(changed)
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                emit.write(
+                    facts, model["request"], changed, self.work / "forbidden.cpp"
+                )
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_template_enum_closure_excludes_unrelated_enums(self):
+        facts, request, model = self.model(
+            "enum E : int { e=-1 }; enum F : int { f=2 }; enum Bad : long long { huge=2147483648LL }; "
+            "template<class T> struct Box { T value; F fixed[2]; }; "
+            "template<class T> struct Wrapper { T member; }; struct Model { Wrapper<Box<E>> chosen; Box<E> later; };",
+            outputs=["template-attributes"],
+            template_fields=["Model::chosen"],
+        )
+        nodes = {n["id"]: n for n in facts["declarations"]}
+        self.assertEqual(
+            {
+                nodes[d["declaration_id"]]["name"]
+                for d in model["declarations"]
+                if d["decision"] == "include"
+            },
+            {"E", "F"},
+        )
+        self.assertEqual(
+            {i["cpp_type"]: i["symbol"] for i in model["template_instances"]},
+            {
+                "Box<enum E>": "Wrapper_member_Box_enum_E_",
+                "Wrapper<Box<enum E> >": "Model_chosen_Wrapper_Box_enum_E___",
+            },
+        )
+        changed = deepcopy(facts)
+        changed["declarations"].reverse()
+        changed["types"].reverse()
+        replay = resolve.resolve(changed, request)
+        self.assertEqual(replay["template_instances"], model["template_instances"])
+        self.assertEqual(replay["declarations"], model["declarations"])
+
+    def test_template_enum_storage_boundary_and_name_collisions(self):
+        for declaration, kind, code in (
+            ("enum E : short { e=-1 };", "E", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum E : unsigned long long { e=1 };", "E", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum E : int {};", "E", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum class E : int;", "E", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum E : unsigned int { e=2147483648U };", "E", "ICG_POLICY_ENUM_VALUE"),
+            (
+                "struct Owner { enum E : int { e=1 }; };",
+                "Owner::E",
+                "ICG_POLICY_ENUM_STORAGE",
+            ),
+            (
+                "inline namespace ns { enum E : int { e=1 }; }",
+                "ns::E",
+                "ICG_POLICY_ENUM_STORAGE",
+            ),
+            ("enum E : int { e=1 };", "const E", "ICG_POLICY_TEMPLATE"),
+            ("enum E : int { e=1 };", "E*", "ICG_POLICY_TYPE"),
+        ):
+            with (
+                self.subTest(declaration=declaration, kind=kind),
+                self.assertRaisesRegex(rules.PolicyError, code),
+            ):
+                self.model(
+                    declaration
+                    + f" template<class T> struct Box {{ T value; }}; struct Model {{ Box<{kind}> chosen; }};",
+                    outputs=["template-attributes"],
+                    template_fields=["Model::chosen"],
+                )
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_NAME"):
+            self.model(
+                "enum E : int { e=1 }; enum Model_chosen_Box_enum_E_ : int { other=2 }; template<class T> struct Box { T value; Model_chosen_Box_enum_E_ fixed; }; struct Model { Box<E> chosen; };",
+                outputs=["template-attributes"],
+                template_fields=["Model::chosen"],
+            )
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+            self.model("enum E : int { e=1 }; struct Model { E value; };")
+
+    def test_template_enum_ignored_dependency_is_rejected(self):
+        self.env["TRICK_ICG_IGNORE_TYPES"] = "E"
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TEMPLATE"):
+            self.model(
+                "enum E : int { e=1 }; template<class T> struct Box { T value; }; struct Model { Box<E> chosen; };",
+                outputs=["template-attributes"],
+                template_fields=["Model::chosen"],
+            )
+
+    def test_template_enum_checkpoint_label_conflicts_are_rejected(self):
+        source = (
+            "enum class E : int { off=0 }; enum class F : int { off=1 }; "
+            "template<class T> struct Box { T value; F fixed; }; struct Model { Box<E> chosen; };"
+        )
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_LABEL"):
+            self.model(
+                source,
+                outputs=["template-attributes"],
+                template_fields=["Model::chosen"],
+            )
+        _, _, model = self.model(
+            source.replace("off=1", "off=0"),
+            outputs=["template-attributes"],
+            template_fields=["Model::chosen"],
+        )
+        self.assertEqual(
+            sum(d["decision"] == "include" for d in model["declarations"]), 2
+        )
 
     def test_template_first_use_paths_and_repeated_requests(self):
         for name, (

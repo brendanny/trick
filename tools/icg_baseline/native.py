@@ -60,7 +60,7 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
     nodes = {n["id"]: n for n in document["declarations"]}
     calls, aliases = [], []
     structured = any(
-        "structured_record" in f
+        "structured_record" in f or "enum_type" in f
         for fields in report["records"].values()
         for f in fields
     )
@@ -71,7 +71,7 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
         )
         if binding:
             if not re.fullmatch(
-                r"[A-Za-z_][A-Za-z0-9_ <>,\[\]]*", binding["cpp_type"], re.ASCII
+                r"[A-Za-z_][A-Za-z0-9_: <>,\[\]]*", binding["cpp_type"], re.ASCII
             ):
                 raise ValueError("unsupported native template spelling")
             aliases.append(f"using {cpp_name} = ::{binding['cpp_type']};\n")
@@ -93,6 +93,11 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
                 child_symbol = record_symbol(field["structured_record"], report)
                 native_fields.append(
                     f'probe::structured_member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT, attr{child_symbol})'
+                )
+            elif "enum_type" in field:
+                enum_symbol = identifier(field["enum_type"]).replace("::", "__")
+                native_fields.append(
+                    f'probe::enum_member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT, enum{enum_symbol})'
                 )
             elif field["bit_width"] is None:
                 native_fields.append(
@@ -205,6 +210,8 @@ def validate(document: dict, report: dict, observed: dict) -> None:
                 kind = (
                     "TRICK_STRUCTURED"
                     if "structured_record" in field
+                    else "TRICK_ENUMERATED"
+                    if "enum_type" in field
                     else ("TRICK_UNSIGNED_BITFIELD" if width else KINDS[field["type"]])
                 )
                 expected = dict(
@@ -258,7 +265,7 @@ def linkage_source(document: dict, report: dict) -> str:
                 structured_rows = [
                     i
                     for i, field in enumerate(report["records"][name])
-                    if "structured_record" in field
+                    if "structured_record" in field or "enum_type" in field
                 ]
                 for index in structured_rows:
                     preflight.append(

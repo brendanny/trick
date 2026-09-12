@@ -67,6 +67,14 @@ namespace probe
         return field;
     }
 
+    template <typename Value> Field enum_member(const char* name, size_t offset, const ENUM_ATTR* attributes)
+    {
+        static_assert(std::is_enum<typename std::remove_all_extents<Value>::type>::value, "native enum field");
+        auto field = member<Value>(name, offset);
+        field.attributes = attributes;
+        return field;
+    }
+
     inline void dimensions(const std::vector<size_t>& values)
     {
         std::cout << '[';
@@ -143,6 +151,8 @@ namespace probe
             return "TRICK_DOUBLE";
         case TRICK_STRUCTURED:
             return "TRICK_STRUCTURED";
+        case TRICK_ENUMERATED:
+            return "TRICK_ENUMERATED";
         case TRICK_UNSIGNED_BITFIELD:
             return "TRICK_UNSIGNED_BITFIELD";
         default:

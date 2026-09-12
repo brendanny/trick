@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from tools.icg_policy import enums, lifecycle, rules, storage, templates  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-11"
+POLICY_VERSION = "scalar-metadata-12"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
@@ -353,7 +353,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=11,
+        schema_version=12,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(
@@ -371,6 +371,46 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         if request["outputs"] == ["template-attributes"]
         else [],
     )
+    # Template requests emit only the enum dependencies of the selected closure.
+    # Their declaration decisions retain the same enum value/access contract.
+    for instance in model["template_instances"]:
+        symbols[instance["symbol"]] = instance["record_id"]
+    enum_ids = {
+        i
+        for instance in model["template_instances"]
+        for i in instance["dependency_enum_ids"]
+    }
+    enum_labels = {}
+    for identifier in sorted(enum_ids):
+        node = declarations[identifier]
+        symbol, _ = names(node, declarations)
+        if symbol in symbols and symbols[symbol] != identifier:
+            raise rules.PolicyError(
+                "ICG_POLICY_NAME", f"legacy symbol collision: {symbol}"
+            )
+        symbols[symbol] = identifier
+        enum = enums.metadata(node, declarations, types)
+        # MemoryManager resolves checkpoint labels across all registered enums.
+        # Scoped enums lose their enum-name component in the legacy label ABI.
+        for row in enum["rows"]:
+            if (
+                row["label"] in enum_labels
+                and enum_labels[row["label"]] != row["value"]
+            ):
+                raise rules.PolicyError(
+                    "ICG_POLICY_ENUM_LABEL",
+                    f"conflicting checkpoint enum label: {row['label']}",
+                )
+            enum_labels[row["label"]] = row["value"]
+        decisions[identifier].update(
+            decision="include",
+            rule="ENUM_DEPENDENCY",
+            metadata=dict(
+                symbol=symbol,
+                init_function=None,
+                enum=enum,
+            ),
+        )
     model["digest"] = model_digest(model)
     return model
 
