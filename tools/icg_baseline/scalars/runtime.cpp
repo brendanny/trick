@@ -46,6 +46,8 @@ int main()
         probe::require(mm.declare_extern_var(&m, "ScalarModel scalars") == &m, "scalar registration failed");
         probe::require(mm.declare_extern_var(&a, "icg_scalar::Aliases aliases") == &a, "alias registration failed");
         mm.set_reduced_checkpoint(false);
+        // MemoryManager does not initialize this option. Pin the compared format.
+        mm.set_hexfloat_decimal_comment_checkpoint(false);
         std::cout << "{\"round_trips\":[";
         for (int pass = 0; pass < 2; ++pass)
         {

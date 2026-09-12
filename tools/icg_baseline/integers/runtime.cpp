@@ -72,6 +72,8 @@ int main()
         probe::require(mm.declare_extern_var(&a, "icg_integer::Aliases aliases") == &a,
                        "integer alias registration failed");
         mm.set_reduced_checkpoint(false);
+        // Pin the same formatting option as the companion scalar comparison.
+        mm.set_hexfloat_decimal_comment_checkpoint(false);
         std::cout << "{\"round_trips\":[";
         for (int pass = 0; pass < 2; ++pass)
         {

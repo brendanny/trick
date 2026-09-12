@@ -50,6 +50,11 @@ Every field is assigned, checkpointed, mutated and restored; individual values
 are checked independently in `runtime.cpp`. Both observations and checkpoint
 bytes must match between generators.
 
+The probe explicitly disables decimal comments beside hexadecimal values.
+MemoryManager's constructor leaves this option uninitialized; relying on it can
+make two otherwise identical checkpoints differ only in optional comments.
+Exact checkpoint byte comparison remains required; comments are not stripped.
+
 Two modes are exercised with zero-valued assignments enabled:
 
 - Compact decimal checkpoints cover true/false arrays, exact float fractions,
