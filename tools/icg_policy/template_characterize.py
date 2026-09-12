@@ -77,7 +77,8 @@ CASES = {
 }
 
 # Multiword builtin arguments retain legacy's spelling and cached first-use name.
-INTEGER_CASES = {
+STORAGE_CASES = {
+    "char16": ("char16_t", "Model_first_Box_char16_t_"),
     "signed-char": ("signed char", "Model_first_Box_signed_char_"),
     "unsigned-char": ("unsigned char", "Model_first_Box_unsigned_char_"),
     "short": ("short", "Model_first_Box_short_"),
@@ -121,7 +122,7 @@ def capture(
             ["Model::first"],
             kind,
         )
-        for name, (kind, symbol) in INTEGER_CASES.items()
+        for name, (kind, symbol) in STORAGE_CASES.items()
     })
     for name, (body, symbol, requested, expected_path, kind) in cases.items():
         work = output / name

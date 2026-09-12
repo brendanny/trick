@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
 import array_metadata  # noqa: E402
+import character_metadata  # noqa: E402
 import differential  # noqa: E402
 import enum_metadata  # noqa: E402
 import integer_metadata  # noqa: E402
@@ -896,6 +897,98 @@ if (enumE[0].value != -1 || std::string(enumE[1].label) != "alias" ||
         self.assertEqual(result["status"], "compared")
         self.assertEqual(len(result["records"]), 2)
         self.assertEqual(sum(len(v) for v in result["records"].values()), 22)
+
+    def test_character_legacy_candidate_native_and_rejection_gate(self):
+        result = character_metadata.capture(EXTRACTOR, self.work, COMPILER)
+        self.assertEqual(result["status"], "compared")
+        self.assertEqual(sum(len(v) for v in result["utf16"]["records"].values()), 7)
+        self.assertEqual(set(result["rejected"]), {"wide", "utf32"})
+        for case, count in (("wide", 2), ("utf32", 0)):
+            self.assertEqual(
+                result["rejected"][case]["diagnostic"]["code"], "ICG_POLICY_TYPE"
+            )
+            self.assertEqual(result["rejected"][case]["extracted_fields"], 2)
+            self.assertEqual(result["rejected"][case]["legacy_fields"], count)
+
+    def test_char16_mutations_fail_compiled_comparison(self):
+        case, _ = array_metadata.reference(character_metadata.HERE, "utf16")
+        documents = self.extract(ROOT / case["header"])
+        facts = documents[0]
+        report = array_metadata.report_for(facts, character_metadata.EXPECTED)
+        candidate = emit.render(*documents)
+        for index, (before, after) in enumerate((
+            ("TRICK_UNSIGNED_SHORT,", "TRICK_SHORT,"),
+            ("TRICK_UNSIGNED_SHORT,", "TRICK_UNSIGNED_CHARACTER,"),
+            (
+                "TRICK_UNSIGNED_SHORT, sizeof(char16_t)",
+                "TRICK_UNSIGNED_SHORT, sizeof(char)",
+            ),
+            ('"code", "char16_t"', '"code", "unsigned short"'),
+            ("14, NULL, 2, {{2, 0}, {3, 0}", "14, NULL, 2, {{3, 0}, {2, 0}"),
+            ('"code unit"', '"wrong description"'),
+        )):
+            with self.subTest(mutation=before):
+                self.assertIn(before, candidate)
+                work = self.work / f"mutation-{index}"
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "compiled ATTRIBUTES differs|native field size/offset/width differs",
+                ):
+                    native.capture(
+                        facts,
+                        candidate.replace(before, after, 1),
+                        report,
+                        case,
+                        work,
+                        COMPILER,
+                        source_name="candidate.cpp",
+                    )
+                self.assertFalse((work / "native.json").exists())
+
+    def test_char16_template_table_preserves_code_unit_storage(self):
+        candidate = emit.render(
+            *self.model(
+                "template<class T> struct Box { T value; T values[2]; }; struct Model { Box<char16_t> first; Box<char16_t> chosen; };",
+                outputs=["template-attributes"],
+                template_fields=["Model::chosen"],
+            )
+        )
+        self.compile(
+            candidate,
+            """
+    init_attrModel_first_Box_char16_t__c_intf();
+    const auto* table = attrModel_first_Box_char16_t_;
+    for (int i = 0; i < 2; ++i) {
+        if (table[i].type != TRICK_UNSIGNED_SHORT || table[i].size != sizeof(char16_t) ||
+            std::string(table[i].type_name) != "char16_t")
+            throw std::runtime_error("template code-unit storage");
+    }
+    if (table[1].num_index != 1 || table[1].index[0].size != 2)
+        throw std::runtime_error("template code-unit shape");
+    """,
+        )
+
+    def test_char16_lifecycle_initialization_preserves_code_units(self):
+        candidate = emit.render(
+            *self.model(
+                "struct Model { char16_t code = 0xffff; char16_t text[3] = {0xd83d, 0xde00, 0}; };",
+                outputs=[*resolve.OUTPUTS, "lifecycle"],
+            )
+        )
+        self.compile(
+            candidate,
+            """
+    auto* values = static_cast<Model*>(io_src_allocate_Model(2));
+    if (!values) throw std::runtime_error("allocation failed");
+    for (int i = 0; i < 2; ++i) {
+        const auto& v = values[i];
+        if (v.code != 0xffff || v.text[0] != 0xd83d || v.text[1] != 0xde00 || v.text[2] != 0)
+            throw std::runtime_error("UTF-16 constructor code units");
+    }
+    io_src_destruct_Model(values, 2);
+    free(values);
+    """,
+        )
 
     def test_integer_mutations_fail_compiled_comparison(self):
         case, _ = array_metadata.reference(integer_metadata.HERE)

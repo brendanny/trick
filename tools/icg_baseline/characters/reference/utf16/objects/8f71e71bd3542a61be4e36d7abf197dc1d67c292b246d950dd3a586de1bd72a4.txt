@@ -1,0 +1,1 @@
+build${TRICK_ROOT}/tools/icg_baseline/characters/fixtures/io_Utf16.o

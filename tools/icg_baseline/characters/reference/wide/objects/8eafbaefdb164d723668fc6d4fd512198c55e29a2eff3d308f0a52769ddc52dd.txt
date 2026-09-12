@@ -1,0 +1,2 @@
+build${TRICK_ROOT}/tools/icg_baseline/characters/fixtures/io_Wide.o
+build/class_map.o

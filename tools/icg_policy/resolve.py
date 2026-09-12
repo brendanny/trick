@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from tools.icg_policy import enums, lifecycle, rules, storage, templates  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-10"
+POLICY_VERSION = "scalar-metadata-11"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
@@ -353,7 +353,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=10,
+        schema_version=11,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(

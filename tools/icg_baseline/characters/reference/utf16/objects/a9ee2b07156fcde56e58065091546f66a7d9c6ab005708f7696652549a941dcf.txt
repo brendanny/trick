@@ -1,0 +1,108 @@
+  <class name="Utf16Model">
+    <member
+      name="code"
+      type="char16_t"
+      io_attributes="15"
+      units="1"
+      description="code unit">
+    </member>
+    <member
+      name="text"
+      type="char16_t"
+      io_attributes="15"
+      units="1"
+      description="code units">
+      <dimension>6</dimension>
+    </member>
+    <member
+      name="grid"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>3</dimension>
+    </member>
+    <member
+      name="maximum"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="icg_utf16__Aliases">
+    <member
+      name="code"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="text"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+      <dimension>4</dimension>
+    </member>
+    <member
+      name="tail"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="Utf16Model">
+    <member
+      name="code"
+      type="char16_t"
+      io_attributes="15"
+      units="1"
+      description="code unit">
+    </member>
+    <member
+      name="text"
+      type="char16_t"
+      io_attributes="15"
+      units="1"
+      description="code units">
+      <dimension>6</dimension>
+    </member>
+    <member
+      name="grid"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>3</dimension>
+    </member>
+    <member
+      name="maximum"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="icg_utf16__Aliases">
+    <member
+      name="code"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="text"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+      <dimension>4</dimension>
+    </member>
+    <member
+      name="tail"
+      type="char16_t"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+

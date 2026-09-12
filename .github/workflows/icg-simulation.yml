@@ -100,6 +100,12 @@ jobs:
           build/icg-schema-venv/bin/python tools/icg_baseline/integer_runtime.py \
             --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
             --output build/icg-simulation-evidence/integers
+      - name: Compare UTF-16 checkpoint readback and rejected character behavior
+        if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
+        run: |
+          build/icg-schema-venv/bin/python tools/icg_baseline/character_runtime.py \
+            --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
+            --output build/icg-simulation-evidence/characters
       - name: Compare legacy and candidate template checkpoint readback
         if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
         run: |

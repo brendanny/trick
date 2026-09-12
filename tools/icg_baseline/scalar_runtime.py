@@ -62,6 +62,7 @@ def capture(
     expected_records: dict = scalar_metadata.EXPECTED,
     mutations=scalar_mutations,
     label: str = "scalar",
+    case_id: str | None = None,
 ) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -73,8 +74,9 @@ def capture(
         compiler,
         here=here,
         expected_records=expected_records,
+        case_id=case_id,
     )
-    _, legacy = array_metadata.reference(here)
+    _, legacy = array_metadata.reference(here, case_id)
     candidate = (output / "metadata/candidate/candidate.cpp").read_text()
     probe = (here / "runtime.cpp").read_text()
     flags = native.configured_link_flags(root, output)

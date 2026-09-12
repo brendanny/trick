@@ -74,15 +74,20 @@ defaults, malformed-input behavior, and precedence still need differential tests
 
 ## Acceptance status
 
-Generation currently supports 14 scalar bases: `bool`, `char`, `signed char`,
+Generation currently supports 15 scalar bases: `bool`, `char`, `signed char`,
 `unsigned char`, `short`, `unsigned short`, `int`, `unsigned int`, `long`,
-`unsigned long`, `long long`, `unsigned long long`, `float`, and `double`, plus
-unsigned-int bitfields and fixed arrays/aliases of those scalars. Wide/Unicode
-characters, extended integers and `long double` remain unsupported. Plain-char
+`unsigned long`, `long long`, `unsigned long long`, `float`, `double`, and `char16_t`, plus
+unsigned-int bitfields and fixed arrays/aliases of those scalars. `wchar_t`, `char32_t`,
+extended integers and `long double` remain unsupported. Plain-char
 fields require signed native char. The [scalar corpus](../../tools/icg_baseline/scalars/README.md)
 covers two records / 13 fields, while the [integer corpus](../../tools/icg_baseline/integers/README.md)
 adds two records / 22 fields. Both compare legacy/candidate/native metadata and
 real MemoryManager checkpoint restoration, with independent failure controls.
+The [character corpus](../../tools/icg_baseline/characters/README.md) adds two
+UTF-16 records / seven fields with metadata and runtime comparisons. It also
+records why `wchar_t` and `char32_t` remain rejected: legacy assignment truncation
+and omitted field metadata, respectively. UTF-16 support preserves code units;
+it does not perform Unicode validation or conversion.
 
 | Gate | Status after this increment |
 |---|---|
@@ -91,7 +96,7 @@ real MemoryManager checkpoint restoration, with independent failure controls.
 | Actual normalized legacy output baselines | Four existing headers / 12 checked-in snapshots, a focused lifecycle header / three snapshots, plus configured `SIM_test_templates` and `SIM_test_io` cold/warm/forced/rebuilt captures; [header references](../../tools/icg_baseline/legacy/README.md), [lifecycle reference](../../tools/icg_baseline/lifecycle/README.md), and [full-build scope](../../tools/icg_baseline/runtime/README.md). Full-build golden promotion, broader simulations, and minimum stacks remain pending |
 | Legacy metadata versus extracted facts | Three fingerprinted headers: six record tables/sizes, six fields, two enum tables, and explicit record/enum exclusions. Actual captured C++ compiles against real Trick headers/UnitsMap; initialization/size entry points, compiled metadata, and independent native layouts/enum constants agree with facts. Compiler/dependency evidence and negative mutations are retained. Bounded candidate output now compiles separately and agrees with captured legacy/native observations; C-linkage entry points, source/symbol checks and atomic output are tested; general annotations, broader lifecycle/template coverage, STL and production integration remain pending |
 | Policy input evidence | Explicit file requests and source-located roots, exact preprocessor comment spans, observed legacy policy environment, and structured concrete friend evidence implemented in facts v12. Real embedded/template headers and a multi-header synthetic input are exercised. Bounded resolved policy v4 characterizes eligibility, comment association, exclusions, units/I/O, descriptions/modifiers and operation-specific friend access with 38 live legacy cases. General policy remains pending |
-| Rewrite-generated legacy metadata | Compiled legacy/candidate/native comparisons cover the 14 scalar types above, fixed arrays and aliases, unsigned bitfields, and enum tables. The [enum corpus](../../tools/icg_baseline/enums/README.md) includes ten compatible tables / 19 enumerators and explicit numeric rejections; the [array corpus](../../tools/icg_baseline/arrays/README.md) includes two records / nine fields. Policy v10 / emitter v9 also generate bounded template dependencies with first-use symbols and guarded real MemoryManager initialization; five tables replace legacy definitions in the configured checkpoint comparison. Opt-in lifecycle exports have independent native and configured runtime gates. Wide/Unicode characters, broader records/annotations, STL and production integration remain pending; see the [milestone](ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata) |
+| Rewrite-generated legacy metadata | Compiled legacy/candidate/native comparisons cover the 15 scalar types above, fixed arrays and aliases, unsigned bitfields, and enum tables. The [enum corpus](../../tools/icg_baseline/enums/README.md) includes ten compatible tables / 19 enumerators and explicit numeric rejections; the [array corpus](../../tools/icg_baseline/arrays/README.md) includes two records / nine fields. Policy v11 / emitter v10 also generate bounded template dependencies with first-use symbols and guarded real MemoryManager initialization; five tables replace legacy definitions in the configured checkpoint comparison. Opt-in lifecycle exports have independent native and configured runtime gates. Wide/UTF-32 characters, broader records/annotations, STL and production integration remain pending; see the [milestone](ICG_REWRITE_PLAN.md#201-next-milestone-generate-and-execute-legacy-metadata) |
 | Small/medium/large representative corpus | Focused cases selected; medium/large selection pending |
 | Full file/symbol/flag/annotation/runtime inventory | Initial source inventory only |
 | LLVM 17 libclang capability | Complete; three required blockers recorded and LibTooling selected in ICG-001 |

@@ -1,15 +1,15 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v10,
+This standalone development backend consumes **facts v12, resolved policy v11,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
 
-**The scalar profile supports 14 base types:** `bool`, `char`, `signed char`,
+**The scalar profile supports 15 base types:** `bool`, `char`, `signed char`,
 `unsigned char`, `short`, `unsigned short`, `int`, `unsigned int`, `long`,
-`unsigned long`, `long long`, `unsigned long long`, `float`, and `double`.
+`unsigned long`, `long long`, `unsigned long long`, `float`, `double`, and `char16_t`.
 The backend also emits unsigned-int bitfields, fixed arrays and aliases of those
-scalars. `wchar_t`, `char16_t`, `char32_t`, extended integers such as `__int128`,
+scalars. `wchar_t`, `char32_t`, extended integers such as `__int128`,
 and `long double` remain unsupported; a required unsupported field fails the request.
 Separate profiles cover enum
 tables (not enum-valued fields), lifecycle exports, and bounded structured template
@@ -23,7 +23,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1–v9 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v10 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -145,7 +145,7 @@ This is a test overlay, not production ICG/build integration.
 
 ## Template-member metadata
 
-Emitter v9 accepts `outputs=["template-attributes"]` with explicit containing
+Emitter v10 accepts `outputs=["template-attributes"]` with explicit containing
 field IDs. It emits each selected specialization and its structured dependency
 closure: scalar/array/structured tables, sentinels,
 initializer/C wrapper, size function and UnitsMap entries. It uses resolved
@@ -305,7 +305,16 @@ checkpoint passes cover compact/expanded arrays, signed minima/maxima, unsigned
 high-bit values and full 64-bit maxima. Six runtime controls must reach execution
 and fail value checks. CI regenerates the references and executes the new gate.
 
-Next characterize wide/Unicode character types separately, then template enum
-arguments/member rows and pointer/reference storage. General
+The [character corpus](../icg_baseline/characters/README.md) adds `char16_t` as
+16-bit code-unit storage: two records / seven fields, nine character reference
+snapshots, six compiled mutations and three real MemoryManager failure controls.
+Compact/expanded checkpoint passes preserve embedded zeros, surrogate code units
+and the full unsigned range. Template naming and lifecycle initialization are
+checked too. `wchar_t` remains rejected because legacy assignment truncates;
+`char32_t` remains rejected because legacy omits its field rows. This adds no
+Unicode validation, transcoding or string-pointer behavior.
+
+Next characterize template enum arguments/member rows, then pointer/reference
+storage. General
 annotations, inheritance, broader template/STL emission, and lifecycle
 exception/ownership handling remain subsequent milestones.

@@ -56,13 +56,13 @@ EXPECTED = {
 }
 
 
-def reference(here: Path = HERE) -> tuple[dict, str]:
+def reference(here: Path = HERE, case_id: str | None = None) -> tuple[dict, str]:
     reference = here / "reference"
     manifest = json.loads((here / "corpus.json").read_text())
     provenance = json.loads((reference / "provenance.json").read_text())
     if b.digest((here / "corpus.json").read_bytes()) != provenance["manifest_sha256"]:
         raise ValueError("metadata manifest differs from captured input")
-    (case,) = manifest["cases"]
+    (case,) = [c for c in manifest["cases"] if case_id is None or c["id"] == case_id]
     if (
         b.digest((d.ROOT / case["header"]).read_bytes())
         != provenance["source_sha256"][case["header"]]
@@ -115,12 +115,13 @@ def check(
     *,
     here: Path = HERE,
     expected_records: dict = EXPECTED,
+    case_id: str | None = None,
 ) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     result = output / "comparison.json"
     result.unlink(missing_ok=True)
-    case, legacy = reference(here)
+    case, legacy = reference(here, case_id)
     request = resolve.request_for(facts)
     model = resolve.resolve(facts, request)
     report = report_for(facts, expected_records)
@@ -169,11 +170,26 @@ def capture(
     *,
     here: Path = HERE,
     expected_records: dict = EXPECTED,
+    case_id: str | None = None,
 ) -> dict:
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     (output / "comparison.json").unlink(missing_ok=True)
-    case, _ = reference(here)
+    case, _ = reference(here, case_id)
+    facts = extract(extractor, output, case)
+    return check(
+        facts,
+        output,
+        compiler,
+        here=here,
+        expected_records=expected_records,
+        case_id=case_id,
+    )
+
+
+def extract(extractor: Path, output: Path, case: dict) -> dict:
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
     source = output / "S_source.hh"
     source.write_text(f'#include "{d.ROOT / case["header"]}"\n')
     env = {
@@ -198,13 +214,7 @@ def capture(
     (output / "facts.json").write_bytes(p.stdout)
     (output / "extract.stderr").write_bytes(p.stderr)
     p.check_returncode()
-    return check(
-        json.loads(p.stdout),
-        output,
-        compiler,
-        here=here,
-        expected_records=expected_records,
-    )
+    return json.loads(p.stdout)
 
 
 if __name__ == "__main__":

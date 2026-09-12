@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-9"
+VERSION = "scalar-metadata-emitter-10"
 
 
 def literal(value: str) -> str:
@@ -125,6 +125,7 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
         'static_assert(CHAR_BIT == 8 && sizeof(int) == 4 && sizeof(double) == 8 && sizeof(long) == 8 && sizeof(void*) == 8, "ICG scalar ABI mismatch");\n'
         'static_assert(sizeof(bool) == 1 && sizeof(char) == 1 && sizeof(float) == 4 && std::numeric_limits<float>::is_iec559 && std::numeric_limits<float>::digits == 24, "ICG bool/char/float ABI mismatch");\n'
         'static_assert(sizeof(short) == 2 && sizeof(long long) == 8 && std::numeric_limits<unsigned long>::digits == 64 && std::numeric_limits<unsigned long long>::digits == 64, "ICG integer ABI mismatch");\n'
+        'static_assert(sizeof(char16_t) == sizeof(unsigned short) && alignof(char16_t) == alignof(unsigned short) && std::numeric_limits<char16_t>::digits == 16 && !std::numeric_limits<char16_t>::is_signed, "ICG char16_t ABI mismatch");\n'
     ]
     if "lifecycle" in request["outputs"]:
         chunks.append(lifecycle.PREAMBLE)

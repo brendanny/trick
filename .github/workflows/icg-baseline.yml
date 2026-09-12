@@ -146,6 +146,14 @@ jobs:
             --udunits-xml /usr/share/xml/udunits/udunits2.xml \
             --output build/integer-reference-evidence \
             --reference tools/icg_baseline/integers/reference
+      - name: Reproduce UTF-16, wide-character, and UTF-32 references
+        run: |
+          python tools/icg_baseline/legacy.py \
+            --build-dir build/legacy-baseline \
+            --manifest tools/icg_baseline/characters/corpus.json \
+            --udunits-xml /usr/share/xml/udunits/udunits2.xml \
+            --output build/character-reference-evidence \
+            --reference tools/icg_baseline/characters/reference
       - name: Preserve logs and evidence even on failure
         if: always()
         uses: actions/upload-artifact@v7
@@ -160,6 +168,7 @@ jobs:
             build/array-reference-evidence
             build/scalar-reference-evidence
             build/integer-reference-evidence
+            build/character-reference-evidence
             build/legacy-baseline/packages.txt
             build/legacy-baseline/build-info.txt
             build/legacy-baseline/compile_commands.json

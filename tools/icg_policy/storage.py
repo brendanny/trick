@@ -19,6 +19,7 @@ KINDS = {
     "unsigned long": "TRICK_UNSIGNED_LONG",
     "long long": "TRICK_LONG_LONG",
     "unsigned long long": "TRICK_UNSIGNED_LONG_LONG",
+    "char16_t": "TRICK_UNSIGNED_SHORT",
 }
 
 

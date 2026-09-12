@@ -34,6 +34,9 @@ KINDS = {
     "unsigned long": "TRICK_UNSIGNED_LONG",
     "long long": "TRICK_LONG_LONG",
     "unsigned long long": "TRICK_UNSIGNED_LONG_LONG",
+    "char16_t": "TRICK_UNSIGNED_SHORT",
+    # Observe the rejected legacy profile without admitting it in generation.
+    "wchar_t": "TRICK_WCHAR",
 }
 
 

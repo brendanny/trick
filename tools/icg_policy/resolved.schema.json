@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 10
+      "const": 11
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-10"
+      "const": "scalar-metadata-11"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-10"
+          "const": "scalar-metadata-11"
         },
         "template_field_ids": {
           "type": "array",
@@ -741,7 +741,8 @@
             "unsigned short",
             "unsigned long",
             "long long",
-            "unsigned long long"
+            "unsigned long long",
+            "char16_t"
           ]
         },
         "cpp_type": {

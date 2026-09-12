@@ -123,6 +123,8 @@ namespace probe
             return "TRICK_SHORT";
         case TRICK_UNSIGNED_SHORT:
             return "TRICK_UNSIGNED_SHORT";
+        case TRICK_WCHAR:
+            return "TRICK_WCHAR";
         case TRICK_UNSIGNED_LONG:
             return "TRICK_UNSIGNED_LONG";
         case TRICK_LONG_LONG:

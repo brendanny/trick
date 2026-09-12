@@ -1,0 +1,3 @@
+  <class name="Utf32Model">
+  </class>
+

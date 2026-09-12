@@ -828,8 +828,19 @@ facts do not yet encode the property that selects legacy's character type code;
 explicit signed/unsigned character fields remain distinct. Facts v12, production
 ICG and earlier fixture/reference bytes remain unchanged.
 
-Next characterize wide/Unicode character storage separately, then template enum
-arguments/member rows and pointer/reference storage. Continue
+Policy v11 / emitter v10 add `char16_t` as unsigned 16-bit code-unit storage,
+bringing the scalar profile to 15 types. The separate
+[character corpus](../../tools/icg_baseline/characters/README.md) retains nine
+legacy snapshots. Two UTF-16 records / seven fields pass legacy/candidate/native
+comparison, six compiled mutations, and two real MemoryManager checkpoint passes
+with three execution controls. Embedded zeros, surrogate code units and the full
+unsigned range survive; no Unicode validation or string conversion is implied.
+Template first-use names and lifecycle initialization are checked. Legacy-only
+wide/UTF-32 probes preserve the rejection rationale: `wchar_t` assignment
+truncates and `char32_t` fields are omitted. Facts and production code are unchanged.
+
+Next characterize template enum arguments/member rows, then pointer/reference
+storage. Continue
 requiring independent legacy/native comparisons, ABI checks and runtime round
 trips; adding names to `KINDS` alone is insufficient.
 Then widen template/STL emission through the existing independent and configured

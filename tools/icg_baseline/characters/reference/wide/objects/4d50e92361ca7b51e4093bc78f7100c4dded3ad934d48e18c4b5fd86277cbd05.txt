@@ -1,0 +1,27 @@
+TRICK_IO_CXXFLAGS += -Wno-invalid-offsetof -Wno-old-style-cast -Wno-write-strings -Wno-unused-variable
+
+ifeq ($(IS_CC_CLANG), 0)
+    TRICK_IO_CXXFLAGS += -Wno-unused-local-typedefs -Wno-unused-but-set-variable
+    ifeq ($(shell test $(GCC_MAJOR) -lt 6; echo $$?), 0)
+        TRICK_IO_CXXFLAGS += -std=c++11
+    endif
+endif
+ifeq ($(IS_CC_CLANG), 1)
+    TRICK_IO_CXXFLAGS += -std=c++14
+endif
+
+IO_OBJECTS = \
+    build${TRICK_ROOT}/tools/icg_baseline/characters/fixtures/io_Wide.o \
+    build/class_map.o
+
+$(IO_OBJECTS): %.o : %.cpp | %.d
+	$(PRINT_COMPILE)
+	$(call ECHO_AND_LOG,$(TRICK_CXX) $(TRICK_CXXFLAGS) $(TRICK_SYSTEM_CXXFLAGS) $(TRICK_IO_CXXFLAGS) -MMD -MP -c -o $@ $<)
+
+$(IO_OBJECTS:.o=.d): ;
+
+-include $(IO_OBJECTS:.o=.d)
+
+$(S_MAIN): $(IO_OBJECTS)
+
+LINK_LISTS += $(LD_FILELIST)build/io_link_list

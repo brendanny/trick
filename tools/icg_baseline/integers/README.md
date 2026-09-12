@@ -26,7 +26,8 @@ record. A compiler test rejects the mismatch under `-funsigned-char`, and accept
 explicit signed/unsigned character fields under that same flag. Extractor argument
 handling is unchanged; this is a generated-source conformance check.
 
-Wide/Unicode characters (`wchar_t`, `char16_t`, `char32_t`), extended integers,
+The subsequent [character corpus](../characters/README.md) adds `char16_t` code-unit
+storage in policy v11 / emitter v10. `wchar_t`, `char32_t`, extended integers,
 `long double`, qualified and pointer/reference fields remain unsupported.
 Bitfield support is still unsigned-int only; new bases do not widen it.
 

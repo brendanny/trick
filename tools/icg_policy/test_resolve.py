@@ -73,7 +73,7 @@ class RuleTests(unittest.TestCase):
                 / "trick_source/codegen/TrickCodeGen/ir/fixtures/minimal-record.json"
             ).read_text()
         )
-        for version in range(10):
+        for version in range(11):
             request = resolve.request_for(facts)
             request["policy_version"] = f"scalar-metadata-{version}"
             with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_REQUEST"):
@@ -332,7 +332,10 @@ class ExtractionTests(unittest.TestCase):
         for field in (
             "long double value;",
             "wchar_t value;",
-            "char16_t value;",
+            "char16_t value : 3;",
+            "const char16_t value;",
+            "volatile char16_t value[2];",
+            "char16_t* value;",
             "char32_t value;",
             "__int128 value;",
             "unsigned __int128 value;",

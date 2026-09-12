@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/characters/fixtures/Utf32.hh
+${SIM_ROOT}/input.cpp
