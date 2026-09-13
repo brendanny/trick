@@ -1,0 +1,2 @@
+build${TRICK_ROOT}/tools/icg_baseline/record_enums/fixtures/io_RecordEnums.o
+build/class_map.o

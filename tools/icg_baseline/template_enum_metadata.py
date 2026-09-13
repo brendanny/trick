@@ -269,14 +269,44 @@ def capture(extractor: Path, root: Path, output: Path, compiler: Path) -> dict:
     model, candidate = generate(facts, output / "generated")
     report = report_for(facts)
     flags = native.configured_link_flags(root, output)
+    return compare(
+        facts,
+        model,
+        candidate,
+        reference(),
+        report,
+        output,
+        compiler,
+        flags,
+        case_id="template-enums",
+        changes=mutations(candidate),
+    )
+
+
+def compare(
+    facts: dict,
+    model: dict,
+    candidate: str,
+    legacy: str,
+    report: dict,
+    output: Path,
+    compiler: Path,
+    flags: tuple[str, ...],
+    *,
+    case_id: str,
+    changes: dict[str, tuple[str, str]],
+) -> dict:
+    """Compare independent enum storage reports with both executed generators."""
+    result = output / "comparison.json"
+    result.unlink(missing_ok=True)
     observed = []
-    for label, source in (("legacy", reference()), ("candidate", candidate)):
+    for label, source in (("legacy", legacy), ("candidate", candidate)):
         observed.append(
             native.capture(
                 facts,
                 source,
                 report,
-                dict(id="template-enums"),
+                dict(id=case_id),
                 output / label,
                 compiler,
                 source_name=label + ".cpp",
@@ -285,17 +315,17 @@ def capture(extractor: Path, root: Path, output: Path, compiler: Path) -> dict:
         )
     if observed[0]["observations"] != observed[1]["observations"]:
         raise b.BaselineError(
-            "enum template legacy/candidate/native observations differ"
+            "enum storage legacy/candidate/native observations differ"
         )
     rejected = {}
-    for name, (source, phase) in mutations(candidate).items():
+    for name, (source, phase) in changes.items():
         work = output / "mutations" / name
         try:
             native.capture(
                 facts,
                 source,
                 report,
-                dict(id="template-enums"),
+                dict(id=case_id),
                 work,
                 compiler,
                 source_name="candidate.cpp",
@@ -324,10 +354,10 @@ def capture(extractor: Path, root: Path, output: Path, compiler: Path) -> dict:
             raise b.BaselineError("enum metadata mutation was accepted: " + name)
     report = dict(
         status="compared",
-        records=5,
-        fields=15,
-        enum_tables=3,
-        enumerators=8,
+        records=len(report["records"]),
+        fields=sum(len(rows) for rows in report["records"].values()),
+        enum_tables=len(report["enums"]),
+        enumerators=sum(len(rows) for rows in report["enums"].values()),
         legacy=observed[0],
         candidate=observed[1],
         resolved_digest=model["digest"],

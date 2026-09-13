@@ -1,7 +1,8 @@
-"""Bounded scalar, fixed-array and unsigned-bitfield metadata decisions."""
+"""Bounded builtin/enum, fixed-array and unsigned-bitfield storage decisions."""
 
 from __future__ import annotations
 
+from tools.icg_policy import enums
 from tools.icg_policy.rules import PolicyError
 
 KINDS = {
@@ -23,7 +24,7 @@ KINDS = {
 }
 
 
-def resolve(field: dict, types: dict) -> dict:
+def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
     # Canonical IDs expand aliases structurally, including aliases of arrays.
     node = types[types[field["type_id"]]["canonical_id"]]
     dimensions = []
@@ -41,14 +42,33 @@ def resolve(field: dict, types: dict) -> dict:
             )
         node = types[types[node["element_id"]]["canonical_id"]]
     if (
-        node["kind"] != "builtin"
-        or node["spelling"] not in KINDS
+        not (
+            node["kind"] == "builtin"
+            and node["spelling"] in KINDS
+            or node["kind"] == "enum"
+            and declarations is not None
+        )
         or any(node["qualifiers"].values())
         or not field["name"]
     ):
         raise PolicyError(
             "ICG_POLICY_TYPE",
             f"required field outside unqualified scalar/array profile: {field['qualified_name']}",
+        )
+    # Lifecycle callers omit declarations and keep their characterized builtin
+    # storage boundary. Enum metadata does not imply enum lifecycle support.
+    if node["kind"] == "enum":
+        if field["bitfield"]:
+            raise PolicyError("ICG_POLICY_TYPE", "enum bitfields are not characterized")
+        enum_id = node["declaration_id"]
+        name = enums.storage_type(declarations[enum_id], declarations, types)
+        return dict(
+            element_type_id=node["id"],
+            enum_id=enum_id,
+            type_name=name,
+            cpp_type=name + "".join(f"[{extent}]" for extent in dimensions),
+            trick_type="TRICK_ENUMERATED",
+            dimensions=dimensions,
         )
     name = node["spelling"]
     if field["bitfield"] and (dimensions or name != "unsigned int"):

@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v12,
+This standalone development backend consumes **facts v12, resolved policy v13,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -11,9 +11,9 @@ lifecycle helpers against the existing Trick ABI. It is not a production
 The backend also emits unsigned-int bitfields, fixed arrays and aliases of those
 scalars. `wchar_t`, `char32_t`, extended integers such as `__int128`,
 and `long double` remain unsupported; a required unsupported field fails the request.
-Separate profiles cover enum
-tables, enum-valued template fields, lifecycle exports, and bounded structured template
-members. Extraction covers more types than generation, so successful facts
+Named nonempty 32-bit `int`/`unsigned int` enum fields and their fixed arrays
+are supported in ordinary records and templates. Separate profiles cover enum
+tables, lifecycle exports, and bounded structured template members. Extraction covers more types than generation, so successful facts
 extraction does not establish emitter coverage.
 
 ```sh
@@ -23,7 +23,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1–v11 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v12 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -47,7 +47,7 @@ metadata does not itself need member access. An init-function friend grants no
 lifecycle, STL, registry, or binding permission.
 
 Ordinary-record metadata supports standard-layout records in the bounded
-scalar/array policy. Separate enum tables support scoped/unscoped values
+builtin/enum scalar and fixed-array policy. Separate enum tables support scoped/unscoped values
 representable by `ENUM_ATTR.int` that agree with legacy's signed integer conversion. Enum labels, C++ names, values, order and
 modifier bits come from explicit policy decisions; the emitter does not derive
 them again. Field storage, dimensions and UnitsMap keys are likewise resolved
@@ -67,8 +67,9 @@ narrower than successful fact extraction or policy resolution.
 
 In ordinary-record metadata, arrays require one to eight fixed positive extents,
 each fitting signed `INDEX.int`. Const/volatile, pointer/reference and
-structured/enum elements remain rejected. The explicit template profile also
-supports its bounded structured and 32-bit enum arrays. UnitsMap keys retain enclosing record
+structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
+enum elements use the same rank/extent checks. The explicit template profile
+also supports its bounded structured arrays. UnitsMap keys retain enclosing record
 names but omit namespaces, correcting the prior emitter's namespace prefix.
 Ambiguous selected-field key collisions are policy errors.
 
@@ -98,7 +99,8 @@ independently check POD, abstractness, placement-default availability,
 destructibility, destructor virtualness, and allocation alignment.
 
 This profile covers complete named non-template classes/structs without bases,
-with the bounded scalar/array fields. Lifecycle-only output can cover non-standard-layout
+with the 15 builtin scalar bases and their fixed arrays; enum fields remain
+outside the lifecycle profile. Lifecycle-only output can cover non-standard-layout
 records, including the abstract fixture; requesting metadata still enforces the
 metadata layout boundary. Unions, over-alignment, class-specific allocation,
 polymorphic deletion without a virtual destructor, ambiguous special members,
@@ -145,7 +147,7 @@ This is a test overlay, not production ICG/build integration.
 
 ## Template-member metadata
 
-Emitter v11 accepts `outputs=["template-attributes"]` with explicit containing
+Emitter v12 accepts `outputs=["template-attributes"]` with explicit containing
 field IDs. It emits each selected specialization and its structured and enum
 dependency closure: scalar/array/structured/enum tables, sentinels,
 initializer/C wrapper, size function and UnitsMap entries. It uses resolved
@@ -320,9 +322,17 @@ The [enum template corpus](../icg_baseline/template_enums/README.md) adds named
 and real symbolic/numeric checkpoint readback. Enum dependencies are selected
 explicitly in the resolved model; initializers use actual MemoryManager lookup.
 Legacy `enum` spellings, nested `> >` spacing, namespace names and label collisions
-are covered. Ordinary enum fields and other enum storage widths remain pending.
+are covered. Other enum storage widths remain pending.
 
-Next extend ordinary enum-valued record fields, then characterize pointer/reference
-storage. General
+The [ordinary enum field corpus](../icg_baseline/record_enums/README.md) adds
+two records / ten mixed fields, including aliases, enum arrays and namespace-qualified
+types. Policy v13 / emitter v12 require every enum dependency to be selected and
+included, then generate guarded MemoryManager lookup with zero-initialized rows.
+Seven metadata mutations and three checkpoint mutations are rejected; compact and
+expanded checkpoint passes restore all 16 enum elements and both neighboring builtin
+fields. Numeric private-field metadata preserves the exact init-friend access boundary.
+Enum lifecycle output, record-nested enum definitions and other widths remain rejected.
+
+Next characterize pointer/reference storage. General
 annotations, inheritance, broader template/STL emission, and lifecycle
 exception/ownership handling remain subsequent milestones.

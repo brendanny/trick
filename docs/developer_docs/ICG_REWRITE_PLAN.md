@@ -851,8 +851,19 @@ passes restore every element, preserving symbolic labels and numeric fallback.
 Portable lanes compile both sources; the configured gate executes both against
 actual Trick archives. Facts, production code and earlier references are unchanged.
 
-Next extend ordinary enum-valued record fields, then characterize pointer/reference
-storage. Continue
+Policy v13 / emitter v12 extend bounded enum storage to ordinary records. The
+[new corpus](../../tools/icg_baseline/record_enums/README.md) captures three fresh
+legacy snapshots for two records / ten fields and three enum tables. Mixed builtin
+and enum fields, aliases, arrays and namespace names agree with native layout and
+real MemoryManager observations; two checkpoint passes restore 16 enum elements
+and both neighboring builtin values. Seven metadata mutations and three runtime
+controls fail at their designated stages. Required ignored/excluded/unselected enum
+definitions, conflicting labels and unsupported storage fail before source output.
+Private access remains operation-specific. Enum lifecycle output and record-nested
+enum definitions remain separate work; production code and prior reference bytes
+are unchanged.
+
+Next characterize pointer/reference storage. Continue
 requiring independent legacy/native comparisons, ABI checks and runtime round
 trips; adding names to `KINDS` alone is insufficient.
 Then widen template/STL emission through the existing independent and configured

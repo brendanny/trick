@@ -7,8 +7,8 @@ import re
 from tools.icg_policy.rules import PolicyError
 
 
-def template_type(node: dict, declarations: dict, types: dict) -> str:
-    """Bounded named enum storage for template arguments and member rows."""
+def storage_type(node: dict, declarations: dict, types: dict) -> str:
+    """Bounded named enum storage for ordinary fields and template arguments."""
     underlying = types[types[node["underlying_type_id"]]["canonical_id"]]
     if (
         node["origin"] != "user"
@@ -20,7 +20,7 @@ def template_type(node: dict, declarations: dict, types: dict) -> str:
     ):
         raise PolicyError(
             "ICG_POLICY_ENUM_STORAGE",
-            "template enum storage requires a defined, nonempty int/unsigned-int enum",
+            "enum storage requires a defined, nonempty int/unsigned-int enum",
         )
     chain = [node]
     parent = declarations.get(node.get("semantic_parent_id"))
@@ -28,13 +28,13 @@ def template_type(node: dict, declarations: dict, types: dict) -> str:
         if parent["kind"] != "namespace" or parent["inline"]:
             raise PolicyError(
                 "ICG_POLICY_ENUM_STORAGE",
-                "template enums require global or named non-inline namespace scope",
+                "enum storage requires global or named non-inline namespace scope",
             )
         chain.insert(0, parent)
         parent = declarations.get(parent.get("semantic_parent_id"))
     if any(not re.fullmatch(r"[A-Za-z_]\w*", n["name"], re.ASCII) for n in chain):
         raise PolicyError(
-            "ICG_POLICY_ENUM_STORAGE", "template enum requires an ASCII name"
+            "ICG_POLICY_ENUM_STORAGE", "enum storage requires an ASCII name"
         )
     metadata(node, declarations, types)
     return "::".join(n["name"] for n in chain)

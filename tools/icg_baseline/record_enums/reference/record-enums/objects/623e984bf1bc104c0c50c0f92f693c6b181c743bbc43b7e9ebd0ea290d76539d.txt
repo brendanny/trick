@@ -1,0 +1,180 @@
+  <enumeration name="RecordState">
+    <pair label ="state_negative" value="-3"/>
+    <pair label ="state_zero" value="0"/>
+    <pair label ="state_maximum" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="RecordPhase">
+    <pair label ="RecordPhase::phase_idle" value="0"/>
+    <pair label ="RecordPhase::phase_running" value="2"/>
+    <pair label ="RecordPhase::phase_alias" value="2"/>
+  </enumeration>
+
+  <enumeration name="record_enum__Mode">
+    <pair label ="record_enum::Mode::mode_zero" value="0"/>
+    <pair label ="record_enum::Mode::mode_high" value="2147483647"/>
+  </enumeration>
+
+  <class name="record_enum__Aliases">
+    <member
+      name="mode"
+      type="record_enum__Mode"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="pairs"
+      type="RecordPhase"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="repeated"
+      type="RecordState"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="EnumRecord">
+    <member
+      name="lead"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="state"
+      type="RecordState"
+      io_attributes="15"
+      units="1"
+      description="selected state">
+    </member>
+    <member
+      name="phase"
+      type="RecordPhase"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="states"
+      type="RecordState"
+      io_attributes="15"
+      units="1">
+      <dimension>3</dimension>
+    </member>
+    <member
+      name="phases"
+      type="RecordPhase"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="mode"
+      type="record_enum__Mode"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="tail"
+      type="double"
+      io_attributes="15"
+      units="m"
+      description="position">
+    </member>
+  </class>
+
+  <enumeration name="RecordState">
+    <pair label ="state_negative" value="-3"/>
+    <pair label ="state_zero" value="0"/>
+    <pair label ="state_maximum" value="2147483647"/>
+  </enumeration>
+
+  <enumeration name="RecordPhase">
+    <pair label ="RecordPhase::phase_idle" value="0"/>
+    <pair label ="RecordPhase::phase_running" value="2"/>
+    <pair label ="RecordPhase::phase_alias" value="2"/>
+  </enumeration>
+
+  <enumeration name="record_enum__Mode">
+    <pair label ="record_enum::Mode::mode_zero" value="0"/>
+    <pair label ="record_enum::Mode::mode_high" value="2147483647"/>
+  </enumeration>
+
+  <class name="record_enum__Aliases">
+    <member
+      name="mode"
+      type="record_enum__Mode"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="pairs"
+      type="RecordPhase"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="repeated"
+      type="RecordState"
+      io_attributes="15"
+      units="1">
+    </member>
+  </class>
+
+  <class name="EnumRecord">
+    <member
+      name="lead"
+      type="int"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="state"
+      type="RecordState"
+      io_attributes="15"
+      units="1"
+      description="selected state">
+    </member>
+    <member
+      name="phase"
+      type="RecordPhase"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="states"
+      type="RecordState"
+      io_attributes="15"
+      units="1">
+      <dimension>3</dimension>
+    </member>
+    <member
+      name="phases"
+      type="RecordPhase"
+      io_attributes="15"
+      units="1">
+      <dimension>2</dimension>
+      <dimension>2</dimension>
+    </member>
+    <member
+      name="mode"
+      type="record_enum__Mode"
+      io_attributes="15"
+      units="1">
+    </member>
+    <member
+      name="tail"
+      type="double"
+      io_attributes="15"
+      units="m"
+      description="position">
+    </member>
+  </class>
+

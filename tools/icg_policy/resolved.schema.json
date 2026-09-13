@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 12
+      "const": 13
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-12"
+      "const": "scalar-metadata-13"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-12"
+          "const": "scalar-metadata-13"
         },
         "template_field_ids": {
           "type": "array",
@@ -606,8 +606,8 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v12.schema.json",
-  "title": "Bounded legacy metadata, lifecycle and template-use policy v12",
+  "$id": "https://nasa.github.io/trick/icg/resolved-policy-v13.schema.json",
+  "title": "Bounded legacy metadata, lifecycle and template-use policy v13",
   "$defs": {
     "source": {
       "type": "object",

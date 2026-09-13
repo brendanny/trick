@@ -162,6 +162,14 @@ jobs:
             --udunits-xml /usr/share/xml/udunits/udunits2.xml \
             --output build/template-enum-reference-evidence \
             --reference tools/icg_baseline/template_enums/reference
+      - name: Reproduce ordinary enum field reference
+        run: |
+          python tools/icg_baseline/legacy.py \
+            --build-dir build/legacy-baseline \
+            --manifest tools/icg_baseline/record_enums/corpus.json \
+            --udunits-xml /usr/share/xml/udunits/udunits2.xml \
+            --output build/record-enum-reference-evidence \
+            --reference tools/icg_baseline/record_enums/reference
       - name: Preserve logs and evidence even on failure
         if: always()
         uses: actions/upload-artifact@v7
@@ -178,6 +186,7 @@ jobs:
             build/integer-reference-evidence
             build/character-reference-evidence
             build/template-enum-reference-evidence
+            build/record-enum-reference-evidence
             build/legacy-baseline/packages.txt
             build/legacy-baseline/build-info.txt
             build/legacy-baseline/compile_commands.json

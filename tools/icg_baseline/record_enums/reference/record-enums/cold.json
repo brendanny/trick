@@ -1,0 +1,118 @@
+{
+  "artifact_spec": [
+    {
+      "id": "legacy-metadata",
+      "patterns": [
+        "build/**/io_*.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry",
+      "patterns": [
+        "build/class_map.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry-declarations",
+      "patterns": [
+        "build/extern_init_attr.h"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-make",
+      "patterns": [
+        "build/Makefile_io_src"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-dependencies",
+      "patterns": [
+        "build/Makefile_ICG"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-link",
+      "patterns": [
+        "build/io_link_list",
+        "build/trickify_io_link_list"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-processed",
+      "patterns": [
+        "build/ICG_processed"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-policy",
+      "patterns": [
+        "build/ICG_ext_lib",
+        "build/ICG_no_found"
+      ],
+      "required": false
+    },
+    {
+      "id": "sie-classes",
+      "patterns": [
+        "build/classes.resource"
+      ],
+      "required": true
+    }
+  ],
+  "artifacts": {
+    "build${TRICK_ROOT}/tools/icg_baseline/record_enums/fixtures/io_RecordEnums.cpp": {
+      "group": "legacy-metadata",
+      "sha256": "e5da665c9b35df8fb27038d4ac918d7e4c27b2d74b0f7fa2ed557cc92b843d23"
+    },
+    "build/ICG_ext_lib": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_no_found": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_processed": {
+      "group": "icg-processed",
+      "sha256": "570a5d700619e9378cc8ea545307dd329b88a230c9aa1e8cea6d35dc4ce3e174"
+    },
+    "build/Makefile_ICG": {
+      "group": "icg-dependencies",
+      "sha256": "22b73da4d08d50dc9abf7b0386e3295d35e8f84230667054910ab355f03081cc"
+    },
+    "build/Makefile_io_src": {
+      "group": "icg-make",
+      "sha256": "bd530b31bfc85b354ac46461f5ac9376ce969887bfa462bf875766939436827e"
+    },
+    "build/class_map.cpp": {
+      "group": "registry",
+      "sha256": "b1bf3ad36ea50bbf8443bdca55a7e1fbd7de7ff4e4717f303676a5add4720617"
+    },
+    "build/classes.resource": {
+      "group": "sie-classes",
+      "sha256": "5b1f45a0450659de96ce97d1cbb95dd977fd08a86ef3f1e73645b37351a8a459"
+    },
+    "build/extern_init_attr.h": {
+      "group": "registry-declarations",
+      "sha256": "30dee838454c14a1621b8ec5ef278c785fe4279c152c2fb8b332b18e8d05deeb"
+    },
+    "build/io_link_list": {
+      "group": "icg-link",
+      "sha256": "4f4a48d9b6b1d0e35149f56d393ae95b0b3134122131881ab0c0e4d30d04324e"
+    },
+    "build/trickify_io_link_list": {
+      "group": "icg-link",
+      "sha256": "b9b0f52d300ce91465dd3168b553a9a9963ee521a1864574c820da6e8a03aa1b"
+    }
+  },
+  "case": "record-enums",
+  "normalization_version": 2,
+  "schema_version": 2
+}

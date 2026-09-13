@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from tools.icg_policy import enums, lifecycle, rules, storage, templates  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-12"
+POLICY_VERSION = "scalar-metadata-13"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
@@ -183,6 +183,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
     decisions = {}
     symbols = {}
     unit_keys = {}
+    ordinary_enum_ids = set()
 
     def decide(node: dict) -> dict:
         identifier = node["id"]
@@ -333,7 +334,16 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
             if annotation["io"] == 0:
                 result["rule"] = "IO_DISABLED"
                 return result
-            result["metadata"]["storage"] = storage.resolve(node, types)
+            resolved_storage = storage.resolve(node, types, declarations)
+            result["metadata"]["storage"] = resolved_storage
+            if "enum_id" in resolved_storage:
+                enum_id = resolved_storage["enum_id"]
+                if decide(declarations[enum_id])["decision"] != "include":
+                    raise rules.PolicyError(
+                        "ICG_POLICY_ENUM_DEPENDENCY",
+                        f"required enum metadata is omitted: {declarations[enum_id]['qualified_name']}",
+                    )
+                ordinary_enum_ids.add(enum_id)
             key = result["metadata"]["units_map_key"]
             if key in unit_keys and unit_keys[key] != identifier:
                 raise rules.PolicyError(
@@ -353,7 +363,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=12,
+        schema_version=13,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(
@@ -380,6 +390,14 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         for instance in model["template_instances"]
         for i in instance["dependency_enum_ids"]
     }
+    if ordinary_enum_ids:
+        # Ordinary metadata requests emit all selected enum tables. Once fields
+        # use runtime enum lookup, their checkpoint labels must be unambiguous.
+        enum_ids.update(
+            i
+            for i, decision in decisions.items()
+            if decision["decision"] == "include" and declarations[i]["kind"] == "enum"
+        )
     enum_labels = {}
     for identifier in sorted(enum_ids):
         node = declarations[identifier]
@@ -402,15 +420,16 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
                     f"conflicting checkpoint enum label: {row['label']}",
                 )
             enum_labels[row["label"]] = row["value"]
-        decisions[identifier].update(
-            decision="include",
-            rule="ENUM_DEPENDENCY",
-            metadata=dict(
-                symbol=symbol,
-                init_function=None,
-                enum=enum,
-            ),
-        )
+        if request["outputs"] == ["template-attributes"]:
+            decisions[identifier].update(
+                decision="include",
+                rule="ENUM_DEPENDENCY",
+                metadata=dict(
+                    symbol=symbol,
+                    init_function=None,
+                    enum=enum,
+                ),
+            )
     model["digest"] = model_digest(model)
     return model
 

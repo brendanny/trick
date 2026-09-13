@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "scope": "isolated-legacy-headers",
+  "cases": [
+    {
+      "id": "record-enums",
+      "header": "tools/icg_baseline/record_enums/fixtures/RecordEnums.hh",
+      "covers": [
+        "ordinary scoped and unscoped 32-bit enum fields",
+        "mixed builtin and enum scalar, alias, array and matrix storage",
+        "namespace-qualified enum field and record names",
+        "enum dependency tables and real MemoryManager checkpoint restoration"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "legacy-metadata",
+      "required": true,
+      "patterns": [
+        "build/**/io_*.cpp"
+      ]
+    },
+    {
+      "id": "registry",
+      "required": true,
+      "patterns": [
+        "build/class_map.cpp"
+      ]
+    },
+    {
+      "id": "registry-declarations",
+      "required": true,
+      "patterns": [
+        "build/extern_init_attr.h"
+      ]
+    },
+    {
+      "id": "icg-make",
+      "required": true,
+      "patterns": [
+        "build/Makefile_io_src"
+      ]
+    },
+    {
+      "id": "icg-dependencies",
+      "required": true,
+      "patterns": [
+        "build/Makefile_ICG"
+      ]
+    },
+    {
+      "id": "icg-link",
+      "required": true,
+      "patterns": [
+        "build/io_link_list",
+        "build/trickify_io_link_list"
+      ]
+    },
+    {
+      "id": "icg-processed",
+      "required": true,
+      "patterns": [
+        "build/ICG_processed"
+      ]
+    },
+    {
+      "id": "icg-policy",
+      "required": false,
+      "patterns": [
+        "build/ICG_ext_lib",
+        "build/ICG_no_found"
+      ]
+    },
+    {
+      "id": "sie-classes",
+      "required": true,
+      "patterns": [
+        "build/classes.resource"
+      ]
+    }
+  ]
+}

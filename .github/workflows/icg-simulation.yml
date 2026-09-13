@@ -112,6 +112,12 @@ jobs:
           build/icg-schema-venv/bin/python tools/icg_baseline/template_enum_runtime.py \
             --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
             --output build/icg-simulation-evidence/template-enums
+      - name: Compare ordinary enum fields and symbolic checkpoint readback
+        if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
+        run: |
+          build/icg-schema-venv/bin/python tools/icg_baseline/record_enum_runtime.py \
+            --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
+            --output build/icg-simulation-evidence/record-enums
       - name: Compare legacy and candidate template checkpoint readback
         if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
         run: |

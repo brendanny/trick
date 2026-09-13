@@ -26,6 +26,7 @@ import lifecycle as lifecycle_baseline  # noqa: E402
 import lifecycle_codegen  # noqa: E402
 import memorymanager  # noqa: E402
 import native  # noqa: E402
+import record_enum_metadata  # noqa: E402
 import scalar_metadata  # noqa: E402
 import template_enum_metadata  # noqa: E402
 import template_metadata  # noqa: E402
@@ -235,8 +236,6 @@ class EmitterTests(unittest.TestCase):
                 outputs=["template-attributes"],
                 template_fields=["Model::chosen"],
             )
-        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
-            self.model("enum E : int { e=1 }; struct Model { E value; };")
 
     def test_template_enum_ignored_dependency_is_rejected(self):
         self.env["TRICK_ICG_IGNORE_TYPES"] = "E"
@@ -246,6 +245,191 @@ class EmitterTests(unittest.TestCase):
                 outputs=["template-attributes"],
                 template_fields=["Model::chosen"],
             )
+
+    def compile_enum_metadata(self, source, label):
+        path = self.work / (label + ".cpp")
+        path.write_text(source.replace("${TRICK_ROOT}", str(ROOT)))
+        p = subprocess.run(
+            [
+                str(COMPILER),
+                "-std=c++17",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-I" + str(ROOT / "include"),
+                "-c",
+                str(path),
+                "-o",
+                str(path.with_suffix(".o")),
+            ],
+            capture_output=True,
+            env=self.env,
+        )
+        self.assertEqual(p.returncode, 0, p.stderr.decode())
+
+    def test_record_enum_legacy_candidate_compile_and_replay(self):
+        facts = record_enum_metadata.extract(EXTRACTOR, self.work)
+        report = record_enum_metadata.report_for(facts)
+        self.assertEqual(sum(len(v) for v in report["records"].values()), 10)
+        model, candidate = record_enum_metadata.generate(facts, self.work / "generated")
+        self.compile_enum_metadata(record_enum_metadata.reference(), "legacy")
+        self.compile_enum_metadata(candidate, "candidate")
+        request = resolve.request_for(facts)
+        decisions = {d["declaration_id"]: d for d in model["declarations"]}
+        fields = [
+            d
+            for d in decisions.values()
+            if d["metadata"] and d["metadata"].get("storage", {}).get("enum_id")
+        ]
+        self.assertEqual(len(fields), 8)
+        enum_ids = {d["metadata"]["storage"]["enum_id"] for d in fields}
+        self.assertEqual(len(enum_ids), 3)
+        field_id = fields[0]["declaration_id"]
+        enum_id = fields[0]["metadata"]["storage"]["enum_id"]
+        for mutation in ("wrong-enum", "omit-enum", "wrong-spelling"):
+            changed = deepcopy(model)
+            indexed = {d["declaration_id"]: d for d in changed["declarations"]}
+            if mutation == "wrong-enum":
+                indexed[field_id]["metadata"]["storage"]["enum_id"] = next(
+                    i for i in enum_ids if i != enum_id
+                )
+            elif mutation == "omit-enum":
+                indexed[enum_id]["decision"] = "omit"
+            else:
+                indexed[field_id]["metadata"]["storage"]["type_name"] = "OtherEnum"
+            changed["digest"] = resolve.model_digest(changed)
+            with (
+                self.subTest(mutation=mutation),
+                self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"),
+            ):
+                emit.render(facts, request, changed)
+        changed = deepcopy(facts)
+        changed["declarations"].reverse()
+        changed["types"].reverse()
+        self.assertEqual(
+            resolve.resolve(changed, request)["declarations"], model["declarations"]
+        )
+
+    def test_record_enum_storage_boundary_and_lifecycle_rejection(self):
+        for declaration, member, code in (
+            ("enum E : short { e=-1 };", "E value;", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum E : long { e=1 };", "E value;", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum E : int {};", "E value;", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum class E : int;", "E value;", "ICG_POLICY_ENUM_STORAGE"),
+            (
+                "struct Owner { enum E : int { e=1 }; };",
+                "Owner::E value;",
+                "ICG_POLICY_ENUM_STORAGE",
+            ),
+            (
+                "inline namespace ns { enum E : int { e=1 }; }",
+                "ns::E value;",
+                "ICG_POLICY_ENUM_STORAGE",
+            ),
+            ("enum E : int { e=1 };", "const E value;", "ICG_POLICY_TYPE"),
+            ("enum E : int { e=1 };", "E* value;", "ICG_POLICY_TYPE"),
+            ("enum E : int { e=1 };", "E& value;", "ICG_POLICY_TYPE"),
+            ("enum E : int { e=1 };", "E value:2;", "ICG_POLICY_TYPE"),
+            (
+                "enum E : int { e=1 };",
+                "E value[1][1][1][1][1][1][1][1][1];",
+                "ICG_POLICY_ARRAY_RANK",
+            ),
+        ):
+            with (
+                self.subTest(member=member, declaration=declaration),
+                self.assertRaisesRegex(rules.PolicyError, code),
+            ):
+                self.model(declaration + "struct Model { " + member + " };")
+        for outputs in (["lifecycle"], ["attributes", "enum-attributes", "lifecycle"]):
+            with (
+                self.subTest(outputs=outputs),
+                self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"),
+            ):
+                self.model(
+                    "enum E : int { e=1 }; struct Model { E value; };", outputs=outputs
+                )
+        facts, request, model = self.model(
+            "enum E : int { e=1 }; using Rank = E[1][1][1][1][1][1][1][1]; struct Model { Rank value; };"
+        )
+        self.compile_enum_metadata(emit.render(facts, request, model), "rank8")
+
+    def test_record_enum_omitted_dependencies_and_disabled_fields(self):
+        source = cases.HEADER + "enum E : int { e=1 }; struct Model { E value; };"
+        self.env["TRICK_ICG_IGNORE_TYPES"] = "E"
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_DEPENDENCY"):
+            self.model(source)
+        facts, request, model = self.model(
+            source.replace("E value;", "E value; /* trick_io(**) */\n")
+        )
+        candidate = emit.render(facts, request, model)
+        self.assertNotIn("MemoryManager.hh", candidate)
+        self.assertNotIn("ENUM_ATTR enumE", candidate)
+        self.compile_enum_metadata(candidate, "omitted")
+        self.env.pop("TRICK_ICG_IGNORE_TYPES")
+        dependency = self.work / "enum.hh"
+        dependency.write_text("enum E : int { e=1 };\n")
+        source = '#include "enum.hh"\nstruct Model { E value; };'
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_DEPENDENCY"):
+            self.model(source)
+        path = self.work / "model.hh"
+        p = subprocess.run(
+            [
+                str(EXTRACTOR),
+                "--source-root",
+                str(self.work),
+                "--select-file",
+                str(path),
+                "--select-file",
+                str(dependency),
+                str(path),
+                "--",
+            ],
+            capture_output=True,
+            env=self.env,
+        )
+        self.assertEqual(p.returncode, 0, p.stderr.decode())
+        facts = json.loads(p.stdout)
+        request = resolve.request_for(facts)
+        model = resolve.resolve(facts, request)
+        self.compile_enum_metadata(
+            emit.render(facts, request, model), "selected-dependency"
+        )
+        header = next(
+            n
+            for n in facts["files"]
+            if n["path"]["real"] == str(self.work / "model.hh")
+        )
+        request["file_ids"] = [header["id"]]
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_DEPENDENCY"):
+            resolve.resolve(facts, request)
+
+    def test_record_enum_private_access_is_operation_specific(self):
+        for friend, allowed in (
+            ("", False),
+            ("friend void init_attrModel();", True),
+            ("friend void init_attrOther();", False),
+            ("friend class InputProcessor;", False),
+        ):
+            with self.subTest(friend=friend):
+                facts, request, model = self.model(
+                    "enum E : int { e=1 }; class Model { "
+                    + friend
+                    + " E value; E values[2]; public: E read() const { return value == values[0] ? value : values[1]; } };"
+                )
+                candidate = emit.render(facts, request, model)
+                self.assertEqual(
+                    candidate.count("offsetof(::Model,"), 2 if allowed else 0
+                )
+                self.assertEqual(candidate.count("trick_MM->add_attr_info"), 2)
+                self.compile_enum_metadata(candidate, "private")
+
+    def test_record_enum_checkpoint_label_conflicts(self):
+        source = "enum class E : int { off=0 }; enum class F : int { off=1 }; struct Model { E value; F second; };"
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_LABEL"):
+            self.model(source)
+        facts, request, model = self.model(source.replace("off=1", "off=0"))
+        self.compile_enum_metadata(emit.render(facts, request, model), "equal-labels")
 
     def test_template_enum_checkpoint_label_conflicts_are_rejected(self):
         source = (

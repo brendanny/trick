@@ -194,7 +194,7 @@ def resolve(facts: dict, request: dict, effective: dict, policies: dict) -> list
     def enum_type(node: dict) -> str:
         declaration = nodes[node["declaration_id"]]
         selected(declaration)
-        return enums.template_type(declaration, nodes, types)
+        return enums.storage_type(declaration, nodes, types)
 
     def enum_ids(type_id: str) -> set[str]:
         node, _ = shape(type_id)
