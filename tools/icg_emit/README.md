@@ -9,8 +9,12 @@ lifecycle helpers against the existing Trick ABI. It is not a production
 `unsigned char`, `short`, `unsigned short`, `int`, `unsigned int`, `long`,
 `unsigned long`, `long long`, `unsigned long long`, `float`, `double`, and `char16_t`.
 The backend also emits unsigned-int bitfields, fixed arrays and aliases of those
-scalars. `wchar_t`, `char32_t`, extended integers such as `__int128`,
-and `long double` remain unsupported; a required unsupported field fails the request.
+scalars. `wchar_t` is deliberately rejected despite legacy emitting its metadata;
+[ICG-003](../../docs/developer_docs/architecture/ICG-003-wide-character-compatibility.md)
+requires migration before affected simulations switch generators. `char32_t`
+is rejected because legacy omits its field rows. Extended integers such as
+`__int128` and `long double` remain uncharacterized; a required unsupported field
+fails the request.
 Named nonempty 32-bit `int`/`unsigned int` enum fields and their fixed arrays
 are supported in ordinary records and templates. Separate profiles cover enum
 tables, lifecycle exports, and bounded structured template members. Extraction covers more types than generation, so successful facts
@@ -312,7 +316,8 @@ The [character corpus](../icg_baseline/characters/README.md) adds `char16_t` as
 snapshots, six compiled mutations and three real MemoryManager failure controls.
 Compact/expanded checkpoint passes preserve embedded zeros, surrogate code units
 and the full unsigned range. Template naming and lifecycle initialization are
-checked too. `wchar_t` remains rejected because legacy assignment truncates;
+checked too. The `wchar_t` rejection is a deliberate compatibility divergence
+requiring migration, because legacy successfully emits rows but assignment truncates;
 `char32_t` remains rejected because legacy omits its field rows. This adds no
 Unicode validation, transcoding or string-pointer behavior.
 

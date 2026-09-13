@@ -87,10 +87,13 @@ and legacy type codes. The [scalar](../icg_baseline/scalars/README.md) and
 native and real MemoryManager evidence. The [character corpus](../icg_baseline/characters/README.md)
 adds unsigned 16-bit code-unit storage for `char16_t`, with size/alignment guards,
 legacy/native comparisons and complete checkpoint readback. No Unicode validation
-or string conversion is implied. `wchar_t` (legacy assignment truncation),
-`char32_t` (legacy field omission), extended
-integers, `long double`, qualifiers and pointer/reference fields remain
-unsupported. Only unsigned-int bitfields are characterized.
+or string conversion is implied. `wchar_t` is an explicit compatibility divergence:
+legacy emits metadata but assignment truncates, and
+[ICG-003](../../docs/developer_docs/architecture/ICG-003-wide-character-compatibility.md)
+requires migration before affected simulations use the rewrite. `char32_t` is
+rejected because legacy omits its field rows. Extended integers, `long double`,
+qualifiers and pointer/reference fields remain unsupported coverage. Only
+unsigned-int bitfields are characterized.
 
 The [array corpus](../icg_baseline/arrays/README.md) also establishes the legacy
 UnitsMap key convention: enclosing records joined by `__`, followed by `_field`,

@@ -9,7 +9,7 @@ locale support.
 | C++ type | Actual legacy metadata | Generation decision |
 |---|---|---|
 | `char16_t` | `TRICK_UNSIGNED_SHORT`, spelling `char16_t`, size 2 | Supported for unqualified scalar fields, fixed arrays and aliases |
-| `wchar_t` | `TRICK_WCHAR`, spelling `wchar_t`, size 4 on the audited target | Reject with `ICG_POLICY_TYPE`; runtime assignment truncates |
+| `wchar_t` | `TRICK_WCHAR`, spelling `wchar_t`, size 4 on the audited target | Deliberate compatibility divergence: reject with `ICG_POLICY_TYPE` and require migration; legacy runtime assignment truncates |
 | `char32_t` | Both fields omitted; the record table contains only its sentinel | Reject with `ICG_POLICY_TYPE`; omitted storage cannot preserve checkpoint values |
 
 Policy v11 / emitter v10 now support 15 scalar bases. Facts remain v12. The
@@ -59,7 +59,12 @@ stores `45`; checkpoint output writes scalar `A` without quotes. A UTF-32 record
 retains its native initial values but contributes no field assignments to the
 checkpoint. The probe does not attempt to restore that comments-only checkpoint.
 These observations do not claim that every possible wide-character operation
-fails. They establish why neither type is admitted by this increment.
+fails. `wchar_t` has functioning-if-lossy legacy metadata, so rejecting it is a
+deliberate behavior change, distinct from missing type coverage. The accepted
+[compatibility decision](../../../docs/developer_docs/architecture/ICG-003-wide-character-compatibility.md)
+requires explicit simulation migration before production replacement; the rewrite
+will not reproduce truncation or silently substitute another type. `char32_t`
+instead lacks legacy field metadata in the captured case.
 
 Successful reports appear only after the positive comparison, required runtime
 mutations, and both rejection checks pass. Sources, compile/link/run commands,

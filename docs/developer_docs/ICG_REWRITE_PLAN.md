@@ -839,6 +839,13 @@ Template first-use names and lifecycle initialization are checked. Legacy-only
 wide/UTF-32 probes preserve the rejection rationale: `wchar_t` assignment
 truncates and `char32_t` fields are omitted. Facts and production code are unchanged.
 
+[ICG-003](architecture/ICG-003-wide-character-compatibility.md) records `wchar_t`
+as an intentional compatibility divergence, not pending type coverage. Legacy
+emits its metadata successfully; the rewrite requires explicit simulation
+migration instead of reproducing lossy assignment. Inventory, representation
+choice and binding/checkpoint validation gate production adoption for affected
+simulations. `char32_t` remains a distinct legacy-omission case.
+
 Policy v12 / emitter v11 add named 32-bit int/unsigned-int enum template arguments
 and member storage. The [enum template corpus](../../tools/icg_baseline/template_enums/README.md)
 retains three new legacy snapshots and compares five template tables / 15 fields
@@ -876,6 +883,17 @@ Review follow-up adds candidate table completeness checks before installing a
 template overlay and makes unconfigured policy/emitter discovery fail with the
 actual test commands. The native missing-symbol control remains independent of
 that early check.
+
+The checkpoint comparison also exposed a production constructor bug:
+`MemoryManager` forwards `hexfloat_decimal_comment_checkpoint` before initializing
+it. An [independent upstream-track fix](https://github.com/brendanny/trick/commit/2e5fee5bf98b94b4ed86aeb3af61d7d789fc13e5)
+based on `nasa/trick:master` initializes the flag to false and adds a regression
+using reused object storage. The regression fails on the unchanged constructor;
+all three hexadecimal-checkpoint tests pass with the fix, including explicit
+enable/disable behavior. It is prepared on `fix/checkpoint-comment-default` and
+is not yet merged upstream. This correction should ship independently of the
+rewrite. Comparison probes keep setting formatting options explicitly so that
+historical baseline output remains deterministic.
 
 The backend remains a development metadata/lifecycle subset without production build,
 registry, or SIE integration. Template extraction alone is not STL emission parity.
