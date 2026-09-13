@@ -1,5 +1,7 @@
 
 #include <gtest/gtest.h>
+#include <memory>
+#include <new>
 #define private public
 #include "MM_test.hh"
 #include "MM_write_checkpoint.hh"
@@ -46,6 +48,39 @@ int strcmp_IgnoringWhiteSpace(const char* s1, const char* s2) {
         }
         i1++; i2++;
     }
+}
+
+TEST(MM_write_checkpoint_hexfloat_defaults, ReusedStorageDisablesDecimalComments)
+{
+    // Leave the previous object's flag true so an omitted constructor assignment
+    // cannot accidentally pass because fresh storage happens to contain zero.
+    alignas(Trick::MemoryManager) unsigned char storage[sizeof(Trick::MemoryManager)];
+    const auto destroy = [](Trick::MemoryManager* manager)
+    {
+        manager->~MemoryManager();
+    };
+    std::unique_ptr<Trick::MemoryManager, decltype(destroy)> memmgr(new (storage) Trick::MemoryManager, destroy);
+    memmgr->set_hexfloat_decimal_comment_checkpoint(true);
+    memmgr.reset();
+    memmgr.reset(new (storage) Trick::MemoryManager);
+
+    double value = 1.25;
+    ASSERT_EQ(&value, memmgr->declare_extern_var(&value, "double hex_default"));
+    memmgr->set_hexfloat_checkpoint(true);
+
+    std::stringstream default_output;
+    memmgr->write_var(default_output, "hex_default");
+    EXPECT_EQ("hex_default = 0g3ff4000000000000;\n", default_output.str());
+
+    memmgr->set_hexfloat_decimal_comment_checkpoint(true);
+    std::stringstream enabled_output;
+    memmgr->write_var(enabled_output, "hex_default");
+    EXPECT_EQ("hex_default = 0g3ff4000000000000;\n// hex_default = 1.25\n", enabled_output.str());
+
+    memmgr->set_hexfloat_decimal_comment_checkpoint(false);
+    std::stringstream disabled_output;
+    memmgr->write_var(disabled_output, "hex_default");
+    EXPECT_EQ("hex_default = 0g3ff4000000000000;\n", disabled_output.str());
 }
 
 // ================================================================================

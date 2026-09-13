@@ -22,6 +22,7 @@ Trick::MemoryManager::MemoryManager()
 
     debug_level = 0;
     hexfloat_checkpoint = 0;
+    hexfloat_decimal_comment_checkpoint = false;
     reduced_checkpoint  = 1;
     resetting_memory = false;
     expanded_arrays  = 0;
