@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "scope": "isolated-legacy-headers",
+  "cases": [
+    {
+      "id": "pointers",
+      "header": "tools/icg_baseline/pointers/fixtures/Pointers.hh",
+      "covers": [
+        "single indirection to all 15 admitted builtins",
+        "pointer aliases and fixed arrays of pointers",
+        "null, shared and interior targets through real MemoryManager"
+      ]
+    },
+    {
+      "id": "references",
+      "header": "tools/icg_baseline/pointers/fixtures/References.hh",
+      "covers": [
+        "legacy reference metadata and checkpoint exclusion; rewrite rejection"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "legacy-metadata",
+      "required": true,
+      "patterns": [
+        "build/**/io_*.cpp"
+      ]
+    },
+    {
+      "id": "registry",
+      "required": true,
+      "patterns": [
+        "build/class_map.cpp"
+      ]
+    },
+    {
+      "id": "registry-declarations",
+      "required": true,
+      "patterns": [
+        "build/extern_init_attr.h"
+      ]
+    },
+    {
+      "id": "icg-make",
+      "required": true,
+      "patterns": [
+        "build/Makefile_io_src"
+      ]
+    },
+    {
+      "id": "icg-dependencies",
+      "required": true,
+      "patterns": [
+        "build/Makefile_ICG"
+      ]
+    },
+    {
+      "id": "icg-link",
+      "required": true,
+      "patterns": [
+        "build/io_link_list",
+        "build/trickify_io_link_list"
+      ]
+    },
+    {
+      "id": "icg-processed",
+      "required": true,
+      "patterns": [
+        "build/ICG_processed"
+      ]
+    },
+    {
+      "id": "icg-policy",
+      "required": false,
+      "patterns": [
+        "build/ICG_ext_lib",
+        "build/ICG_no_found"
+      ]
+    },
+    {
+      "id": "sie-classes",
+      "required": true,
+      "patterns": [
+        "build/classes.resource"
+      ]
+    }
+  ]
+}

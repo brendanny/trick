@@ -1,0 +1,1 @@
+build${TRICK_ROOT}/tools/icg_baseline/pointers/fixtures/io_References.o

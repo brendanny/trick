@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-12"
+VERSION = "scalar-metadata-emitter-13"
 
 
 def literal(value: str) -> str:
@@ -286,7 +286,8 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
                     offset=offset,
                     width=width,
                     shift=shift,
-                    dimensions=storage["dimensions"],
+                    dimensions=storage["dimensions"]
+                    + ([0] if "pointer_type_id" in storage else []),
                 )
             )
             units.append(

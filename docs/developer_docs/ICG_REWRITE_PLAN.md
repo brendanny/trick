@@ -870,9 +870,20 @@ Private access remains operation-specific. Enum lifecycle output and record-nest
 enum definitions remain separate work; production code and prior reference bytes
 are unchanged.
 
-Next characterize pointer/reference storage. Continue
+Policy v14 / emitter v13 add single builtin pointer fields and fixed arrays of
+pointers to ordinary record metadata. The separate
+[pointer corpus](../../tools/icg_baseline/pointers/README.md) captures all 15 base
+types, aliases and a pointer matrix: 18 rows, seven metadata mutations and five
+runtime controls. Native probes distinguish pointee metadata size from physical
+pointer storage. Two real MemoryManager passes compare exact checkpoint bytes,
+pointee values, null/shared/interior addresses, and legacy character-pointer
+string reconstruction. References are captured separately (I/O 3, modifier 65)
+and remain rejected; their reference-only fixture also exposes legacy's invalid
+default-constructor helper. No pointer ownership/lifecycle operation is admitted.
+
+Next characterize enum/record pointer targets and deeper indirection. Continue
 requiring independent legacy/native comparisons, ABI checks and runtime round
-trips; adding names to `KINDS` alone is insufficient.
+trips.
 Then widen template/STL emission through the existing independent and configured
 runtime gates. Cross-file root ordering, namespaces,
 non-type/default/pack arguments and template registries remain separate work.

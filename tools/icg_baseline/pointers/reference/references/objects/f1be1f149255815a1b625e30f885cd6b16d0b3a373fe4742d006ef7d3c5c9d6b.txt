@@ -1,0 +1,15 @@
+  <class name="ReferenceModel">
+    <member
+      name="count"
+      type="int"
+      io_attributes="3"
+      units="1">
+    </member>
+    <member
+      name="position"
+      type="double"
+      io_attributes="3"
+      units="1">
+    </member>
+  </class>
+

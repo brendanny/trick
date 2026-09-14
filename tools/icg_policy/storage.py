@@ -1,4 +1,4 @@
-"""Bounded builtin/enum, fixed-array and unsigned-bitfield storage decisions."""
+"""Bounded builtin/enum, pointer, fixed-array and bitfield storage decisions."""
 
 from __future__ import annotations
 
@@ -41,6 +41,22 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
                 "ICG_POLICY_ARRAY_RANK", "fixed array exceeds TRICK_MAX_INDEX (8)"
             )
         node = types[types[node["element_id"]]["canonical_id"]]
+    pointer_id = None
+    if node["kind"] == "pointer" and declarations is not None:
+        if any(node["qualifiers"].values()):
+            raise PolicyError(
+                "ICG_POLICY_TYPE", "qualified pointers are not characterized"
+            )
+        pointer_id = node["id"]
+        node = types[types[node["pointee_id"]]["canonical_id"]]
+        if node["kind"] != "builtin":
+            raise PolicyError(
+                "ICG_POLICY_TYPE", "only single builtin pointers are characterized"
+            )
+        if len(dimensions) >= 8:
+            raise PolicyError(
+                "ICG_POLICY_ARRAY_RANK", "pointer index exceeds TRICK_MAX_INDEX (8)"
+            )
     if (
         not (
             node["kind"] == "builtin"
@@ -53,10 +69,10 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
     ):
         raise PolicyError(
             "ICG_POLICY_TYPE",
-            f"required field outside unqualified scalar/array profile: {field['qualified_name']}",
+            f"required field outside unqualified storage profile: {field['qualified_name']}",
         )
-    # Lifecycle callers omit declarations and keep their characterized builtin
-    # storage boundary. Enum metadata does not imply enum lifecycle support.
+    # Lifecycle and template callers omit declarations, preserving their storage
+    # boundaries. Pointer metadata does not grant allocation or ownership support.
     if node["kind"] == "enum":
         if field["bitfield"]:
             raise PolicyError("ICG_POLICY_TYPE", "enum bitfields are not characterized")
@@ -71,14 +87,19 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
             dimensions=dimensions,
         )
     name = node["spelling"]
-    if field["bitfield"] and (dimensions or name != "unsigned int"):
+    if field["bitfield"] and (dimensions or pointer_id or name != "unsigned int"):
         raise PolicyError(
             "ICG_POLICY_TYPE", "only unsigned int bitfields are characterized"
         )
-    return dict(
+    result = dict(
         element_type_id=node["id"],
         type_name=name,
-        cpp_type=name + "".join(f"[{extent}]" for extent in dimensions),
+        cpp_type=name
+        + ("*" if pointer_id else "")
+        + "".join(f"[{extent}]" for extent in dimensions),
         trick_type="TRICK_UNSIGNED_BITFIELD" if field["bitfield"] else KINDS[name],
         dimensions=dimensions,
     )
+    if pointer_id:
+        result["pointer_type_id"] = pointer_id
+    return result

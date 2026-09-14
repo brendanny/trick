@@ -99,6 +99,10 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
                 native_fields.append(
                     f'probe::enum_member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT, enum{enum_symbol})'
                 )
+            elif field.get("pointer"):
+                native_fields.append(
+                    f'probe::pointer_member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT)'
+                )
             elif field["bit_width"] is None:
                 native_fields.append(
                     f'probe::member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT)'
@@ -194,6 +198,10 @@ def validate(document: dict, report: dict, observed: dict) -> None:
                 width = field["bit_width"] or 0
                 dimensions = field.get("dimensions", [])
                 total_size = row["size_bytes"] * math.prod(dimensions)
+                if field.get("pointer"):
+                    # Audited LP64 profile: ATTRIBUTES.size is the pointee size,
+                    # while the record contains eight-byte pointer objects.
+                    total_size = 8 * math.prod(dimensions[:-1])
                 if native != dict(
                     name=field["name"],
                     size_bytes=row["size_bytes"],

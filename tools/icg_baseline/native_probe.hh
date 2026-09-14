@@ -43,6 +43,7 @@ namespace probe
             std::vector<size_t> dimensions;
             size_t total_size;
             const void* attributes = nullptr;
+            bool pointer           = false;
     };
 
     template <typename Value, size_t... I> Field member(const char* name, size_t offset, std::index_sequence<I...>)
@@ -58,6 +59,17 @@ namespace probe
     template <typename Value> Field member(const char* name, size_t offset)
     {
         return member<Value>(name, offset, std::make_index_sequence<std::rank<Value>::value> {});
+    }
+
+    template <typename Value> Field pointer_member(const char* name, size_t offset)
+    {
+        using Pointer = typename std::remove_all_extents<Value>::type;
+        static_assert(std::is_pointer<Pointer>::value, "native pointer field");
+        auto field = member<Value>(name, offset);
+        field.size = sizeof(typename std::remove_pointer<Pointer>::type);
+        field.dimensions.push_back(0);
+        field.pointer = true;
+        return field;
     }
 
     template <typename Value> Field structured_member(const char* name, size_t offset, const ATTRIBUTES* attributes)
@@ -160,7 +172,7 @@ namespace probe
         }
     }
 
-    inline void defaults(const ATTRIBUTES& row, const void* attributes = nullptr)
+    inline void defaults(const ATTRIBUTES& row, const void* attributes = nullptr, bool pointer = false)
     {
         require(row.name && row.type_name && row.units && row.alias && row.user_defined && row.des,
                 "null ATTRIBUTES string");
@@ -178,7 +190,8 @@ namespace probe
             if (bits && i == 0)
                 continue;
             require(row.index[i].start == 0, "unexpected array index start");
-            require(i < row.num_index ? row.index[i].size > 0 : row.index[i].size == 0,
+            require(i < row.num_index && !(pointer && i == row.num_index - 1) ? row.index[i].size > 0
+                                                                              : row.index[i].size == 0,
                     "invalid active or unused array extent");
         }
     }
@@ -203,7 +216,7 @@ namespace probe
         for (size_t i = 0; i + 1 < N; ++i)
         {
             const auto& row = rows[i];
-            defaults(row, fields[i].attributes);
+            defaults(row, fields[i].attributes, fields[i].pointer);
             require(*row.name, "premature compiled ATTRIBUTES sentinel");
             if (i)
                 std::cout << ',';

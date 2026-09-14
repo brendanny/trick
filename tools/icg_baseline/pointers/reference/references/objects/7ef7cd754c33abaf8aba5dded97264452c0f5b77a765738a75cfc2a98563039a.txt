@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/pointers/fixtures/References.hh
+${SIM_ROOT}/input.cpp

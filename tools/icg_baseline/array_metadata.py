@@ -95,8 +95,18 @@ def report_for(facts: dict, expected_records: dict = EXPECTED) -> dict:
             while type_node["kind"] == "array":
                 shape.append(int(type_node["extent"]))
                 type_node = types[types[type_node["element_id"]]["canonical_id"]]
+            if row.get("pointer"):
+                if type_node["kind"] != "pointer" or any(
+                    type_node["qualifiers"].values()
+                ):
+                    raise ValueError(
+                        "metadata facts differ from audited pointer storage"
+                    )
+                shape.append(0)
+                type_node = types[types[type_node["pointee_id"]]["canonical_id"]]
             if (
                 shape != row["dimensions"]
+                or type_node["kind"] != "builtin"
                 or type_node["spelling"] != row["type"]
                 or any(type_node["qualifiers"].values())
                 or node["bitfield"]

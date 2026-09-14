@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 13
+      "const": 14
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-13"
+      "const": "scalar-metadata-14"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-13"
+          "const": "scalar-metadata-14"
         },
         "template_field_ids": {
           "type": "array",
@@ -472,6 +472,9 @@
                       },
                       {
                         "$ref": "#/$defs/enum_storage"
+                      },
+                      {
+                        "$ref": "#/$defs/pointer_storage"
                       }
                     ]
                   },
@@ -1076,6 +1079,77 @@
         "enum_id": {
           "type": "string",
           "pattern": "^decl:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "pointer_storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "element_type_id",
+        "type_name",
+        "cpp_type",
+        "trick_type",
+        "dimensions",
+        "pointer_type_id"
+      ],
+      "properties": {
+        "element_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
+        },
+        "type_name": {
+          "enum": [
+            "bool",
+            "char",
+            "float",
+            "int",
+            "unsigned int",
+            "long",
+            "double",
+            "signed char",
+            "unsigned char",
+            "short",
+            "unsigned short",
+            "unsigned long",
+            "long long",
+            "unsigned long long",
+            "char16_t"
+          ]
+        },
+        "cpp_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trick_type": {
+          "enum": [
+            "TRICK_BOOLEAN",
+            "TRICK_CHARACTER",
+            "TRICK_FLOAT",
+            "TRICK_INTEGER",
+            "TRICK_UNSIGNED_INTEGER",
+            "TRICK_LONG",
+            "TRICK_DOUBLE",
+            "TRICK_UNSIGNED_CHARACTER",
+            "TRICK_SHORT",
+            "TRICK_UNSIGNED_SHORT",
+            "TRICK_UNSIGNED_LONG",
+            "TRICK_LONG_LONG",
+            "TRICK_UNSIGNED_LONG_LONG"
+          ]
+        },
+        "dimensions": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "pointer_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
         }
       }
     }

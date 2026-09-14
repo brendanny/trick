@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v13,
+This standalone development backend consumes **facts v12, resolved policy v14,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -9,7 +9,8 @@ lifecycle helpers against the existing Trick ABI. It is not a production
 `unsigned char`, `short`, `unsigned short`, `int`, `unsigned int`, `long`,
 `unsigned long`, `long long`, `unsigned long long`, `float`, `double`, and `char16_t`.
 The backend also emits unsigned-int bitfields, fixed arrays and aliases of those
-scalars. `wchar_t` is deliberately rejected despite legacy emitting its metadata;
+scalars. Ordinary records also support one pointer indirection to any of these
+15 bases, including aliases and fixed arrays of pointers. `wchar_t` is deliberately rejected despite legacy emitting its metadata;
 [ICG-003](../../docs/developer_docs/architecture/ICG-003-wide-character-compatibility.md)
 requires migration before affected simulations switch generators. `char32_t`
 is rejected because legacy omits its field rows. Extended integers such as
@@ -27,7 +28,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1–v12 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v13 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -51,7 +52,7 @@ metadata does not itself need member access. An init-function friend grants no
 lifecycle, STL, registry, or binding permission.
 
 Ordinary-record metadata supports standard-layout records in the bounded
-builtin/enum scalar and fixed-array policy. Separate enum tables support scoped/unscoped values
+builtin/enum scalar, builtin pointer and fixed-array policy. Separate enum tables support scoped/unscoped values
 representable by `ENUM_ATTR.int` that agree with legacy's signed integer conversion. Enum labels, C++ names, values, order and
 modifier bits come from explicit policy decisions; the emitter does not derive
 them again. Field storage, dimensions and UnitsMap keys are likewise resolved
@@ -61,7 +62,7 @@ little-endian LP64 x86-64/AArch64 Linux or macOS, with eight-bit bytes, 32-bit i
 one-byte bool/char, 16-bit short, IEEE binary32 float, and 64-bit long/long long/double.
 Plain `char` fields require signed native `char`: legacy selects a different type
 code on unsigned-char targets, and facts do not yet record that property. A generated
-assertion rejects this mismatch, including arrays/aliases. Explicit `signed char`
+assertion rejects this mismatch, including pointers and arrays/aliases. Explicit `signed char`
 and `unsigned char` remain distinct and do not depend on plain-char signedness. Bitfields must fit a complete in-object 32-bit storage unit.
 For metadata output, non-standard-layout records, wider enum values, unsigned narrow values that legacy
 sign-extends incorrectly, unsafe packed
@@ -70,8 +71,11 @@ errors. These emitter limits are
 narrower than successful fact extraction or policy resolution.
 
 In ordinary-record metadata, arrays require one to eight fixed positive extents,
-each fitting signed `INDEX.int`. Const/volatile, pointer/reference and
-structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
+each fitting signed `INDEX.int`. Single builtin pointers consume one additional
+index with zero extent, leaving at most seven outer fixed dimensions. Pointer rows
+use the pointee type/size while native storage guards use the full pointer/array
+type. Const/volatile, multiple indirection, pointer-to-array/function, reference,
+enum-pointer and structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
 enum elements use the same rank/extent checks. The explicit template profile
 also supports its bounded structured arrays. UnitsMap keys retain enclosing record
 names but omit namespaces, correcting the prior emitter's namespace prefix.
@@ -338,6 +342,20 @@ expanded checkpoint passes restore all 16 enum elements and both neighboring bui
 fields. Numeric private-field metadata preserves the exact init-friend access boundary.
 Enum lifecycle output, record-nested enum definitions and other widths remain rejected.
 
-Next characterize pointer/reference storage. General
+Next characterize enum/record pointer targets and deeper indirection. General
 annotations, inheritance, broader template/STL emission, and lifecycle
 exception/ownership handling remain subsequent milestones.
+
+## Single builtin pointers
+
+Policy v14 / emitter v13 add ordinary pointer fields and fixed arrays of pointers.
+The [pointer corpus](../icg_baseline/pointers/README.md) compares all 15 builtin
+pointee types, pointer aliases and a matrix of pointers with captured legacy rows,
+native layout and real MemoryManager checkpoint readback. Both generators preserve
+exact checkpoint bytes. Numeric pointers preserve null, shared and interior target
+addresses; legacy `char*` and `signed char*` restore string contents into new storage
+and do not preserve aliases. That existing behavior is preserved explicitly.
+
+Pointer metadata grants no ownership or lifecycle operation. Pointer fields in the
+lifecycle and template profiles remain rejected. References have their own captured
+legacy boundary (I/O 3, reference modifier 65); this increment does not emit them.

@@ -26,6 +26,7 @@ import lifecycle as lifecycle_baseline  # noqa: E402
 import lifecycle_codegen  # noqa: E402
 import memorymanager  # noqa: E402
 import native  # noqa: E402
+import pointer_metadata  # noqa: E402
 import record_enum_metadata  # noqa: E402
 import scalar_metadata  # noqa: E402
 import template_enum_metadata  # noqa: E402
@@ -266,6 +267,104 @@ class EmitterTests(unittest.TestCase):
             env=self.env,
         )
         self.assertEqual(p.returncode, 0, p.stderr.decode())
+
+    def test_builtin_pointer_legacy_candidate_native_and_mutation_gate(self):
+        result = pointer_metadata.capture(EXTRACTOR, self.work, COMPILER)
+        self.assertEqual(result["status"], "compared")
+        self.assertEqual(len(result["records"]["PointerModel"]), 18)
+        self.assertEqual(len(result["negative_controls"]), 7)
+
+    def test_pointer_policy_storage_and_rehashed_mutations(self):
+        facts, request, model = self.model(
+            "namespace demo { using Pointer = double*; using Pair = Pointer[2]; "
+            "struct Model { Pair values[3]; }; }"
+        )
+        index = next(
+            i
+            for i, d in enumerate(model["declarations"])
+            if d["metadata"] and d["metadata"].get("storage")
+        )
+        storage = model["declarations"][index]["metadata"]["storage"]
+        self.assertEqual(storage["cpp_type"], "double*[3][2]")
+        self.assertEqual(storage["type_name"], "double")
+        self.assertEqual(storage["dimensions"], [3, 2])
+        types = {t["id"]: t for t in facts["types"]}
+        self.assertEqual(
+            types[storage["pointer_type_id"]]["pointee_id"], storage["element_type_id"]
+        )
+        candidate = emit.render(facts, request, model)
+        self.assertIn("NULL, 3, {{3, 0}, {2, 0}, {0, 0}", candidate)
+        self.assertIn("sizeof(double*[3][2])", candidate)
+        self.compile(candidate, "init_attrdemo__Model_c_intf();")
+        for change in (
+            lambda s: s.pop("pointer_type_id"),
+            lambda s: s.update(pointer_type_id="type:" + "0" * 64),
+            lambda s: s.update(cpp_type="double[3][2]"),
+            lambda s: s["dimensions"].reverse(),
+        ):
+            changed = deepcopy(model)
+            change(changed["declarations"][index]["metadata"]["storage"])
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                emit.write(facts, request, changed, self.work / "forbidden.cpp")
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_pointer_boundaries_and_rank(self):
+        for member in (
+            "int** value;",
+            "int (*value)[2];",
+            "const int* value;",
+            "volatile int* value;",
+            "int* const value = nullptr;",
+            "int* volatile value;",
+            "void* value;",
+            "long double* value;",
+            "wchar_t* value;",
+            "char32_t* value;",
+            "Model* value;",
+            "enum E { e }; E* value;",
+        ):
+            with (
+                self.subTest(member=member),
+                self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"),
+            ):
+                self.model("struct Model { " + member + " };")
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ARRAY_RANK"):
+            self.model("struct Model { int* value[1][1][1][1][1][1][1][1]; };")
+        documents = self.model("struct Model { int* value[1][1][1][1][1][1][2]; };")
+        self.compile(emit.render(*documents), "init_attrModel_c_intf();")
+        for source in (
+            "struct Model { int& value; };",
+            "struct Model { int&& value; };",
+        ):
+            with self.subTest(source=source), self.assertRaises(rules.PolicyError):
+                self.model(source)
+        for outputs in (["lifecycle"], [*resolve.OUTPUTS, "lifecycle"]):
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+                self.model("struct Model { int* value; };", outputs=outputs)
+
+    def test_pointer_private_access_and_native_type_guard(self):
+        for friend in (
+            "",
+            "friend void init_attrModel();",
+            "friend class InputProcessor;",
+        ):
+            documents = self.model(
+                "class Model { "
+                + friend
+                + " int* value; public: int* read() const { return value; } };"
+            )
+            candidate = emit.render(*documents)
+            self.assertEqual(
+                "offsetof(::Model, value)" in candidate,
+                friend == "friend void init_attrModel();",
+            )
+            self.compile(candidate, "init_attrModel_c_intf();")
+        documents = self.model("struct Model { int* value; };")
+        candidate = emit.render(*documents)
+        (self.work / "model.hh").write_text("struct Model { double* value; };")
+        with self.assertRaisesRegex(ValueError, "ICG field type mismatch"):
+            self.compile(candidate, "", "changed-pointee")
 
     def test_record_enum_legacy_candidate_compile_and_replay(self):
         facts = record_enum_metadata.extract(EXTRACTOR, self.work)
@@ -923,7 +1022,7 @@ if (io_src_allocate_Model(0) || io_src_allocate_Model(-1)) throw std::runtime_er
                 "struct Model { static void* operator new(unsigned long size); };",
                 "ICG_POLICY_LIFECYCLE_ALLOCATION",
             ),
-            ("struct Model { int* p; };", "ICG_POLICY_TYPE"),
+            ("struct Model { int** p; };", "ICG_POLICY_TYPE"),
         ):
             with (
                 self.subTest(source=source),
