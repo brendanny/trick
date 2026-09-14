@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "record_kind": "bootstrap-validation",
+  "status": "passed-local",
+  "scope": "A2 configuration-only preview; not runtime or installed SDK qualification",
+  "source_identity": {
+    "parent_commit": "390d95d9a3f8d9d05390525ee27cac99e0b1803a",
+    "tested_files_sha256": {
+      "CMakeLists.txt": "79469cd7708af90904f3496347afb74c2974295db3819688d8ffbfb7ee90a5b4",
+      "CMakePresets.json": "3e40a6be2486056d0824e8888b9e5e965c000f59833d87c06cbf6f4c74b057e7",
+      "cmake/TrickVersion.cmake": "8c99564984e6125a5d063d63807c15989b229db49b2fb332bb3a4115090a92fe",
+      "cmake/TrickVersionInfo.cmake.in": "32076b0bfaec4544bd13f38029e3e000c50cf50b6336cbc7dea3f58dea453a46",
+      "cmake/tests/CMakeLists.txt": "c3c7c72db425bff1f429137e708d1a2ea3963868f0725729a6287ca9c108e0f9",
+      "cmake/tests/Bootstrap.cmake": "dc954b559e864711409b0fbe98fed9e7be90cc06f59c5eedda9f2aa593703351"
+    }
+  },
+  "platform": {
+    "os": "Ubuntu",
+    "release": "24.04.3 LTS",
+    "architecture": "x86_64"
+  },
+  "tools": {
+    "cmake": "3.26.0 (PyPI cmake==3.26.0 native binary)",
+    "rejected_cmake": "3.25.2 (PyPI cmake==3.25.2 native binary)",
+    "c_compiler": "GNU 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04)",
+    "cxx_compiler": "GNU 13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04)",
+    "linker": "GNU ld 2.42",
+    "make": "GNU Make 4.3",
+    "ninja": "1.11.1.git.kitware.jobserver-1 (PyPI ninja==1.11.1.1)"
+  },
+  "runs": [
+    {
+      "preset": "bootstrap",
+      "generator": "Unix Makefiles",
+      "configuration": "Debug",
+      "test_command": [
+        "ctest",
+        "--preset",
+        "bootstrap",
+        "--parallel",
+        "4"
+      ],
+      "exit_code": 0,
+      "passed": 7,
+      "failed": 0,
+      "log_reference": "build/cmake/bootstrap/Testing/Temporary/LastTest.log (local, regenerable)"
+    },
+    {
+      "preset": "bootstrap-ninja",
+      "generator": "Ninja",
+      "configuration": "Debug",
+      "test_command": [
+        "ctest",
+        "--preset",
+        "bootstrap-ninja",
+        "--parallel",
+        "4"
+      ],
+      "exit_code": 0,
+      "passed": 7,
+      "failed": 0,
+      "log_reference": "build/cmake/bootstrap-ninja/Testing/Temporary/LastTest.log (local, regenerable)"
+    },
+    {
+      "preset": "bootstrap-multi",
+      "generator": "Ninja Multi-Config",
+      "configuration": "Debug",
+      "test_command": [
+        "ctest",
+        "--preset",
+        "bootstrap-multi",
+        "--parallel",
+        "4"
+      ],
+      "exit_code": 0,
+      "passed": 7,
+      "failed": 0,
+      "log_reference": "build/cmake/bootstrap-multi/Testing/Temporary/LastTest.log (local, regenerable)"
+    }
+  ],
+  "behavior_difference_ids": [
+    "BD-01",
+    "BD-03",
+    "BD-04",
+    "BD-14"
+  ],
+  "limitations": [
+    "macOS CI added but not executed locally.",
+    "No GCC 8.5, LLVM 14, full Trick, legacy native build, or installed-simulation qualification claimed.",
+    "Legacy Make/Autoconf files and the two independent example CMake projects checked unchanged against A1."
+  ]
+}

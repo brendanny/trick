@@ -69,3 +69,7 @@ share/trick/makefiles/config_user.mk
 *.log
 *.dSYM
 archive/
+
+# CMake developer preview
+/build/cmake/
+/CMakeUserPresets.json

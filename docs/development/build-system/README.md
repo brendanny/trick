@@ -1,5 +1,7 @@
 # CMake migration build contract (A1)
 
+**Current implementation:** [A2 configuration-only preview](bootstrap.md).
+
 This directory defines the migration from Trick's Autoconf and handwritten
 framework Make build to a replacement CMake implementation. It is the first
 reviewable layer, A1. It changes documentation only; it does not make the
@@ -93,11 +95,16 @@ source globs, or raw built-library paths when target references are available.
   tests to final qualification or copy global fast-math/optimization flags without
   considering simulation correctness.
 
-The artifact families in `inventory.json` describe current responsibilities;
+The artifact families in `inventory.json` describe baseline responsibilities;
 they are not glob instructions or a final public target/export list. Each owning
 PR must resolve its family into explicit sources/outputs/install entries.
 Broad legacy directory-copy rules do not establish that every copied file is a
 supported SDK artifact.
+
+The `obsolete_framework_cmake` paths are historical references to the pinned A1
+baseline: A2 replaces the root and deletes the other listed files. Do not require
+deleted historical paths to exist in subsequent layers. The independent example
+CMake files remain tracked.
 
 ## Source installer contract
 
