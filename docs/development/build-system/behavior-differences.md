@@ -29,6 +29,24 @@ GSL-off Math retains the legacy runtime message dependency; this is a staged
 limitation, not a new self-contained RNG API. No algorithms or public runtime
 headers are changed. Other proposed rows below remain unverified.
 
+## A4 implementation status
+
+A4 implements compiler/dependency selection and preflight diagnostics (BD-04),
+coherent Python embedding discovery (part of BD-07), and selective dependency
+lookup (part of BD-09). Reproduce with the profiles in [dependencies.md](dependencies.md).
+
+| Difference | Legacy source behavior | A4 behavior / action | Verified scope |
+| --- | --- | --- | --- |
+| BD-04 | GCC version is recorded; tools and library flags are found by shell probes. | GNU C/C++ <8.5 fail, C++17 compilation is checked, native artifact hints select dependencies. | Ubuntu 24.04.3 x86_64, GCC/G++ 13.3.0, CMake 3.26.0; synthetic 8.4/8.5 policy tests only. |
+| BD-07 | Interpreter and python-config are separately searched; default can select Python 2. | Default Python 3, explicit `TRICK_PYTHON_MAJOR=2` retained. Request interpreter/embed together and compile/link/run a consistency check. No new Python 3 minor floor. | Linux environment above, Python 3.12.14; Python 2 and other versions pending. |
+| BD-09 | Configure discovers dependencies for the framework and optional components broadly. | Default utility profile requires no unused runtime/ICG/GUI packages. Request runtime/ICG preflight explicitly; final feature defaults remain open. | Minimal-selection fixtures passed; full distribution preflight and macOS pending. |
+| BD-05 (partial) | LLVM/Clang filenames and flags are assembled manually. | LLVM config >=14 plus sibling Clang config; explicit mismatched paths fail. Non-sibling layouts currently unsupported. | Synthetic config selection fixtures only; actual ICG link/ABI validation is A5. |
+
+The local runtime has a broken unversioned libpython symlink. A valid temporary
+symlink to the existing Python 3.12.14 library was supplied via `Python3_LIBRARY`
+for the successful local probe; no environment-specific workaround was added to
+Trick. Exact local results and remaining gates are in [a4-validation.json](a4-validation.json).
+
 Maintain this register with machine-readable environment/test records alongside it. Every difference gets: ID; user-visible effect; legacy source behavior; new behavior; rationale; affected platform/OS/tool versions; implementation PR; reproduction; compatibility action; and status.
 
 Status vocabulary: **proposed**, **implemented/unverified**, **verified**, **known regression**, **retired**. The entries below are **proposed**, including the Python 3-only selection, source-installer prefix, and feature defaults; A1 does not approve those choices. See the [decision register](README.md#decisions-to-finalize). Their environment IDs refer to [qualification matrix](qualification.md); a result cannot become verified while its exact version fields are unresolved.

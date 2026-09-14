@@ -24,3 +24,35 @@ if(TRICK_TEST_OLD_CMAKE)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/Bootstrap.cmake")
     set_tests_properties(bootstrap.minimum-version PROPERTIES LABELS bootstrap TIMEOUT 30)
 endif()
+
+foreach(test_case IN ITEMS minimal invalid-profile gcc-8.4 gcc-8.5 llvm-selected llvm-old llvm-mismatch llvm-header-mismatch llvm-missing udunits-root udunits-selected udunits-mismatch python-major)
+    string(REPLACE "gcc-" "" test_version "${test_case}")
+    add_test(NAME "dependencies.${test_case}"
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCASE=${test_case}" "-DVERSION=${test_version}"
+            "-DTRICK_SOURCE=${PROJECT_SOURCE_DIR}"
+            "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/dependencies/${test_case}"
+            "-DGENERATOR=${CMAKE_GENERATOR}" "-DMAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+            "-DC_COMPILER=${CMAKE_C_COMPILER}" "-DCXX_COMPILER=${CMAKE_CXX_COMPILER}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/Dependencies.cmake")
+    set_tests_properties("dependencies.${test_case}" PROPERTIES LABELS dependencies TIMEOUT 120)
+endforeach()
+
+# Real Python tests are enabled by the runtime preflight, not by utility builds.
+if(TARGET Trick::Python)
+    list(GET ${python_package}_INCLUDE_DIRS 0 python_test_include)
+    foreach(test_case IN ITEMS python-embed python-mismatch)
+        add_test(NAME "dependencies.${test_case}"
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCASE=${test_case}" "-DTRICK_SOURCE=${PROJECT_SOURCE_DIR}"
+                "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/dependencies/${test_case}"
+                "-DGENERATOR=${CMAKE_GENERATOR}" "-DMAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
+                "-DC_COMPILER=${CMAKE_C_COMPILER}" "-DCXX_COMPILER=${CMAKE_CXX_COMPILER}"
+                "-DPYTHON_MAJOR=${TRICK_PYTHON_MAJOR}"
+                "-DPYTHON_EXECUTABLE=${${python_package}_EXECUTABLE}"
+                "-DPYTHON_INCLUDE_DIR=${python_test_include}"
+                "-DPYTHON_LIBRARY=$<TARGET_FILE:Trick::Python>"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/Dependencies.cmake")
+        set_tests_properties("dependencies.${test_case}" PROPERTIES LABELS dependencies TIMEOUT 120)
+    endforeach()
+endif()

@@ -1,0 +1,94 @@
+{
+  "layer": "A4",
+  "base_commit": "9a2c967bb872fcf4b3c32b7c45485ae69e9b08c6",
+  "recorded_at_utc": "2026-09-14T23:42:30.684893+00:00",
+  "environment": {
+    "platform": "Linux x86_64",
+    "os": "Ubuntu 24.04.3 LTS",
+    "CMake": "3.26.0",
+    "C": "GCC 13.3.0",
+    "CXX": "G++ 13.3.0",
+    "linker": "GNU ld 2.42",
+    "make": "GNU Make 4.3",
+    "ninja": "1.11.1.git.kitware.jobserver-1",
+    "GoogleTest": "1.14.0",
+    "Python": "3.12.14"
+  },
+  "results": [
+    {
+      "generator": "Ninja",
+      "preset": "utilities-ninja",
+      "configuration": "Debug",
+      "profile": "UTILITIES",
+      "status": "passed",
+      "ctest_entries": 26,
+      "dependency_fixtures": 13,
+      "bootstrap_entries": 6,
+      "utility_entries": 7,
+      "GoogleTest_cases": 154
+    },
+    {
+      "generator": "Unix Makefiles",
+      "preset": "utilities",
+      "configuration": "Debug",
+      "profile": "UTILITIES",
+      "status": "passed",
+      "ctest_entries": 26,
+      "dependency_fixtures": 13,
+      "bootstrap_entries": 6,
+      "utility_entries": 7,
+      "GoogleTest_cases": 154
+    },
+    {
+      "generator": "Ninja Multi-Config",
+      "preset": "utilities-multi",
+      "configuration": "Release",
+      "profile": "UTILITIES",
+      "status": "passed",
+      "ctest_entries": 26,
+      "dependency_fixtures": 13,
+      "bootstrap_entries": 6,
+      "utility_entries": 7,
+      "GoogleTest_cases": 154
+    }
+  ],
+  "source_sha256": {
+    ".github/workflows/cmake-dependencies.yml": "001ec8375071f6e0b7239cff9e8523a7080769aa9cb99e9343915cb792b29e86",
+    "CMakeLists.txt": "8455984ba572935ffe25269b0893d3249ef6d1c0222aa902a2bb4c5b9cae9a2a",
+    "cmake/TrickCompilers.cmake": "9eee37d51539244ab49145011e8952952e06fee73b572c3a3e018a14e0f85e5d",
+    "cmake/TrickDependencies.cmake": "ccf28c31d75aefa07b58bd0984250fd236452a567f65f91cc7c81dea519f18b2",
+    "cmake/TrickLLVM.cmake": "23102fa86939ce0cafe6f791cc0560430e251c7c572ad048d19b79b499e9dbc1",
+    "cmake/TrickPython.cmake": "8adab20c552a9b62fe09402037165a13fc6accd9cb10c2cfe76150f2afbdcc0e",
+    "cmake/TrickRuntimeDependencies.cmake": "f5eb0d421ab221abb313e5bec6c16be0def32ba822eb6d1e5e54b549fc7672f4",
+    "cmake/modules/FindUDUNITS2.cmake": "9ae16ddcbac2346cbf4a123cf7e5ce41169b6ca5c60857eec700f1d8d056dc31",
+    "cmake/tests/Bootstrap.cmake": "50a2e716459b0e4443aa500acc6ca9d09577f6672d999a177a4c06336bff9082",
+    "cmake/tests/CMakeLists.txt": "df391b019565bdf713d28c13aa3f0a8ad9e9e9c2355d5022a9a4ec7d53067ad2",
+    "cmake/tests/Dependencies.cmake": "68c3930392b4eaf2e743cc59f44b104bc55eee6b41cb08af25a9a063a4dcc865",
+    "docs/development/build-system/README.md": "b8ef7531a80ce4ca44f11fc6c36249ec6b326cc7f1cd0387e60d4cfea6cb6d50",
+    "docs/development/build-system/behavior-differences.md": "d49bb5767e1269639a3f73725e59db9eacf7f730f9d3b13ab1c3f5fa12685e38",
+    "docs/development/build-system/dependencies.md": "946cf2a397e8cd389dd6b6c75431a1e6d97f9d665c52ae594dcbc60f41898852"
+  },
+  "limitations": [
+    "Full RUNTIME/ICG/ALL preflight with real distribution packages not executed locally; development packages unavailable. Ubuntu CI added, execution pending.",
+    "GCC 8.4/8.5 and LLVM package-selection/version tests use synthetic metadata, not actual toolchain qualification.",
+    "UDUNITS finder tests use compiled fixture libraries, not distribution UDUNITS.",
+    "Python 2, macOS full preflight and EL8 minimum toolchain qualification pending.",
+    "Local Python distribution has a broken unversioned library symlink; explicit artifact override uses a valid scratch symlink to its existing libpython3.12.so.1.0. No system files changed.",
+    "Static UDUNITS installations needing extra dependencies and non-sibling LLVM/Clang config layouts remain unsupported.",
+    "A5 still owns ICG compilation and actual LLVM/Clang ABI/link validation."
+  ],
+  "python_probes": {
+    "matching_interpreter_headers_embed_library": "passed compile/link/initialize/finalize with Python 3.12.14",
+    "mismatched_embed_library": "rejected; fixture exports Python entry points with version 0.0",
+    "test_script": "cmake/tests/Dependencies.cmake",
+    "cases": [
+      "python-embed",
+      "python-mismatch"
+    ],
+    "generator": "Ninja",
+    "interpreter": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "headers": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/include/python3.12",
+    "library": "/tmp/a4-python-libs/libpython3.12.so",
+    "library_realpath": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/libpython3.12.so.1.0"
+  }
+}

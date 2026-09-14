@@ -1,6 +1,7 @@
 # CMake migration build contract (A1)
 
-**Current implementation:** [A2 configuration-only preview](bootstrap.md).
+**Current implementation:** [A4 dependency preflight](dependencies.md), above
+[A3 utility archives](utilities.md) and [A2 bootstrap](bootstrap.md).
 
 This directory defines the migration from Trick's Autoconf and handwritten
 framework Make build to a replacement CMake implementation. It is the first
