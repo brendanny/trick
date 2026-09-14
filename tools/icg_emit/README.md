@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v14,
+This standalone development backend consumes **facts v12, resolved policy v15,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -17,7 +17,9 @@ is rejected because legacy omits its field rows. Extended integers such as
 `__int128` and `long double` remain uncharacterized; a required unsupported field
 fails the request.
 Named nonempty 32-bit `int`/`unsigned int` enum fields and their fixed arrays
-are supported in ordinary records and templates. Separate profiles cover enum
+are supported in ordinary records and templates. Ordinary records additionally
+support one pointer indirection to those enums, including pointer arrays and aliases.
+Separate profiles cover enum
 tables, lifecycle exports, and bounded structured template members. Extraction covers more types than generation, so successful facts
 extraction does not establish emitter coverage.
 
@@ -28,7 +30,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1–v13 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v14 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -52,7 +54,7 @@ metadata does not itself need member access. An init-function friend grants no
 lifecycle, STL, registry, or binding permission.
 
 Ordinary-record metadata supports standard-layout records in the bounded
-builtin/enum scalar, builtin pointer and fixed-array policy. Separate enum tables support scoped/unscoped values
+builtin/enum scalar, builtin/enum pointer and fixed-array policy. Separate enum tables support scoped/unscoped values
 representable by `ENUM_ATTR.int` that agree with legacy's signed integer conversion. Enum labels, C++ names, values, order and
 modifier bits come from explicit policy decisions; the emitter does not derive
 them again. Field storage, dimensions and UnitsMap keys are likewise resolved
@@ -71,11 +73,11 @@ errors. These emitter limits are
 narrower than successful fact extraction or policy resolution.
 
 In ordinary-record metadata, arrays require one to eight fixed positive extents,
-each fitting signed `INDEX.int`. Single builtin pointers consume one additional
+each fitting signed `INDEX.int`. Single builtin/enum pointers consume one additional
 index with zero extent, leaving at most seven outer fixed dimensions. Pointer rows
 use the pointee type/size while native storage guards use the full pointer/array
 type. Const/volatile, multiple indirection, pointer-to-array/function, reference,
-enum-pointer and structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
+record-pointer and structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
 enum elements use the same rank/extent checks. The explicit template profile
 also supports its bounded structured arrays. UnitsMap keys retain enclosing record
 names but omit namespaces, correcting the prior emitter's namespace prefix.
@@ -342,7 +344,7 @@ expanded checkpoint passes restore all 16 enum elements and both neighboring bui
 fields. Numeric private-field metadata preserves the exact init-friend access boundary.
 Enum lifecycle output, record-nested enum definitions and other widths remain rejected.
 
-Next characterize enum/record pointer targets and deeper indirection. General
+Next characterize record pointer targets and deeper indirection. General
 annotations, inheritance, broader template/STL emission, and lifecycle
 exception/ownership handling remain subsequent milestones.
 
@@ -359,3 +361,22 @@ and do not preserve aliases. That existing behavior is preserved explicitly.
 Pointer metadata grants no ownership or lifecycle operation. Pointer fields in the
 lifecycle and template profiles remain rejected. References have their own captured
 legacy boundary (I/O 3, reference modifier 65); this increment does not emit them.
+
+## Single enum pointers
+
+Policy v15 / emitter v14 extend the ordinary pointer profile to named, nonempty
+32-bit `int`/`unsigned int` enums already admitted as value fields. Enum definition
+selection, value limits, scope restrictions and checkpoint-label collision checks
+apply to pointees too. The [enum pointer corpus](../icg_baseline/enum_pointers/README.md)
+compares two records, 12 rows, three enum tables and eight labels with compiled
+legacy, the candidate, native layout and real MemoryManager readback.
+
+Pointer rows start with size zero and a null enum-table pointer. Guarded
+`add_attr_info` initializes them with the actual enum size and exact table address;
+the active index ends with zero extent. Physical pointer guards use the full C++
+pointer/array type. Compact and expanded checkpoints preserve null, shared, interior
+and in-record addresses while restoring symbolic and unnamed enum values.
+Eleven metadata and seven runtime mutations fail at their designated stages.
+
+Enum pointers remain unsupported in template metadata and lifecycle output.
+Metadata supplies no target allocation, ownership or destruction operation.

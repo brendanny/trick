@@ -333,11 +333,11 @@ def compare(
             )
         except ValueError as error:
             last = json.loads((work / "commands.json").read_text())[-1]
+            comparison = phase in ("compare", "field-compare")
             if (
                 last["timed_out"]
-                or last["stderr"]
-                != ("run" if phase == "compare" else phase) + ".stderr"
-                or (last["returncode"] == 0) != (phase == "compare")
+                or last["stderr"] != ("run" if comparison else phase) + ".stderr"
+                or (last["returncode"] == 0) != comparison
                 or (phase == "run" and last["returncode"] != 1)
             ):
                 raise b.BaselineError(
@@ -347,6 +347,14 @@ def compare(
                 phase == "compare"
                 and "compiled/native enum value, label, or signedness differs"
                 not in str(error)
+            ):
+                raise
+            if phase == "field-compare" and not any(
+                message in str(error)
+                for message in (
+                    "compiled ATTRIBUTES differs",
+                    "native field size/offset/width differs",
+                )
             ):
                 raise
             rejected[name] = str(error)

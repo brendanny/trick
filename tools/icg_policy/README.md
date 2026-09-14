@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v14**, not C++, and does not replace production ICG.
+It emits **resolved policy v15**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-14"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-15"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
 `template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
@@ -44,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v14 and policy
-`scalar-metadata-14` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1–v13 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v15 and policy
+`scalar-metadata-15` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1–v14 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -75,7 +75,7 @@ Fixed arrays support at most eight positive extents, each representable by signe
 `INDEX.int`. Incomplete/zero/oversized extents and excessive rank produce
 `ICG_POLICY_ARRAY_EXTENT` or `ICG_POLICY_ARRAY_RANK`.
 
-Policy v14 supports `bool`, `char`, `signed char`, `unsigned char`, `short`,
+Policy v15 supports `bool`, `char`, `signed char`, `unsigned char`, `short`,
 `unsigned short`, `int`, `unsigned int`, `long`, `unsigned long`, `long long`,
 `unsigned long long`, `float`, `double`, and `char16_t` field bases, with aliases and fixed
 arrays. These 15 types share the bounded lifecycle and template storage policy.
@@ -92,7 +92,7 @@ legacy emits metadata but assignment truncates, and
 [ICG-003](../../docs/developer_docs/architecture/ICG-003-wide-character-compatibility.md)
 requires migration before affected simulations use the rewrite. `char32_t` is
 rejected because legacy omits its field rows. Extended integers, `long double`,
-qualifiers and reference fields remain unsupported coverage. Single builtin
+qualifiers and reference fields remain unsupported coverage. Single builtin/enum
 pointers are now admitted in ordinary record metadata; other pointer shapes
 remain outside the profile. Only
 unsigned-int bitfields are characterized.
@@ -185,7 +185,7 @@ The profile covers complete named non-template records without bases, named enum
 and the 15 unqualified scalar field bases listed above, fixed arrays of those
 types, their scalar/array aliases, and unsigned-int bitfields. Qualified elements,
 reference and structured arrays remain outside the ordinary record profile.
-Single builtin pointers and their fixed arrays are supported as described below.
+Single builtin/enum pointers and their fixed arrays are supported as described below.
 Named nonempty 32-bit `int`/`unsigned int` enums and their arrays are admitted
 under the storage and dependency restrictions below.
 Explicit zero-I/O fields can be omitted before type-policy checks.
@@ -251,7 +251,7 @@ and all captured legacy references remain unchanged.
 
 ## Explicit template-member requests
 
-Policy v14 supports the separate `outputs: ["template-attributes"]` profile. Supply
+Policy v15 supports the separate `outputs: ["template-attributes"]` profile. Supply
 sorted, unique, nonempty `template_field_ids` identifying the exact containing
 fields to generate. Other output profiles require an empty list. Existing
 metadata requests still reject template records; this opt-in generates fragments,
@@ -272,7 +272,7 @@ retains the sorted explicit requests (empty for automatic dependencies), and
 `dependency_record_ids` identifies the included structured child tables. Each
 entry also records the concrete record, primary template, argument type IDs,
 C++ spelling, cached legacy symbol,
-initializer and field decisions. Schema v14 requires exact replay of this evidence.
+initializer and field decisions. Schema v15 requires exact replay of this evidence.
 
 Traversal starts with selected global ordinary records whose template fields
 are all in one physical file. Roots and fields follow physical source order,
@@ -392,9 +392,27 @@ The emitter appends the legacy zero extent for the pointer and uses `cpp_type`
 (e.g. `double*[3][2]`) for physical storage and access assertions. Pointee size and
 physical pointer size are distinct. Rehashed pointer decisions must replay exactly.
 
-All qualification, deeper indirection, pointer-to-array/function, enum/record
-pointers and references fail closed. Template and lifecycle callers retain their
+All qualification, deeper indirection, pointer-to-array/function, record
+pointers and references fail closed. The following extension admits enum pointees. Template and lifecycle callers retain their
 existing storage limits. I/O-disabled metadata still omits fields before storage
 resolution. See the [independent corpus](../icg_baseline/pointers/README.md),
 including legacy character-pointer string semantics and the separate reference
 metadata characterization.
+
+## Single enum pointer storage
+
+Policy v15 adds `enum_pointer_storage`, combining a canonical `pointer_type_id`,
+builtin-independent `element_type_id` and required `enum_id`. The pointee passes
+the same named/nonempty 32-bit enum storage checks as ordinary enum values.
+Only the explicitly selected, included enum declaration can supply its table;
+ignored or unselected dependencies fail with `ICG_POLICY_ENUM_DEPENDENCY`.
+I/O-disabled fields are still omitted before resolving storage dependencies.
+
+Fixed dimensions remain positive and exclude the final legacy zero pointer index,
+with at most seven outer dimensions. The C++ type retains its pointer, for example
+`ns::Mode*[2][3]`, while `type_name` remains `ns::Mode`. Closed schema validation
+and exact replay prevent a rehashed model from changing pointer identity, enum
+identity, shape or native type. Prior policy documents must be resolved again.
+The [independent enum pointer corpus](../icg_baseline/enum_pointers/README.md)
+records metadata and runtime evidence. No lifecycle or template pointer support
+is implied by this ordinary-record extension.

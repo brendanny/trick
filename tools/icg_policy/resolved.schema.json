@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 14
+      "const": 15
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-14"
+      "const": "scalar-metadata-15"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-14"
+          "const": "scalar-metadata-15"
         },
         "template_field_ids": {
           "type": "array",
@@ -475,6 +475,9 @@
                       },
                       {
                         "$ref": "#/$defs/pointer_storage"
+                      },
+                      {
+                        "$ref": "#/$defs/enum_pointer_storage"
                       }
                     ]
                   },
@@ -1146,6 +1149,53 @@
             "minimum": 1,
             "maximum": 2147483647
           }
+        },
+        "pointer_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "enum_pointer_storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "element_type_id",
+        "type_name",
+        "cpp_type",
+        "trick_type",
+        "dimensions",
+        "enum_id",
+        "pointer_type_id"
+      ],
+      "properties": {
+        "element_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
+        },
+        "type_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "cpp_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trick_type": {
+          "const": "TRICK_ENUMERATED"
+        },
+        "dimensions": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "enum_id": {
+          "type": "string",
+          "pattern": "^decl:[a-f0-9]{64}$"
         },
         "pointer_type_id": {
           "type": "string",

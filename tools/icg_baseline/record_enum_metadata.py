@@ -87,11 +87,17 @@ def generate(facts: dict, output: Path) -> tuple[dict, str]:
     return model, candidate
 
 
-def report_for(facts: dict) -> dict:
+def report_for(
+    facts: dict, expected_records: dict = EXPECTED, expected_enums: dict = ENUMS
+) -> dict:
     nodes = {n["id"]: n for n in facts["declarations"]}
     records = {n["qualified_name"]: n for n in nodes.values() if n["kind"] == "record"}
     types = {t["id"]: t for t in facts["types"]}
-    for name, rows in EXPECTED.items():
+    if set(records) != set(expected_records) or {
+        n["qualified_name"] for n in nodes.values() if n["kind"] == "enum"
+    } != set(expected_enums):
+        raise b.BaselineError("ordinary enum record/enum selection differs")
+    for name, rows in expected_records.items():
         fields = [nodes[i] for i in records[name]["field_ids"]]
         if [n["name"] for n in fields] != [r["name"] for r in rows]:
             raise b.BaselineError("ordinary enum field selection differs")
@@ -101,6 +107,13 @@ def report_for(facts: dict) -> dict:
             while base["kind"] == "array":
                 shape.append(int(base["extent"]))
                 base = types[types[base["element_id"]]["canonical_id"]]
+            if row.get("pointer"):
+                if base["kind"] != "pointer" or any(base["qualifiers"].values()):
+                    raise b.BaselineError(
+                        "enum pointer facts differ from audited storage"
+                    )
+                shape.append(0)
+                base = types[types[base["pointee_id"]]["canonical_id"]]
             type_name = (
                 nodes[base["declaration_id"]]["qualified_name"]
                 if base["kind"] == "enum"
@@ -115,7 +128,7 @@ def report_for(facts: dict) -> dict:
                 or node["bitfield"]
             ):
                 raise b.BaselineError("ordinary enum facts differ from audited storage")
-    return dict(records=EXPECTED, enums=ENUMS)
+    return dict(records=expected_records, enums=expected_enums)
 
 
 def mutations(candidate: str) -> dict[str, tuple[str, str]]:

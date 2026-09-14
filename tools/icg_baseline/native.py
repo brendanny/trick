@@ -96,8 +96,11 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
                 )
             elif "enum_type" in field:
                 enum_symbol = identifier(field["enum_type"]).replace("::", "__")
+                observer = (
+                    "enum_pointer_member" if field.get("pointer") else "enum_member"
+                )
                 native_fields.append(
-                    f'probe::enum_member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT, enum{enum_symbol})'
+                    f'probe::{observer}<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT, enum{enum_symbol})'
                 )
             elif field.get("pointer"):
                 native_fields.append(

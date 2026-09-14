@@ -21,6 +21,7 @@ import array_metadata  # noqa: E402
 import character_metadata  # noqa: E402
 import differential  # noqa: E402
 import enum_metadata  # noqa: E402
+import enum_pointer_metadata  # noqa: E402
 import integer_metadata  # noqa: E402
 import lifecycle as lifecycle_baseline  # noqa: E402
 import lifecycle_codegen  # noqa: E402
@@ -247,7 +248,7 @@ class EmitterTests(unittest.TestCase):
                 template_fields=["Model::chosen"],
             )
 
-    def compile_enum_metadata(self, source, label):
+    def compile_enum_metadata(self, source, label, *, expected_error=None):
         path = self.work / (label + ".cpp")
         path.write_text(source.replace("${TRICK_ROOT}", str(ROOT)))
         p = subprocess.run(
@@ -266,7 +267,183 @@ class EmitterTests(unittest.TestCase):
             capture_output=True,
             env=self.env,
         )
+        if expected_error is None:
+            self.assertEqual(p.returncode, 0, p.stderr.decode())
+        else:
+            self.assertNotEqual(p.returncode, 0)
+            self.assertIn(expected_error, p.stderr.decode())
+
+    def test_enum_pointer_legacy_candidate_compile_and_replay(self):
+        facts = enum_pointer_metadata.extract(EXTRACTOR, self.work)
+        report = record_enum_metadata.report_for(
+            facts, enum_pointer_metadata.EXPECTED, enum_pointer_metadata.ENUMS
+        )
+        self.assertEqual(sum(len(rows) for rows in report["records"].values()), 12)
+        model, candidate = enum_pointer_metadata.generate(
+            facts, self.work / "generated"
+        )
+        self.compile_enum_metadata(enum_pointer_metadata.reference(), "legacy")
+        self.compile_enum_metadata(candidate, "candidate")
+        index = next(
+            i
+            for i, d in enumerate(model["declarations"])
+            if d["metadata"] and d["metadata"].get("storage", {}).get("pointer_type_id")
+        )
+        storage = model["declarations"][index]["metadata"]["storage"]
+        types = {t["id"]: t for t in facts["types"]}
+        self.assertEqual(
+            types[storage["element_type_id"]]["declaration_id"], storage["enum_id"]
+        )
+        self.assertEqual(
+            types[storage["pointer_type_id"]]["pointee_id"], storage["element_type_id"]
+        )
+        request = resolve.request_for(facts)
+        for change in (
+            lambda s: s.pop("pointer_type_id"),
+            lambda s: s.update(pointer_type_id="type:" + "0" * 64),
+            lambda s: s.update(enum_id="decl:" + "0" * 64),
+            lambda s: s.update(cpp_type=s["cpp_type"].replace("*", "")),
+            lambda s: s.update(dimensions=[2]),
+        ):
+            changed = deepcopy(model)
+            change(changed["declarations"][index]["metadata"]["storage"])
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                emit.write(facts, request, changed, self.work / "forbidden.cpp")
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_enum_pointer_boundaries_and_profile_separation(self):
+        for declaration, member, code in (
+            ("enum E : short { e=1 };", "E* value;", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum E : long { e=1 };", "E* value;", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum class E : int;", "E* value;", "ICG_POLICY_ENUM_STORAGE"),
+            ("enum E : int {};", "E* value;", "ICG_POLICY_ENUM_STORAGE"),
+            (
+                "enum E : unsigned int { e=2147483648U };",
+                "E* value;",
+                "ICG_POLICY_ENUM_VALUE",
+            ),
+            (
+                "struct Owner { enum E : int { e=1 }; };",
+                "Owner::E* value;",
+                "ICG_POLICY_ENUM_STORAGE",
+            ),
+            (
+                "inline namespace ns { enum E : int { e=1 }; }",
+                "ns::E* value;",
+                "ICG_POLICY_ENUM_STORAGE",
+            ),
+            ("enum E : int { e=1 };", "const E* value;", "ICG_POLICY_TYPE"),
+            ("enum E : int { e=1 };", "E* const value = nullptr;", "ICG_POLICY_TYPE"),
+            ("enum E : int { e=1 };", "E** value;", "ICG_POLICY_TYPE"),
+            ("enum E : int { e=1 };", "E (*value)[2];", "ICG_POLICY_TYPE"),
+            (
+                "enum E : int { e=1 };",
+                "E* value[1][1][1][1][1][1][1][1];",
+                "ICG_POLICY_ARRAY_RANK",
+            ),
+        ):
+            with (
+                self.subTest(declaration=declaration, member=member),
+                self.assertRaisesRegex(rules.PolicyError, code),
+            ):
+                self.model(declaration + "struct Model { " + member + " };")
+        prefix = "enum E : int { e=1 }; "
+        documents = self.model(
+            prefix
+            + "using P = E*; using Row = P[2]; struct Model { Row value[1][1][1][1][1][3]; };"
+        )
+        candidate = emit.render(*documents)
+        self.assertIn("E*[1][1][1][1][1][3][2]", candidate)
+        self.assertIn("NULL, 8, {{1, 0}", candidate)
+        self.compile_enum_metadata(candidate, "rank8")
+        for outputs in (["lifecycle"], [*resolve.OUTPUTS, "lifecycle"]):
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+                self.model(prefix + "struct Model { E* value; };", outputs=outputs)
+        with self.assertRaises(rules.PolicyError):
+            self.model(
+                prefix
+                + "template<class T> struct Box { T value; }; struct Model { Box<E*> chosen; };",
+                outputs=["template-attributes"],
+                template_fields=["Model::chosen"],
+            )
+
+    def test_enum_pointer_dependencies_and_omission(self):
+        source = cases.HEADER + "enum E : int { e=1 }; struct Model { E* value; };"
+        self.env["TRICK_ICG_IGNORE_TYPES"] = "E"
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_DEPENDENCY"):
+            self.model(source)
+        documents = self.model(
+            source.replace("E* value;", "E* value; /* trick_io(**) */\n")
+        )
+        candidate = emit.render(*documents)
+        self.assertNotIn("MemoryManager.hh", candidate)
+        self.assertNotIn("ENUM_ATTR enumE", candidate)
+        self.compile_enum_metadata(candidate, "omitted")
+        self.env.pop("TRICK_ICG_IGNORE_TYPES")
+        dependency = self.work / "enum.hh"
+        dependency.write_text("enum E : int { e=1 };\n")
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_DEPENDENCY"):
+            self.model('#include "enum.hh"\nstruct Model { E* value; };')
+        path = self.work / "model.hh"
+        p = subprocess.run(
+            [
+                str(EXTRACTOR),
+                "--source-root",
+                str(self.work),
+                "--select-file",
+                str(path),
+                "--select-file",
+                str(dependency),
+                str(path),
+                "--",
+            ],
+            capture_output=True,
+            env=self.env,
+        )
         self.assertEqual(p.returncode, 0, p.stderr.decode())
+        facts = json.loads(p.stdout)
+        request = resolve.request_for(facts)
+        self.compile_enum_metadata(
+            emit.render(facts, request, resolve.resolve(facts, request)), "selected"
+        )
+        request["file_ids"] = [
+            n["id"] for n in facts["files"] if n["path"]["real"] == str(path)
+        ]
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_DEPENDENCY"):
+            resolve.resolve(facts, request)
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ENUM_LABEL"):
+            self.model(
+                "enum class E : int { same=0 }; enum class F : int { same=1 }; struct Model { E* a; F* b; };"
+            )
+
+    def test_enum_pointer_private_access_and_pointee_guard(self):
+        for friend in (
+            "",
+            "friend void init_attrModel();",
+            "friend void init_attrOther();",
+            "friend class InputProcessor;",
+        ):
+            documents = self.model(
+                "enum E : int { e=1 }; class Model { "
+                + friend
+                + " E* value; E* values[2]; public: E* read() const { return value == values[0] ? value : values[1]; } };"
+            )
+            candidate = emit.render(*documents)
+            self.assertEqual(
+                candidate.count("offsetof(::Model,"),
+                2 if friend == "friend void init_attrModel();" else 0,
+            )
+            self.assertEqual(candidate.count("trick_MM->add_attr_info"), 2)
+            self.compile_enum_metadata(candidate, "private")
+        source = (
+            "enum E : int { e=1 }; enum F : int { f=1 }; struct Model { E* value; };"
+        )
+        candidate = emit.render(*self.model(source))
+        (self.work / "model.hh").write_text(source.replace("E* value", "F* value"))
+        self.compile_enum_metadata(
+            candidate, "changed-pointee", expected_error="ICG field type mismatch"
+        )
 
     def test_builtin_pointer_legacy_candidate_native_and_mutation_gate(self):
         result = pointer_metadata.capture(EXTRACTOR, self.work, COMPILER)
@@ -322,7 +499,7 @@ class EmitterTests(unittest.TestCase):
             "wchar_t* value;",
             "char32_t* value;",
             "Model* value;",
-            "enum E { e }; E* value;",
+            "enum E { e }; E** value;",
         ):
             with (
                 self.subTest(member=member),
@@ -426,7 +603,7 @@ class EmitterTests(unittest.TestCase):
                 "ICG_POLICY_ENUM_STORAGE",
             ),
             ("enum E : int { e=1 };", "const E value;", "ICG_POLICY_TYPE"),
-            ("enum E : int { e=1 };", "E* value;", "ICG_POLICY_TYPE"),
+            ("enum E : int { e=1 };", "E** value;", "ICG_POLICY_TYPE"),
             ("enum E : int { e=1 };", "E& value;", "ICG_POLICY_TYPE"),
             ("enum E : int { e=1 };", "E value:2;", "ICG_POLICY_TYPE"),
             (

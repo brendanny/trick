@@ -87,6 +87,15 @@ namespace probe
         return field;
     }
 
+    template <typename Value> Field enum_pointer_member(const char* name, size_t offset, const ENUM_ATTR* attributes)
+    {
+        using Pointer = typename std::remove_all_extents<Value>::type;
+        static_assert(std::is_enum<typename std::remove_pointer<Pointer>::type>::value, "native enum pointer");
+        auto field       = pointer_member<Value>(name, offset);
+        field.attributes = attributes;
+        return field;
+    }
+
     inline void dimensions(const std::vector<size_t>& values)
     {
         std::cout << '[';

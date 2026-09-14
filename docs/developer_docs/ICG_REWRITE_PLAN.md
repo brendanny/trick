@@ -881,7 +881,18 @@ string reconstruction. References are captured separately (I/O 3, modifier 65)
 and remain rejected; their reference-only fixture also exposes legacy's invalid
 default-constructor helper. No pointer ownership/lifecycle operation is admitted.
 
-Next characterize enum/record pointer targets and deeper indirection. Continue
+Policy v15 / emitter v14 extend ordinary pointer storage to the admitted named,
+nonempty 32-bit enums. The [enum pointer corpus](../../tools/icg_baseline/enum_pointers/README.md)
+compares two records, 12 field rows, three enum tables and eight labels. Native
+observations distinguish enum size from pointer storage and verify exact dependency
+table addresses, initial zero/null state and guarded initialization. Two configured
+MemoryManager passes preserve 11 pointer locations and ten enum values, including
+null, shared, interior and in-record targets, symbolic aliases and unnamed numeric
+values. Eleven metadata mutations and seven runtime mutations fail at their
+specified stages. Selection/value/scope limits, template and lifecycle rejection,
+private-access separation and source/digest replay remain enforced.
+
+Next characterize record pointer targets and deeper indirection. Continue
 requiring independent legacy/native comparisons, ABI checks and runtime round
 trips.
 Then widen template/STL emission through the existing independent and configured

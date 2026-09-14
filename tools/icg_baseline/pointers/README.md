@@ -44,8 +44,9 @@ a record with uninitialized reference members and cannot compile. The extractor
 can describe it, but the rewrite rejects reference fields before output; this
 capture is not a claim of usable legacy reference lifecycle behavior.
 
-Enum/record pointers, multiple indirection, pointer-to-array/function, qualifiers,
+Record pointers, multiple indirection, pointer-to-array/function, qualifiers,
 references, template pointer fields and pointer lifecycle remain outside the profile.
+Enum pointers are covered by the separate [enum pointer corpus](../enum_pointers/README.md).
 Metadata neither allocates nor owns the targets. Managed allocation/resize/deletion,
 SWIG ownership, variable-server traffic and executive restart remain separate work.
 

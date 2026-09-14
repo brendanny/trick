@@ -49,9 +49,9 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
             )
         pointer_id = node["id"]
         node = types[types[node["pointee_id"]]["canonical_id"]]
-        if node["kind"] != "builtin":
+        if node["kind"] not in ("builtin", "enum"):
             raise PolicyError(
-                "ICG_POLICY_TYPE", "only single builtin pointers are characterized"
+                "ICG_POLICY_TYPE", "only single builtin/enum pointers are characterized"
             )
         if len(dimensions) >= 8:
             raise PolicyError(
@@ -78,14 +78,19 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
             raise PolicyError("ICG_POLICY_TYPE", "enum bitfields are not characterized")
         enum_id = node["declaration_id"]
         name = enums.storage_type(declarations[enum_id], declarations, types)
-        return dict(
+        result = dict(
             element_type_id=node["id"],
             enum_id=enum_id,
             type_name=name,
-            cpp_type=name + "".join(f"[{extent}]" for extent in dimensions),
+            cpp_type=name
+            + ("*" if pointer_id else "")
+            + "".join(f"[{extent}]" for extent in dimensions),
             trick_type="TRICK_ENUMERATED",
             dimensions=dimensions,
         )
+        if pointer_id:
+            result["pointer_type_id"] = pointer_id
+        return result
     name = node["spelling"]
     if field["bitfield"] and (dimensions or pointer_id or name != "unsigned int"):
         raise PolicyError(

@@ -46,9 +46,10 @@ and ignore/exclusion rules. Disabled fields are omitted before dependency checks
 Conflicting checkpoint labels fail before generation. Public and exact init-friend
 access assertions remain distinct from numeric private-field metadata.
 Record-nested enum definitions, inline/anonymous namespace scopes, empty/opaque
-enums, qualifiers, pointers/references, enum bitfields, other underlying widths
+enums, qualifiers, references, enum bitfields, other underlying widths
 and enum lifecycle output remain outside this storage extension. Standalone enum
-table generation retains its broader previously characterized profile.
+table generation retains its broader previously characterized profile. Single enum
+pointers are covered separately by the [enum pointer corpus](../enum_pointers/README.md).
 
 Reproduce the immutable references using the standalone legacy build:
 

@@ -1,0 +1,1 @@
+build${TRICK_ROOT}/tools/icg_baseline/enum_pointers/fixtures/io_EnumPointers.o
