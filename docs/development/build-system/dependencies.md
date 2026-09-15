@@ -1,7 +1,7 @@
 # A4: dependency preflight
 
 A4 checks dependency selections for the later native runtime and ICG targets.
-It still builds only A3's utility archives, and installation remains unavailable.
+A5 now optionally builds [native ICG](icg.md); installation remains unavailable.
 There are no dependency downloads, automatic package installations, or PATH edits
 in CMake. The profile is a preflight selection, not a build-feature promise.
 

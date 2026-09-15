@@ -47,6 +47,27 @@ symlink to the existing Python 3.12.14 library was supplied via `Python3_LIBRARY
 for the successful local probe; no environment-specific workaround was added to
 Trick. Exact local results and remaining gates are in [a4-validation.json](a4-validation.json).
 
+## A5 implementation status
+
+A5 adds native ICG compilation and implements the build-tree portion of BD-05.
+On Linux x86_64 / Ubuntu 24.04.3, CMake 3.26.0, Ninja
+1.11.1.git.kitware.jobserver-1, GCC/G++ 13.3.0, LLVM/Clang 14.0.6 and UDUNITS
+2.2.28, the executable builds, loads its libraries through CMake's build rpath,
+and processes a representative header with units annotations and C++ headers.
+Exact package revisions and environment details are in [a5-validation.json](a5-validation.json).
+
+| Legacy source behavior | A5 CMake behavior | Scope / action |
+| --- | --- | --- |
+| ICG is compiled by Make, with llvm-config flags and platform-specific linker/rpath commands. | Config-package targets supply link dependencies and native CMake build rpaths. | Native ICG build; installed rpaths remain C2. macOS execution is a CI gate. |
+| Runtime compiler headers come from trick-gte and a shell compiler invocation; Linux Clang resources use a guessed versioned path. | Configured compiler implicit include directories plus the selected Clang's reported resource directory. | CMake-built ICG only; reconfigure after compiler/SDK changes. Per-simulation compiler selection is C1. |
+| TRICK_HOME is supplied by the legacy invocation environment. | If unset, build-tree ICG uses its configured source checkout; existing values are preserved. | Build-tree preview only, not an installed SDK promise. |
+
+The extracted local development packages require a library search environment for
+their Clang driver during configuration and an explicit UDUNITS XML path. Those
+are local provisioning details, not hard-coded in the project. The built ICG
+itself passes its smoke test without a library-search environment override.
+Generation/output changes remain B1; no claim is made yet for a complete SDK.
+
 Maintain this register with machine-readable environment/test records alongside it. Every difference gets: ID; user-visible effect; legacy source behavior; new behavior; rationale; affected platform/OS/tool versions; implementation PR; reproduction; compatibility action; and status.
 
 Status vocabulary: **proposed**, **implemented/unverified**, **verified**, **known regression**, **retired**. The entries below are **proposed**, including the Python 3-only selection, source-installer prefix, and feature defaults; A1 does not approve those choices. See the [decision register](README.md#decisions-to-finalize). Their environment IDs refer to [qualification matrix](qualification.md); a result cannot become verified while its exact version fields are unresolved.

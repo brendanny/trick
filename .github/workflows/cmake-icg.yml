@@ -1,0 +1,64 @@
+name: CMake ICG
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  icg:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Provision CMake
+        run: |
+          python -m venv "$RUNNER_TEMP/cmake-tools"
+          "$RUNNER_TEMP/cmake-tools/bin/pip" install cmake==3.26.0 ninja==1.11.1.1
+          echo "$RUNNER_TEMP/cmake-tools/bin" >> "$GITHUB_PATH"
+      - name: Linux minimum LLVM dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-14-dev libclang-14-dev clang-14 libudunits2-dev
+          echo "LLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm" >> "$GITHUB_ENV"
+      - name: macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm@20 udunits
+          echo "LLVM_DIR=$(brew --prefix llvm@20)/lib/cmake/llvm" >> "$GITHUB_ENV"
+          echo "UDUNITS2_ROOT=$(brew --prefix udunits)" >> "$GITHUB_ENV"
+      - name: Configure and build ICG
+        run: |
+          cmake -S . -B build/cmake/icg -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_ICG=ON -DTRICK_BUILD_UTILITIES=OFF \
+            -DLLVM_DIR="$LLVM_DIR"
+          cmake --build build/cmake/icg --parallel 3
+          ctest --test-dir build/cmake/icg --output-on-failure --parallel 4
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - name: macOS dynamic library inspection
+        if: runner.os == 'macOS'
+        run: otool -L build/cmake/icg/trick_source/codegen/Interface_Code_Gen/trick-ICG
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: icg-${{ matrix.os }}
+          path: |
+            build/cmake/icg/TrickDependencies.txt
+            build/cmake/icg/CMakeCache.txt
+            build/cmake/icg/CMakeFiles/CMakeConfigureLog.yaml
+            build/cmake/icg/Testing/Temporary/
+            build/cmake/icg/trick_source/codegen/Interface_Code_Gen/ICGConfiguration.txt
+            build/cmake/icg/trick_source/codegen/Interface_Code_Gen/smoke/

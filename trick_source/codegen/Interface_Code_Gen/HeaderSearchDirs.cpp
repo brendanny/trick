@@ -13,6 +13,10 @@
 #include "HeaderSearchDirs.hh"
 #include "Utilities.hh"
 
+#ifdef TRICK_ICG_CMAKE_CONFIG
+#include "TrickICGConfig.hh"
+#endif
+
 HeaderSearchDirs::HeaderSearchDirs(clang::HeaderSearch & in_hs ,
  clang::HeaderSearchOptions & in_hso ,
  clang::Preprocessor & in_pp ,
@@ -23,6 +27,12 @@ HeaderSearchDirs::HeaderSearchDirs(clang::HeaderSearch & in_hs ,
   sim_services(in_sim_services) {} ;
 
 void HeaderSearchDirs::AddCompilerBuiltInSearchDirs () {
+#ifdef TRICK_ICG_CMAKE_CONFIG
+    for (const char* path : TrickICGConfig::system_includes)
+    {
+        hso.AddPath(path, clang::frontend::System, false, false);
+    }
+#else
 
     FILE * fp ;
     char * lineptr = NULL ;
@@ -93,7 +103,7 @@ void HeaderSearchDirs::AddCompilerBuiltInSearchDirs () {
 
     // Fink on Macs puts everything in /sw.
     hso.AddPath("/sw" , clang::frontend::System, IsFramework, IsSysRootRelative);
-
+#endif
 }
 
 void HeaderSearchDirs::AddUserSearchDirs ( std::vector<std::string> & include_dirs ) {

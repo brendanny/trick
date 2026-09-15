@@ -52,6 +52,14 @@
         "TRICK_BUILD_UTILITIES": true,
         "TRICK_BUILD_UTILITY_TESTS": true
       }
+    },
+    {
+      "name": "icg",
+      "inherits": "bootstrap-ninja",
+      "displayName": "Native ICG developer build",
+      "cacheVariables": {
+        "TRICK_BUILD_ICG": true
+      }
     }
   ],
   "buildPresets": [
@@ -83,6 +91,11 @@
     {
       "name": "utilities-multi",
       "configurePreset": "utilities-multi",
+      "configuration": "Debug"
+    },
+    {
+      "name": "icg",
+      "configurePreset": "icg",
       "configuration": "Debug"
     }
   ],
@@ -145,6 +158,17 @@
     {
       "name": "utilities-multi",
       "configurePreset": "utilities-multi",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "icg",
+      "configurePreset": "icg",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -254,6 +278,23 @@
         {
           "type": "test",
           "name": "utilities-multi"
+        }
+      ]
+    },
+    {
+      "name": "icg",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "icg"
+        },
+        {
+          "type": "build",
+          "name": "icg"
+        },
+        {
+          "type": "test",
+          "name": "icg"
         }
       ]
     }
