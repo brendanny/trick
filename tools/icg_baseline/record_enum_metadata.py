@@ -116,11 +116,18 @@ def report_for(
                 base = types[types[base["pointee_id"]]["canonical_id"]]
             type_name = (
                 nodes[base["declaration_id"]]["qualified_name"]
-                if base["kind"] == "enum"
+                if base["kind"] in ("enum", "record")
                 else base["spelling"]
             )
             if (
-                base["kind"] != ("enum" if "enum_type" in row else "builtin")
+                base["kind"]
+                != (
+                    "record"
+                    if "structured_record" in row
+                    else "enum"
+                    if "enum_type" in row
+                    else "builtin"
+                )
                 or type_name != row["type"]
                 or any(base["qualifiers"].values())
                 or shape != row["dimensions"]

@@ -82,7 +82,17 @@ namespace probe
     template <typename Value> Field enum_member(const char* name, size_t offset, const ENUM_ATTR* attributes)
     {
         static_assert(std::is_enum<typename std::remove_all_extents<Value>::type>::value, "native enum field");
-        auto field = member<Value>(name, offset);
+        auto field       = member<Value>(name, offset);
+        field.attributes = attributes;
+        return field;
+    }
+
+    template <typename Value>
+    Field structured_pointer_member(const char* name, size_t offset, const ATTRIBUTES* attributes)
+    {
+        using Pointee = typename std::remove_pointer<typename std::remove_all_extents<Value>::type>::type;
+        static_assert(std::is_class<Pointee>::value, "record pointer required");
+        auto field       = pointer_member<Value>(name, offset);
         field.attributes = attributes;
         return field;
     }

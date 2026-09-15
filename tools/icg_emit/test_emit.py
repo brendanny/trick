@@ -29,6 +29,7 @@ import memorymanager  # noqa: E402
 import native  # noqa: E402
 import pointer_metadata  # noqa: E402
 import record_enum_metadata  # noqa: E402
+import record_pointer_metadata  # noqa: E402
 import scalar_metadata  # noqa: E402
 import template_enum_metadata  # noqa: E402
 import template_metadata  # noqa: E402
@@ -273,6 +274,174 @@ class EmitterTests(unittest.TestCase):
             self.assertNotEqual(p.returncode, 0)
             self.assertIn(expected_error, p.stderr.decode())
 
+    def test_record_pointer_legacy_candidate_compile_and_replay(self):
+        facts = record_pointer_metadata.extract(EXTRACTOR, self.work)
+        report = record_enum_metadata.report_for(
+            facts, record_pointer_metadata.EXPECTED, record_pointer_metadata.ENUMS
+        )
+        self.assertEqual(sum(len(rows) for rows in report["records"].values()), 12)
+        model, candidate = record_pointer_metadata.generate(
+            facts, self.work / "generated"
+        )
+        self.compile_enum_metadata(record_pointer_metadata.reference(), "legacy")
+        self.compile_enum_metadata(candidate, "candidate")
+        index = next(
+            i
+            for i, d in enumerate(model["declarations"])
+            if d["metadata"] and d["metadata"].get("storage", {}).get("pointer_type_id")
+        )
+        storage = model["declarations"][index]["metadata"]["storage"]
+        types = {t["id"]: t for t in facts["types"]}
+        self.assertEqual(
+            types[storage["element_type_id"]]["declaration_id"], storage["record_id"]
+        )
+        self.assertEqual(
+            types[storage["pointer_type_id"]]["pointee_id"], storage["element_type_id"]
+        )
+        request = resolve.request_for(facts)
+        for change in (
+            lambda s: s.update(pointer_type_id="type:" + "0" * 64),
+            lambda s: s.update(record_id="decl:" + "0" * 64),
+            lambda s: s.update(cpp_type=s["cpp_type"].replace("*", "")),
+            lambda s: s.update(dimensions=[2]),
+        ):
+            changed = deepcopy(model)
+            change(changed["declarations"][index]["metadata"]["storage"])
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                emit.write(facts, request, changed, self.work / "forbidden.cpp")
+        changed = deepcopy(model)
+        changed["declarations"][index]["metadata"]["storage"].pop("pointer_type_id")
+        changed["digest"] = resolve.model_digest(changed)
+        with self.assertRaises(resolve.ValidationError):
+            emit.write(facts, request, changed, self.work / "forbidden.cpp")
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_record_pointer_boundaries_and_profiles(self):
+        for source, code in (
+            ("struct E; struct Model { E* value; };", "ICG_POLICY_RECORD_STORAGE"),
+            (
+                "union E { int x; }; struct Model { E* value; };",
+                "ICG_POLICY_RECORD_STORAGE",
+            ),
+            (
+                "struct E { virtual ~E() {} }; struct Model { E* value; };",
+                "ICG_POLICY_RECORD_STORAGE",
+            ),
+            (
+                "struct Owner { struct E { int x; }; }; struct Model { Owner::E* value; };",
+                "ICG_POLICY_RECORD_STORAGE",
+            ),
+            (
+                "inline namespace ns { struct E { int x; }; } struct Model { ns::E* value; };",
+                "ICG_POLICY_RECORD_STORAGE",
+            ),
+            (
+                "namespace { struct E { int x; }; } struct Model { E* value; };",
+                "ICG_POLICY_RECORD_STORAGE",
+            ),
+            ("struct E { int x; }; struct Model { E value; };", "ICG_POLICY_TYPE"),
+            ("struct Model { const Model* value; };", "ICG_POLICY_TYPE"),
+            ("struct Model { Model* const value=nullptr; };", "ICG_POLICY_TYPE"),
+            ("struct Model { Model** value; };", "ICG_POLICY_TYPE"),
+            ("struct Model { Model (*value)[2]; };", "ICG_POLICY_TYPE"),
+            (
+                "struct Model { Model* value[1][1][1][1][1][1][1][1]; };",
+                "ICG_POLICY_ARRAY_RANK",
+            ),
+        ):
+            with (
+                self.subTest(source=source),
+                self.assertRaisesRegex(rules.PolicyError, code),
+            ):
+                self.model(source)
+        documents = self.model("struct Model { Model* value[1][1][1][1][1][1][2]; };")
+        self.compile_enum_metadata(emit.render(*documents), "record-rank8")
+        for outputs in (["lifecycle"], [*resolve.OUTPUTS, "lifecycle"]):
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+                self.model("struct Model { Model* value; };", outputs=outputs)
+        with self.assertRaises(rules.PolicyError):
+            self.model(
+                "struct E { int x; }; template<class T> struct Box { T value; }; struct Model { Box<E*> chosen; };",
+                outputs=["template-attributes"],
+                template_fields=["Model::chosen"],
+            )
+
+    def test_record_pointer_dependencies_and_omission(self):
+        source = cases.HEADER + "struct E { int x; }; struct Model { E* value; };"
+        self.env["TRICK_ICG_IGNORE_TYPES"] = "E"
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_RECORD_DEPENDENCY"):
+            self.model(source)
+        documents = self.model(
+            source.replace("E* value;", "E* value; /* trick_io(**) */\n")
+        )
+        candidate = emit.render(*documents)
+        self.assertNotIn("MemoryManager.hh", candidate)
+        self.compile_enum_metadata(candidate, "record-omitted")
+        self.env.pop("TRICK_ICG_IGNORE_TYPES")
+        (self.work / "record.hh").write_text("struct E { int x; };\n")
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_RECORD_DEPENDENCY"):
+            self.model('#include "record.hh"\nstruct Model { E* value; };')
+        path = self.work / "model.hh"
+        dependency = self.work / "record.hh"
+        result = subprocess.run(
+            [
+                str(EXTRACTOR),
+                "--source-root",
+                str(self.work),
+                "--select-file",
+                str(path),
+                "--select-file",
+                str(dependency),
+                str(path),
+                "--",
+            ],
+            capture_output=True,
+            env=self.env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        facts = json.loads(result.stdout)
+        request = resolve.request_for(facts)
+        self.compile_enum_metadata(
+            emit.render(facts, request, resolve.resolve(facts, request)),
+            "record-selected",
+        )
+        request["file_ids"] = [
+            n["id"] for n in facts["files"] if n["path"]["real"] == str(path)
+        ]
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_RECORD_DEPENDENCY"):
+            resolve.resolve(facts, request)
+        # A selected dependency cannot hide unsupported fields behind its pointer.
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+            self.model("struct E { long double x; }; struct Model { E* value; };")
+
+    def test_record_pointer_private_access_and_pointee_guard(self):
+        for friend in (
+            "",
+            "friend void init_attrModel();",
+            "friend void init_attrOther();",
+            "friend class InputProcessor;",
+        ):
+            documents = self.model(
+                "class Model { "
+                + friend
+                + " Model* value; Model* values[2]; public: Model* read() const { return value == values[0] ? value : values[1]; } };"
+            )
+            candidate = emit.render(*documents)
+            self.assertEqual(
+                candidate.count("offsetof(::Model,"),
+                2 if friend == "friend void init_attrModel();" else 0,
+            )
+            self.compile_enum_metadata(candidate, "record-private")
+        source = "struct E { int x; }; struct F { int y; }; struct Model { E* value; };"
+        candidate = emit.render(*self.model(source))
+        (self.work / "model.hh").write_text(source.replace("E* value", "F* value"))
+        self.compile_enum_metadata(
+            candidate,
+            "changed-record-pointee",
+            expected_error="ICG field type mismatch",
+        )
+
     def test_enum_pointer_legacy_candidate_compile_and_replay(self):
         facts = enum_pointer_metadata.extract(EXTRACTOR, self.work)
         report = record_enum_metadata.report_for(
@@ -498,7 +667,6 @@ class EmitterTests(unittest.TestCase):
             "long double* value;",
             "wchar_t* value;",
             "char32_t* value;",
-            "Model* value;",
             "enum E { e }; E** value;",
         ):
             with (

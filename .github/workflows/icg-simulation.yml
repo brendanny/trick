@@ -130,6 +130,12 @@ jobs:
           build/icg-schema-venv/bin/python tools/icg_baseline/enum_pointer_runtime.py \
             --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
             --output build/icg-simulation-evidence/enum-pointers
+      - name: Compare record pointer cycles, shared targets and checkpoint readback
+        if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
+        run: |
+          build/icg-schema-venv/bin/python tools/icg_baseline/record_pointer_runtime.py \
+            --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
+            --output build/icg-simulation-evidence/record-pointers
       - name: Compare legacy and candidate template checkpoint readback
         if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
         run: |

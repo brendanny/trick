@@ -892,7 +892,16 @@ values. Eleven metadata mutations and seven runtime mutations fail at their
 specified stages. Selection/value/scope limits, template and lifecycle rejection,
 private-access separation and source/digest replay remain enforced.
 
-Next characterize record pointer targets and deeper indirection. Continue
+Policy v16 / emitter v15 add single ordinary record pointers and fixed arrays.
+The [record pointer corpus](../../tools/icg_baseline/record_pointers/README.md)
+adds three legacy snapshots and twelve rows across three records, with guarded
+self/mutual dependencies and native table identity/size checks. Two real
+MemoryManager checkpoints restore shared/interior targets, null pointers and
+cycles; nine metadata and eight runtime mutation controls enforce the gate.
+Required target metadata must be included and its fields supported. Allocation,
+ownership, template pointer fields and lifecycle remain separate profiles.
+
+Next characterize deeper pointer indirection. Continue
 requiring independent legacy/native comparisons, ABI checks and runtime round
 trips.
 Then widen template/STL emission through the existing independent and configured

@@ -91,8 +91,13 @@ def source(document: dict, report: dict, source_name: str = "legacy.cpp") -> str
             type_name = f"decltype({cpp_name}::{member})"
             if "structured_record" in field:
                 child_symbol = record_symbol(field["structured_record"], report)
+                observer = (
+                    "structured_pointer_member"
+                    if field.get("pointer")
+                    else "structured_member"
+                )
                 native_fields.append(
-                    f'probe::structured_member<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT, attr{child_symbol})'
+                    f'probe::{observer}<{type_name}>("{member}", offsetof({cpp_name}, {member}) * CHAR_BIT, attr{child_symbol})'
                 )
             elif "enum_type" in field:
                 enum_symbol = identifier(field["enum_type"]).replace("::", "__")

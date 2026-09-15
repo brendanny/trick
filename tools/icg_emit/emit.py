@@ -18,7 +18,7 @@ from tools.icg_emit import lifecycle  # noqa: E402
 from tools.icg_policy import resolve as policy  # noqa: E402
 from tools.icg_policy.rules import PolicyError  # noqa: E402
 
-VERSION = "scalar-metadata-emitter-14"
+VERSION = "scalar-metadata-emitter-15"
 
 
 def literal(value: str) -> str:
@@ -150,7 +150,8 @@ def render(facts: dict, request: dict, resolved: dict) -> str:
     if any(
         d["decision"] == "include"
         and nodes[i]["kind"] == "field"
-        and d["metadata"]["storage"]["trick_type"] == "TRICK_ENUMERATED"
+        and d["metadata"]["storage"]["trick_type"]
+        in ("TRICK_ENUMERATED", "TRICK_STRUCTURED")
         for i, d in decisions.items()
     ) or any(
         i["dependency_record_ids"] or i["dependency_enum_ids"]

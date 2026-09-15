@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/record_pointers/fixtures/RecordPointers.hh
+${SIM_ROOT}/input.cpp

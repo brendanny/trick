@@ -1,8 +1,8 @@
-"""Bounded builtin/enum, pointer, fixed-array and bitfield storage decisions."""
+"""Bounded builtin/enum/record-pointer, fixed-array and bitfield storage decisions."""
 
 from __future__ import annotations
 
-from tools.icg_policy import enums
+from tools.icg_policy import enums, records
 from tools.icg_policy.rules import PolicyError
 
 KINDS = {
@@ -49,9 +49,10 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
             )
         pointer_id = node["id"]
         node = types[types[node["pointee_id"]]["canonical_id"]]
-        if node["kind"] not in ("builtin", "enum"):
+        if node["kind"] not in ("builtin", "enum", "record"):
             raise PolicyError(
-                "ICG_POLICY_TYPE", "only single builtin/enum pointers are characterized"
+                "ICG_POLICY_TYPE",
+                "only single builtin/enum/record pointers are characterized",
             )
         if len(dimensions) >= 8:
             raise PolicyError(
@@ -63,6 +64,8 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
             and node["spelling"] in KINDS
             or node["kind"] == "enum"
             and declarations is not None
+            or node["kind"] == "record"
+            and pointer_id is not None
         )
         or any(node["qualifiers"].values())
         or not field["name"]
@@ -73,6 +76,18 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
         )
     # Lifecycle and template callers omit declarations, preserving their storage
     # boundaries. Pointer metadata does not grant allocation or ownership support.
+    if node["kind"] == "record":
+        record_id = node["declaration_id"]
+        name = records.storage_type(declarations[record_id], declarations)
+        return dict(
+            element_type_id=node["id"],
+            pointer_type_id=pointer_id,
+            record_id=record_id,
+            type_name=name,
+            cpp_type=name + "*" + "".join(f"[{extent}]" for extent in dimensions),
+            trick_type="TRICK_STRUCTURED",
+            dimensions=dimensions,
+        )
     if node["kind"] == "enum":
         if field["bitfield"]:
             raise PolicyError("ICG_POLICY_TYPE", "enum bitfields are not characterized")

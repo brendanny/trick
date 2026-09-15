@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v15**, not C++, and does not replace production ICG.
+It emits **resolved policy v16**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-15"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-16"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
 `template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
@@ -44,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v15 and policy
-`scalar-metadata-15` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1–v14 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v16 and policy
+`scalar-metadata-16` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1–v15 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -272,7 +272,7 @@ retains the sorted explicit requests (empty for automatic dependencies), and
 `dependency_record_ids` identifies the included structured child tables. Each
 entry also records the concrete record, primary template, argument type IDs,
 C++ spelling, cached legacy symbol,
-initializer and field decisions. Schema v15 requires exact replay of this evidence.
+initializer and field decisions. Schema v16 requires exact replay of this evidence.
 
 Traversal starts with selected global ordinary records whose template fields
 are all in one physical file. Roots and fields follow physical source order,
@@ -416,3 +416,17 @@ identity, shape or native type. Prior policy documents must be resolved again.
 The [independent enum pointer corpus](../icg_baseline/enum_pointers/README.md)
 records metadata and runtime evidence. No lifecycle or template pointer support
 is implied by this ordinary-record extension.
+
+## Ordinary record pointer storage
+
+Policy v16 adds closed `record_pointer_storage` with canonical pointer/element
+IDs, the target `record_id`, qualified type spelling and positive outer dimensions.
+A final zero index is emitted for the pointer. Only complete ordinary named
+standard-layout structs/classes in global or named non-inline namespaces qualify.
+Required record decisions must be included; omitted dependencies raise
+`ICG_POLICY_RECORD_DEPENDENCY`. Self/mutual dependencies are valid because record
+selection is resolved separately from field storage. Exact policy replay protects
+all IDs, dimensions and dependency decisions. Metadata support does not extend
+lifecycle or template output profiles, nor authorize target allocation/ownership.
+
+See the [legacy/runtime evidence](../icg_baseline/record_pointers/README.md).

@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 15
+      "const": 16
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-15"
+      "const": "scalar-metadata-16"
     },
     "facts": {
       "type": "object",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-15"
+          "const": "scalar-metadata-16"
         },
         "template_field_ids": {
           "type": "array",
@@ -478,6 +478,9 @@
                       },
                       {
                         "$ref": "#/$defs/enum_pointer_storage"
+                      },
+                      {
+                        "$ref": "#/$defs/record_pointer_storage"
                       }
                     ]
                   },
@@ -1200,6 +1203,53 @@
         "pointer_type_id": {
           "type": "string",
           "pattern": "^type:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "record_pointer_storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "element_type_id",
+        "type_name",
+        "cpp_type",
+        "trick_type",
+        "dimensions",
+        "record_id",
+        "pointer_type_id"
+      ],
+      "properties": {
+        "element_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
+        },
+        "type_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "cpp_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trick_type": {
+          "const": "TRICK_STRUCTURED"
+        },
+        "dimensions": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "pointer_type_id": {
+          "type": "string",
+          "pattern": "^type:[a-f0-9]{64}$"
+        },
+        "record_id": {
+          "type": "string",
+          "pattern": "^decl:[a-f0-9]{64}$"
         }
       }
     }

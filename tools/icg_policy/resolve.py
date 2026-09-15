@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from tools.icg_policy import enums, lifecycle, rules, storage, templates  # noqa: E402
 from tools.icg_schema import validate as ir  # noqa: E402
 
-POLICY_VERSION = "scalar-metadata-15"
+POLICY_VERSION = "scalar-metadata-16"
 FACTS_SCHEMA = ROOT / "trick_source/codegen/TrickCodeGen/ir/extracted-facts.schema.json"
 SCHEMA = Path(__file__).with_name("resolved.schema.json")
 OUTPUTS = ["attributes", "enum-attributes"]
@@ -344,6 +344,13 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
                         f"required enum metadata is omitted: {declarations[enum_id]['qualified_name']}",
                     )
                 ordinary_enum_ids.add(enum_id)
+            if "record_id" in resolved_storage:
+                dependency = declarations[resolved_storage["record_id"]]
+                if decide(dependency)["decision"] != "include":
+                    raise rules.PolicyError(
+                        "ICG_POLICY_RECORD_DEPENDENCY",
+                        f"required record metadata is omitted: {dependency['qualified_name']}",
+                    )
             key = result["metadata"]["units_map_key"]
             if key in unit_keys and unit_keys[key] != identifier:
                 raise rules.PolicyError(
@@ -363,7 +370,7 @@ def _build(facts: dict, request: dict, effective: dict) -> dict:
         policy_version=POLICY_VERSION,
     )
     model = dict(
-        schema_version=15,
+        schema_version=16,
         kind="legacy-metadata-policy",
         policy_version=POLICY_VERSION,
         facts=dict(

@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v15,
+This standalone development backend consumes **facts v12, resolved policy v16,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -18,7 +18,9 @@ is rejected because legacy omits its field rows. Extended integers such as
 fails the request.
 Named nonempty 32-bit `int`/`unsigned int` enum fields and their fixed arrays
 are supported in ordinary records and templates. Ordinary records additionally
-support one pointer indirection to those enums, including pointer arrays and aliases.
+support one pointer indirection to those enums and to complete ordinary named
+standard-layout records, including pointer arrays and aliases. Record pointers
+support self/mutual links when every required target table is included.
 Separate profiles cover enum
 tables, lifecycle exports, and bounded structured template members. Extraction covers more types than generation, so successful facts
 extraction does not establish emitter coverage.
@@ -30,7 +32,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1–v14 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v15 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -77,7 +79,7 @@ each fitting signed `INDEX.int`. Single builtin/enum pointers consume one additi
 index with zero extent, leaving at most seven outer fixed dimensions. Pointer rows
 use the pointee type/size while native storage guards use the full pointer/array
 type. Const/volatile, multiple indirection, pointer-to-array/function, reference,
-record-pointer and structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
+by-value ordinary structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
 enum elements use the same rank/extent checks. The explicit template profile
 also supports its bounded structured arrays. UnitsMap keys retain enclosing record
 names but omit namespaces, correcting the prior emitter's namespace prefix.
@@ -344,7 +346,7 @@ expanded checkpoint passes restore all 16 enum elements and both neighboring bui
 fields. Numeric private-field metadata preserves the exact init-friend access boundary.
 Enum lifecycle output, record-nested enum definitions and other widths remain rejected.
 
-Next characterize record pointer targets and deeper indirection. General
+Next characterize deeper pointer indirection. General
 annotations, inheritance, broader template/STL emission, and lifecycle
 exception/ownership handling remain subsequent milestones.
 
@@ -380,3 +382,21 @@ Eleven metadata and seven runtime mutations fail at their designated stages.
 
 Enum pointers remain unsupported in template metadata and lifecycle output.
 Metadata supplies no target allocation, ownership or destruction operation.
+
+## Ordinary record pointers
+
+Policy v16 / emitter v15 admit one unqualified pointer to a complete, named,
+ordinary standard-layout struct/class in global or named non-inline namespace
+scope. Aliases, fixed arrays (up to seven outer dimensions), self-links and mutual
+record dependencies are included. Required target metadata must be selected and
+included; ignored, excluded or incomplete dependencies fail closed. Target fields
+must themselves satisfy the ordinary metadata profile. Lifecycle and template
+profiles do not acquire record pointer support.
+
+The [record pointer corpus](../icg_baseline/record_pointers/README.md) compares
+unchanged legacy output, generated metadata and independently measured native
+layout, then restores shared targets, interior array elements, null pointers and
+cycles through the real MemoryManager. This does not confer allocation, ownership
+or deletion semantics. Unions, nested/anonymous/inline-namespace pointees,
+inheritance, template specializations, qualifiers, deeper indirection and pointers
+to arrays/functions remain outside this increment.
