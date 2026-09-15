@@ -38,6 +38,10 @@
 #include "Utilities.hh"
 #include "FindTrickICG.hh"
 
+#ifdef TRICK_ICG_CMAKE_CONFIG
+#include "TrickICGConfig.hh"
+#endif
+
 /* Command line arguments.  These work better as globals, as suggested in llvm/CommandLine documentation */
 llvm::cl::list<std::string> include_dirs("I", llvm::cl::Prefix, llvm::cl::desc("Include directory"), llvm::cl::value_desc("directory"));
 llvm::cl::list<std::string> f_options("f", llvm::cl::Prefix, llvm::cl::desc("Compiler options that have f prefix"), llvm::cl::value_desc("option"));
@@ -142,6 +146,12 @@ int main(int argc, char * argv[]) {
         std::cerr << "No header file specified" << std::endl;
         return 1;
     }
+#ifdef TRICK_ICG_CMAKE_CONFIG
+    if (getenv("TRICK_HOME") == nullptr)
+    {
+        setenv("TRICK_HOME", TrickICGConfig::source_dir, 0);
+    }
+#endif
     clang::CompilerInstance ci;
 
 #if (LIBCLANG_MAJOR >= 22)

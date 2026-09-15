@@ -1,0 +1,66 @@
+name: CMake utilities
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  utilities:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-26]
+        generator: ["Unix Makefiles", "Ninja", "Ninja Multi-Config"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Provision CMake and Ninja
+        run: |
+          python -m venv "$RUNNER_TEMP/cmake-tools"
+          "$RUNNER_TEMP/cmake-tools/bin/pip" install cmake==3.26.0 ninja==1.11.1.1
+          echo "$RUNNER_TEMP/cmake-tools/bin" >> "$GITHUB_PATH"
+      # Only CI provisions dependencies; configuring Trick never downloads them.
+      - uses: actions/checkout@v7
+        with:
+          repository: google/googletest
+          ref: f8d7d77c06936315286eb55f8de22cd23c188571 # v1.14.0
+          path: build/cmake/googletest
+      - name: Build test dependency
+        run: |
+          cmake -S build/cmake/googletest -B "$RUNNER_TEMP/gtest-build" \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_GMOCK=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/gtest"
+          cmake --build "$RUNNER_TEMP/gtest-build" --parallel 4
+          cmake --install "$RUNNER_TEMP/gtest-build"
+      - name: Configure utilities
+        env:
+          CMAKE_GENERATOR: ${{ matrix.generator }}
+        run: |
+          { uname -a; cmake --version; cc --version; c++ --version; ninja --version; make --version; } > build/cmake/tool-versions.txt
+          cmake --preset utilities -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/gtest"
+      - name: Build and test utilities
+        run: |
+          cmake --build --preset utilities --parallel 4
+          ctest --preset utilities --parallel 4
+      - name: Check source tree cleanliness
+        run: |
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - name: Upload qualification logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: utilities-${{ matrix.os }}-${{ matrix.generator }}
+          path: |
+            build/cmake/tool-versions.txt
+            build/cmake/utilities/CMakeCache.txt
+            build/cmake/utilities/CMakeFiles/CMakeConfigureLog.yaml
+            build/cmake/utilities/Testing/Temporary/

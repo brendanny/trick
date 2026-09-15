@@ -1,31 +1,24 @@
+# Native utility archives; no generated SDK or framework Make configuration required.
+find_package(Threads REQUIRED)
 
+function(trick_utility target alias)
+    add_library(${target} STATIC)
+    add_library(Trick::${alias} ALIAS ${target})
+    target_include_directories(${target} PUBLIC
+        "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>")
+    set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_EXTENSIONS OFF)
+    target_compile_options(${target} PRIVATE
+        "$<$<COMPILE_LANG_AND_ID:C,GNU,Clang,AppleClang>:-Wall;-Wextra;-fexceptions>"
+        "$<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wall;-Wextra>")
+endfunction()
 
-# Trick utils files that are not in their own library
-set( TRICK_UTILS_SRC
-  interpolator/src/Interpolator.cpp
-  shm/src/tsm_disconnect
-  shm/src/tsm_init
-  shm/src/tsm_init_with_lock
-  shm/src/tsm_reconnect
-  trick_adt/src/MapStrToPtr
-  trick_adt/src/bst
-  trick_adt/src/bubble_sort
-  trick_adt/src/dllist
-  trick_adt/src/lqueue
-  trick_adt/src/lstack
-  trick_adt/src/record_array
-  unicode/src/unicode_utils
-)
-add_library( trick_utils_objs OBJECT ${TRICK_UTILS_SRC} )
-
-###############################################################
-# Other Trick libraries
-###############################################################
-
-add_subdirectory(comm)
-add_subdirectory(connection_handlers)
 add_subdirectory(math)
 add_subdirectory(units)
+add_subdirectory(comm)
+add_subdirectory(connection_handlers)
+add_subdirectory(optimization)
 add_subdirectory(var_binary_parser)
 
-
+if(BUILD_TESTING AND TRICK_BUILD_UTILITY_TESTS)
+    add_subdirectory(tests)
+endif()

@@ -1,0 +1,3 @@
+# Build-tree metadata, not an installed package or a second version authority.
+set(TRICK_VERSION "@TRICK_VERSION@")
+set(TRICK_VERSION_NUMBER "@PROJECT_VERSION@")

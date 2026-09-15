@@ -1,0 +1,302 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 26,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "bootstrap",
+      "displayName": "Trick configuration-only developer preview",
+      "binaryDir": "${sourceDir}/build/cmake/${presetName}",
+      "cacheVariables": {
+        "BUILD_TESTING": true,
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TRICK_BUILD_UTILITIES": false
+      }
+    },
+    {
+      "name": "bootstrap-ninja",
+      "inherits": "bootstrap",
+      "generator": "Ninja"
+    },
+    {
+      "name": "bootstrap-multi",
+      "inherits": "bootstrap",
+      "generator": "Ninja Multi-Config",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": null
+      }
+    },
+    {
+      "name": "utilities",
+      "inherits": "bootstrap",
+      "cacheVariables": {
+        "TRICK_BUILD_UTILITIES": true,
+        "TRICK_BUILD_UTILITY_TESTS": true
+      }
+    },
+    {
+      "name": "utilities-ninja",
+      "inherits": "bootstrap-ninja",
+      "cacheVariables": {
+        "TRICK_BUILD_UTILITIES": true,
+        "TRICK_BUILD_UTILITY_TESTS": true
+      }
+    },
+    {
+      "name": "utilities-multi",
+      "inherits": "bootstrap-multi",
+      "cacheVariables": {
+        "TRICK_BUILD_UTILITIES": true,
+        "TRICK_BUILD_UTILITY_TESTS": true
+      }
+    },
+    {
+      "name": "icg",
+      "inherits": "bootstrap-ninja",
+      "displayName": "Native ICG developer build",
+      "cacheVariables": {
+        "TRICK_BUILD_ICG": true
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "bootstrap",
+      "configurePreset": "bootstrap",
+      "configuration": "Debug"
+    },
+    {
+      "name": "bootstrap-ninja",
+      "configurePreset": "bootstrap-ninja",
+      "configuration": "Debug"
+    },
+    {
+      "name": "bootstrap-multi",
+      "configurePreset": "bootstrap-multi",
+      "configuration": "Debug"
+    },
+    {
+      "name": "utilities",
+      "configurePreset": "utilities",
+      "configuration": "Debug"
+    },
+    {
+      "name": "utilities-ninja",
+      "configurePreset": "utilities-ninja",
+      "configuration": "Debug"
+    },
+    {
+      "name": "utilities-multi",
+      "configurePreset": "utilities-multi",
+      "configuration": "Debug"
+    },
+    {
+      "name": "icg",
+      "configurePreset": "icg",
+      "configuration": "Debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "bootstrap",
+      "configurePreset": "bootstrap",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "bootstrap-ninja",
+      "configurePreset": "bootstrap-ninja",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "bootstrap-multi",
+      "configurePreset": "bootstrap-multi",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "utilities",
+      "configurePreset": "utilities",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "utilities-ninja",
+      "configurePreset": "utilities-ninja",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "utilities-multi",
+      "configurePreset": "utilities-multi",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "icg",
+      "configurePreset": "icg",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "bootstrap",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "bootstrap"
+        },
+        {
+          "type": "build",
+          "name": "bootstrap"
+        },
+        {
+          "type": "test",
+          "name": "bootstrap"
+        }
+      ]
+    },
+    {
+      "name": "bootstrap-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "bootstrap-ninja"
+        },
+        {
+          "type": "build",
+          "name": "bootstrap-ninja"
+        },
+        {
+          "type": "test",
+          "name": "bootstrap-ninja"
+        }
+      ]
+    },
+    {
+      "name": "bootstrap-multi",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "bootstrap-multi"
+        },
+        {
+          "type": "build",
+          "name": "bootstrap-multi"
+        },
+        {
+          "type": "test",
+          "name": "bootstrap-multi"
+        }
+      ]
+    },
+    {
+      "name": "utilities",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "utilities"
+        },
+        {
+          "type": "build",
+          "name": "utilities"
+        },
+        {
+          "type": "test",
+          "name": "utilities"
+        }
+      ]
+    },
+    {
+      "name": "utilities-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "utilities-ninja"
+        },
+        {
+          "type": "build",
+          "name": "utilities-ninja"
+        },
+        {
+          "type": "test",
+          "name": "utilities-ninja"
+        }
+      ]
+    },
+    {
+      "name": "utilities-multi",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "utilities-multi"
+        },
+        {
+          "type": "build",
+          "name": "utilities-multi"
+        },
+        {
+          "type": "test",
+          "name": "utilities-multi"
+        }
+      ]
+    },
+    {
+      "name": "icg",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "icg"
+        },
+        {
+          "type": "build",
+          "name": "icg"
+        },
+        {
+          "type": "test",
+          "name": "icg"
+        }
+      ]
+    }
+  ]
+}
