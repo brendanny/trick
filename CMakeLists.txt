@@ -16,6 +16,8 @@ project(Trick VERSION "${TRICK_VERSION_NUMBER}" LANGUAGES C CXX)
 
 option(TRICK_BUILD_ICG "Build the existing native interface code generator" OFF)
 
+option(TRICK_BUILD_MEMORY_MANAGER "Build the native memory manager and parsers" OFF)
+
 include(cmake/TrickCompilers.cmake)
 include(cmake/TrickDependencies.cmake)
 
@@ -32,6 +34,9 @@ if(TRICK_BUILD_UTILITIES)
 endif()
 if(TRICK_BUILD_ICG)
     add_subdirectory(trick_source/codegen/Interface_Code_Gen)
+endif()
+if(TRICK_BUILD_MEMORY_MANAGER)
+    add_subdirectory(trick_source/sim_services)
 endif()
 if(BUILD_TESTING)
     add_subdirectory(cmake/tests)
