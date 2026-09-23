@@ -11,3 +11,7 @@ endfunction()
 if(TRICK_BUILD_MEMORY_MANAGER)
     add_subdirectory(MemoryManager)
 endif()
+
+if(TRICK_BUILD_INTEGRATORS)
+    add_subdirectory(Integrator)
+endif()

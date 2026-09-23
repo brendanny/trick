@@ -18,6 +18,16 @@ option(TRICK_BUILD_ICG "Build the existing native interface code generator" OFF)
 
 option(TRICK_BUILD_MEMORY_MANAGER "Build the native memory manager and parsers" OFF)
 
+option(TRICK_BUILD_INTEGRATORS "Build integration libraries" OFF)
+option(TRICK_USE_ER7_UTILS "Use bundled ER7 integration algorithms" ON)
+option(TRICK_USE_ER7_CHECKPOINTHELPER "Use an external ER7 CheckpointHelper variant" OFF)
+if(TRICK_USE_ER7_CHECKPOINTHELPER)
+    message(FATAL_ERROR "CheckpointHelper is not bundled. External ER7 variants need a reviewed target contract; this preview does not silently select one.")
+endif()
+if(TRICK_BUILD_INTEGRATORS)
+    set(TRICK_BUILD_MEMORY_MANAGER ON)
+endif()
+
 include(cmake/TrickCompilers.cmake)
 include(cmake/TrickDependencies.cmake)
 
