@@ -26,7 +26,10 @@ The helper is not idempotent: calling it again after Python 2 initialization
 reruns the module initializers; Python 3 rejects an already initialized
 interpreter. Call it once per interpreter lifecycle, holding the GIL when the
 interpreter is already initialized. The public header documents both contracts.
-The IPPython startup script accepts an unset `TRICK_PYTHON_PATH` as empty.
+The IPPython startup script trims colon-separated `TRICK_PYTHON_PATH` entries
+and discards empty results. Unset/empty values, repeated or edge colons, and
+whitespace-only entries add no path; valid entries retain their order. This
+avoids adding the current directory implicitly through an empty string.
 Genuine startup failures call `exec_terminate_with_return`, because the scheduler
 ignores `ip.init()`'s return value; a return alone could silently skip the input.
 

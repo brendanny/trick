@@ -70,6 +70,26 @@ Generation/output changes remain B1; no claim is made yet for a complete SDK.
 
 ## Review follow-up: diagnostics and Python startup
 
+- **BD-05, ICG link selection:** after upstream #2195, the macOS Make build
+  links Clang's component libraries. CMake prefers the imported `clang-cpp` and
+  `LLVM` targets when both exist, otherwise it uses imported component targets.
+  Homebrew LLVM exports both monolithic targets, so native ICG uses that route
+  on macOS. The alternatives are mutually exclusive; CMake does not combine the
+  monolithic Clang library with its component archives. This is intentional:
+  imported targets supply their transitive dependencies. Qualified native tuple:
+  macOS 26 arm64, Apple Clang 21, Homebrew LLVM 20.1.8, CMake 3.26.0, Ninja and
+  Ninja Multi-Config. The Make-side comparison is source-observed in #2195;
+  it is not a claim of paired binary equivalence. No linking change is made here.
+- **BD-07, empty Python path entries (prerequisite PR #5):** split
+  `TRICK_PYTHON_PATH` on colons, trim each entry, and discard empty results.
+  Unset/empty values, leading/trailing colons, consecutive colons and
+  whitespace-only entries no longer add `''` (the current directory) to
+  `sys.path`. Nonempty entries retain their order; an explicit `.` still works.
+  This shared startup behavior applies to both build systems and both Python
+  majors. Native regression tests cover empty/unset values and mixed entries,
+  including imports that verify retained paths and their order. Local tuple:
+  Ubuntu 24.04.3 x86_64, GCC 13.3.0, Python 3.12.14, SWIG 4.2.0, CMake 3.26.0;
+  the runtime CI matrix also covers Rocky 8 Python 2.7.18/3.6.8 and macOS.
 - **BD-06, ICG error reporting:** the old user-code failure summary,
   `Trick build was terminated due to error in user code!`, was written to stdout.
   It is now `ICG failed due to parsing errors; see diagnostics above.` on stderr

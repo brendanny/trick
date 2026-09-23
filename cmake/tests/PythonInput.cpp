@@ -71,6 +71,7 @@ int main(int argc, char** argv)
     }
     const int result = input.parse(R"PY(
 assert 'struct' in globals() and 'binascii' in globals()
+assert all(p.strip() for p in sys.path), repr(sys.path)
 import trick
 import _sim_services, _swig_double, _swig_int, _swig_ref
 clock = trick.GetTimeOfDayClock()
