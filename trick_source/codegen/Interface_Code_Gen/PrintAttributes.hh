@@ -39,6 +39,10 @@ class PrintAttributes {
         PrintAttributes( int attr_version , HeaderSearchDirs & hsd , CommentSaver & cs ,
          clang::CompilerInstance & in_ci, bool force , bool sim_services, std::string output_dir ) ;
 
+        // The explicit output contract is opt-in; legacy callers keep their layout.
+        void setOutputRoot(const std::string& root);
+        void finishOutputContract();
+
         /** Adds construct names to ignore from TRICK_ICG_IGNORE_TYPES environment variable */
         void addIgnoreTypes() ;
 
@@ -74,6 +78,9 @@ class PrintAttributes {
 
         const bool verboseBuild = (getenv("TRICK_VERBOSE_BUILD") || getenv("VERBOSE"));
         const std::string skipping = color(SKIP, "ICG Skip   ");
+
+        std::string output_root;
+        std::string sieFileName(bool enumeration = false) const;
 
         /** Directory to put class and enum map files */
         std::string map_dir ;

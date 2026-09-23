@@ -116,3 +116,11 @@ A working legacy capability that disappears without an accepted disposition is a
 | `--with-prepend-path[=DIR]` / `--without-prepend-path` | Native package hints or a user preset; do not mutate global PATH to influence unrelated probes. |
 | `make no_dp`, `make dp`, `make java` | Configure component selection; build the named native target when developing that component. |
 | `make premade`, `make spotless`, `make uninstall` | Explicit release preparation; fresh build directory/`cmake --fresh` as appropriate; documented manifest/package removal. No false claim of a built-in CMake uninstall command. |
+
+## B1 implementation status
+
+BD-06 now has an opt-in [ICG output contract](icg-outputs.md): canonical-path
+metadata names, complete dependency reporting, confined maps/SIE/temporary
+files, and success publication after diagnostics and output checks. Legacy
+callers retain their existing layout; obsolete `EXTERNAL_BUILD` branches are
+replaced by the runtime option.

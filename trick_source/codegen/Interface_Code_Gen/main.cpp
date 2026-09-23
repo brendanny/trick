@@ -55,6 +55,8 @@ llvm::cl::opt<int> attr_version("v", llvm::cl::desc("Select version of attribute
 llvm::cl::opt<std::string> standard_version("icg-std", llvm::cl::desc("Set the C++ standard to use when parsing. c++11, c++14, c++17, and c++20 are valid. Default is c++17 or the newest supported by your LLVM version."), llvm::cl::init(""), llvm::cl::ZeroOrMore);
 llvm::cl::opt<int> debug_level("d", llvm::cl::desc("Set debug level"), llvm::cl::init(0), llvm::cl::ZeroOrMore);
 llvm::cl::opt<bool> create_map("m", llvm::cl::desc("Create map files"), llvm::cl::init(false));
+llvm::cl::opt<std::string> output_root("output-root",
+                                       llvm::cl::desc("Explicit output root with manifest, depfile and success stamp"));
 llvm::cl::opt<std::string> output_dir("o", llvm::cl::desc("Output directory"));
 llvm::cl::list<std::string> input_file_names(llvm::cl::Positional, llvm::cl::desc("<input_file>"), llvm::cl::ZeroOrMore);
 llvm::cl::list<std::string> sink(llvm::cl::Sink, llvm::cl::ZeroOrMore);
@@ -121,7 +123,8 @@ Most of the main program is pieced together from examples on the web. We are doi
 -# Telling clang to use our ICGASTConsumer as an ASTConsumer.
 -# Parsing the input file.
 */
-int main(int argc, char * argv[]) {
+int runICG(int argc, char* argv[])
+{
     llvm::cl::SetVersionPrinter([](llvm::raw_ostream& stream)
                                 { stream << "Trick Interface Code Generator (trick-ICG) " << TRICK_VERSION << '\n'; });
 
@@ -248,9 +251,11 @@ int main(int argc, char * argv[]) {
 
     PrintAttributes printAttributes(attr_version, hsd, cs, ci, force, sim_services_flag, output_dir);
 
+    printAttributes.setOutputRoot(output_root);
     printAttributes.addIgnoreTypes() ;
     // Create new class and enum map files
-    if (create_map) {
+    if (create_map || !output_root.empty())
+    {
         printAttributes.createMapFiles();
     }
 
@@ -304,10 +309,25 @@ int main(int argc, char * argv[]) {
     // Print the list of headers that have the ICG:(No) comment
     printAttributes.printICGNoFiles();
 
-    if (icgDiagConsumer->error_in_user_code) {
+    if (icgDiagConsumer->error_in_user_code || (!output_root.empty() && ci.getDiagnostics().hasErrorOccurred()))
+    {
         std::cout << color(ERROR, "Trick build was terminated due to error in user code!") << std::endl;
         exit(-1);
     }
 
+    printAttributes.finishOutputContract();
     return 0;
+}
+
+int main(int argc, char* argv[])
+{
+    try
+    {
+        return runICG(argc, argv);
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "ICG failed: " << error.what() << std::endl;
+        return 1;
+    }
 }
