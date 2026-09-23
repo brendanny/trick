@@ -1,6 +1,7 @@
 # CMake migration build contract (A1)
 
-**Current implementation:** [A4 dependency preflight](dependencies.md), above
+**Current implementation:** [A5 native ICG](icg.md), with
+[A4 dependency preflight](dependencies.md),
 [A3 utility archives](utilities.md) and [A2 bootstrap](bootstrap.md).
 
 This directory defines the migration from Trick's Autoconf and handwritten

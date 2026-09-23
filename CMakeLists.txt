@@ -14,6 +14,8 @@ include(cmake/TrickVersion.cmake)
 trick_read_version("${CMAKE_CURRENT_SOURCE_DIR}/share/trick/trick_ver.txt")
 project(Trick VERSION "${TRICK_VERSION_NUMBER}" LANGUAGES C CXX)
 
+option(TRICK_BUILD_ICG "Build the existing native interface code generator" OFF)
+
 include(cmake/TrickCompilers.cmake)
 include(cmake/TrickDependencies.cmake)
 
@@ -28,15 +30,18 @@ endif()
 if(TRICK_BUILD_UTILITIES)
     add_subdirectory(trick_source/trick_utils)
 endif()
+if(TRICK_BUILD_ICG)
+    add_subdirectory(trick_source/codegen/Interface_Code_Gen)
+endif()
 if(BUILD_TESTING)
     add_subdirectory(cmake/tests)
 endif()
 
-message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (A4)")
+message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (A5)")
 message(WARNING
-    "This preview builds utility archives only, not a complete Trick SDK. "
+    "This preview builds selected utilities and ICG, not a complete Trick SDK. "
     "Use the documented Autoconf/Make route for a usable installation. "
-    "See docs/development/build-system/dependencies.md.")
+    "See docs/development/build-system/icg.md.")
 
 # Avoid a successful empty installation that looks like a usable Trick SDK.
 install(CODE [[

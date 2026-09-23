@@ -1,0 +1,60 @@
+{
+  "layer": "A5",
+  "base_commit": "b28bbfca72132ecc1c84e77de8c540090eb76592",
+  "recorded_at_utc": "2026-09-15T00:08:35.661128+00:00",
+  "environment": {
+    "platform": "Linux x86_64",
+    "os": "Ubuntu 24.04.3 LTS",
+    "CMake": "3.26.0",
+    "CXX": "GCC 13.3.0",
+    "linker": "GNU ld 2.42",
+    "generator": "Ninja 1.11.1.git.kitware.jobserver-1",
+    "build_type": "unset (CMake default)",
+    "LLVM_Clang": "14.0.6 (Ubuntu 1:14.0.6-19build4)",
+    "UDUNITS2": "2.2.28 (Ubuntu 2.2.28-7build1)",
+    "formatter": "clang-format 22.1.0"
+  },
+  "results": {
+    "native_icg_build": "passed",
+    "icg_configuration_ctest": "20/20 passed (1 ICG smoke, 6 bootstrap, 13 dependency fixtures)",
+    "utility_regression_ctest": "26/26 passed, including 154 GoogleTest cases",
+    "invalid_header": "rejected in smoke test",
+    "wrong_clang_tool_directory": "rejected at configure",
+    "built_icg_dynamic_library_lookup": "passed without LD_LIBRARY_PATH; CMake build rpaths resolve libclang-cpp, LLVM and UDUNITS",
+    "no_op_build": "ninja: no work to do.",
+    "changed_line_clang_format": "passed"
+  },
+  "reproduction": {
+    "configure": "cmake -S . -B /tmp/a5-icg-build -G Ninja -DTRICK_BUILD_ICG=ON -DTRICK_BUILD_UTILITIES=OFF -DLLVM_DIR=/tmp/a5-deps/usr/lib/llvm-14/lib/cmake/llvm -DUDUNITS2_ROOT=/tmp/a5-deps/usr -DCMAKE_PREFIX_PATH=/tmp/a5-deps/usr",
+    "build": "cmake --build /tmp/a5-icg-build --parallel 3",
+    "test": "ctest --test-dir /tmp/a5-icg-build --output-on-failure --parallel 4",
+    "provisioning": "Official Ubuntu noble packages downloaded, SHA256 checked against Packages.xz, extracted to scratch without system installation. Extracted Clang driver needs LD_LIBRARY_PATH=/tmp/a5-deps/usr/lib/x86_64-linux-gnu during configuration. The ICG test needs UDUNITS2_XML_PATH=/tmp/a5-deps/usr/share/xml/udunits/udunits2.xml; no library-path override is used for ICG itself."
+  },
+  "limitations": [
+    "macOS LLVM 20 CI configured; result pending at commit creation.",
+    "GCC 8.5/RHEL 8 qualification is not established by this GCC 13.3 build.",
+    "Installed SDK, simulation configuration, 32-bit host/target handling and ICG output graph remain later layers.",
+    "Component-library fallback is implemented but the tested package uses shared clang-cpp/LLVM targets."
+  ],
+  "source_sha256": {
+    ".github/workflows/cmake-icg.yml": "8ffa371c2a997f30527efd3d1738526f60226e31cdc7023a0927e08bde86838c",
+    "CMakeLists.txt": "b0dbec24289aece3cbb15bb8f500347e99dbc5132b4794b64cf91d03ec14d338",
+    "CMakePresets.json": "fc43be67bf03bd4cb080690b11177085c1bcefb70b33aca2beee43358f80fa24",
+    "cmake/TrickDependencies.cmake": "043c9f9c9b9002ae1b2ab4467a79102cdd194a43c9d76612fe4bdde5e345f74e",
+    "cmake/tests/ICG.cmake": "bec2eafac8d7be3d16955b6a5db742cb57f4282cac9da2ca2d1f6ae4a7c2707e",
+    "docs/development/build-system/README.md": "9ce443f17e59224f08938eb2f6546ad16508310a9c43af48fb5a63509143436a",
+    "docs/development/build-system/behavior-differences.md": "850835e376b58a6744431932d83830d19a0c7d669e24aba080b0dcfdb17c908a",
+    "docs/development/build-system/dependencies.md": "7402ff403afb81e5eca60486c9119c32bc2751368f094ef07dbdd57dfff05657",
+    "docs/development/build-system/icg.md": "b94d8fc106fcc84971af50740de3a206f60893326b56fc843f2824e22a485d53",
+    "trick_source/codegen/Interface_Code_Gen/CMakeLists.txt": "b2a3c94c521b20df4a2921dbeff1c88083b7aaef0e9c2a990d6c7478fde712e5",
+    "trick_source/codegen/Interface_Code_Gen/HeaderSearchDirs.cpp": "cda1bb35eae5a72de0c57af681221e775388b4ff4d3e5b346e494bc12a59e084",
+    "trick_source/codegen/Interface_Code_Gen/TrickICGConfig.hh.in": "3d898c2aebb0c12c4e594ec52a30a4a8b2ac56fde7681d2e904286057e5377bc",
+    "trick_source/codegen/Interface_Code_Gen/main.cpp": "123dafa177745a5ce2b4188857a68e2dcde01341e98e1df057c5abaab2e74fbb"
+  },
+  "macos_initial_ci": {
+    "run": 34912083364,
+    "finding": "C resource headers preceded libc++ wrappers; SDK aliases misclassified system headers.",
+    "correction": "C++ wrappers first, matching Clang resources next, canonical paths, and a no-system-metadata smoke assertion.",
+    "retest": "pending"
+  }
+}

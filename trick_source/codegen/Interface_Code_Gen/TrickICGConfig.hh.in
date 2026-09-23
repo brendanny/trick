@@ -1,0 +1,8 @@
+// Build-tree configuration. Installed SDK discovery is introduced in C1/C2.
+#pragma once
+
+namespace TrickICGConfig {
+inline constexpr const char* source_dir = "@icg_source_dir@";
+inline constexpr const char* system_includes[] = {
+@TRICK_ICG_SYSTEM_INCLUDES@};
+}
