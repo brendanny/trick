@@ -100,7 +100,7 @@ string(REPLACE "\\" "\\\\" icg_source_dir "${icg_source_dir}")
 string(REPLACE "\"" "\\\"" icg_source_dir "${icg_source_dir}")
 configure_file(TrickICGConfig.hh.in TrickICGConfig.hh @ONLY)
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ICGConfiguration.txt"
-    "LLVM: ${LLVM_PACKAGE_VERSION}\nClang tool: ${TRICK_ICG_CLANG_EXECUTABLE}\nResource directory: ${TRICK_ICG_RESOURCE_DIR}\nModel system includes: ${icg_system_includes}\nRTTI: ${LLVM_ENABLE_RTTI}\n")
+    "LLVM: ${LLVM_PACKAGE_VERSION}\nClang tool: ${TRICK_ICG_CLANG_EXECUTABLE}\nResource directory: ${TRICK_ICG_RESOURCE_DIR}\nModel system includes: ${icg_system_includes}\nRTTI: ${LLVM_ENABLE_RTTI}\nFrontend policy: native for all output layouts\nGNU compatibility macros: 4.2.1 (Clang default, not the model compiler version)\nSystem-header errors: fatal\n")
 
 if(BUILD_TESTING)
     add_test(NAME icg.smoke COMMAND "${CMAKE_COMMAND}"

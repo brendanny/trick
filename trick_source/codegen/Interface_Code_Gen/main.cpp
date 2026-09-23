@@ -40,6 +40,9 @@
 
 #ifdef TRICK_ICG_CMAKE_CONFIG
 #include "TrickICGConfig.hh"
+constexpr bool native_frontend = true;
+#else
+constexpr bool native_frontend = false;
 #endif
 
 /* Command line arguments.  These work better as globals, as suggested in llvm/CommandLine documentation */
@@ -95,7 +98,8 @@ void set_lang_opts(clang::CompilerInstance & ci) {
 
     // Clang's driver advertises GNU compatibility 4.2.1 by default. Advertising
     // the host GCC version enables glibc syntax that older libclang cannot parse.
-    ci.getLangOpts().GNUCVersion = output_root.empty() ? gccVersionToIntOrDefault(gcc_version, 80500) : 40201;
+    // The output layout must never select a different preprocessor dialect.
+    ci.getLangOpts().GNUCVersion = native_frontend ? 40201 : gccVersionToIntOrDefault(gcc_version, 80500);
     ci.getLangOpts().CPlusPlus17 = true ;
 
     // Check if standard_version was specified and if it's a version that is supported by this libclang
@@ -304,7 +308,7 @@ int runICG(int argc, char* argv[])
         ci.getSourceManager().createFileID(fileEntryRef, clang::SourceLocation(), clang::SrcMgr::C_User));
 #endif
     ICGDiagnosticConsumer* icgDiagConsumer
-        = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd, !output_root.empty());
+        = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd, native_frontend);
     ci.getDiagnostics().setClient(icgDiagConsumer);
     ci.getDiagnosticClient().BeginSourceFile(ci.getLangOpts(), &ci.getPreprocessor());
     clang::ParseAST(ci.getSema());
@@ -320,7 +324,8 @@ int runICG(int argc, char* argv[])
     // Print the list of headers that have the ICG:(No) comment
     printAttributes.printICGNoFiles();
 
-    if (icgDiagConsumer->error_in_user_code || (!output_root.empty() && ci.getDiagnostics().hasErrorOccurred()))
+    if (icgDiagConsumer->error_in_user_code
+        || ((native_frontend || !output_root.empty()) && ci.getDiagnostics().hasErrorOccurred()))
     {
         std::cout << color(ERROR, "Trick build was terminated due to error in user code!") << std::endl;
         exit(-1);

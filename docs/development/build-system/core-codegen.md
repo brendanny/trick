@@ -27,17 +27,39 @@ A no-op `cmake --build <build> --target trick_core_codegen` must do no work;
 touching a transitive header, deleting an output, rebuilding ICG, or changing
 `TRICK_USE_ER7_UTILS` must rerun the generator. All writes stay in the binary tree.
 
-BD-05/BD-06: explicit-output ICG reports system-header errors as failures instead
-of silently suppressing them. It advertises Clang's GNU compatibility version
+BD-05/BD-06: **all invocations of a CMake-built ICG** report system-header errors
+as failures and advertise Clang's GNU compatibility version
 4.2.1, rather than the compiler used to build ICG. In the locally tested Ubuntu
 24.04/GCC 13.3/LLVM 14.0.6/glibc 2.39 tuple, impersonating GCC 13 selected
 unsupported `_Float32` declarations and malloc attributes in glibc. This change
-preserves the existing compiler include paths and leaves legacy callers alone.
+uses one build-time frontend policy (`TRICK_ICG_CMAKE_CONFIG`) for configured
+include ordering, GNU compatibility macros, and strict diagnostics. Neither
+`-o` nor `--output-root` selects frontend semantics. Make-built ICG retains its
+historical frontend policy; explicit output still refuses to stamp parse errors.
+The old claim that all legacy callers were unchanged was too broad: a caller
+using a **CMake-built** ICG receives this native policy with either output layout.
 The native ICG also leaves explicitly requested system directories in their
 compiler-defined position when already implicit. Ubuntu 24.04/GCC 13/LLVM 14
 installs UDUNITS headers in `/usr/include`; moving that directory ahead of the
 C++ wrappers breaks `#include_next <stdlib.h>`. Nonstandard dependency prefixes
 still take the requested precedence.
+
+`icg.core_output_parity` compares the core metadata C++ and both registration
+maps generated using the two output layouts of the same native executable.
+`icg.outputs` additionally compares a `__GNUC__`-gated fixture. These prove output
+layout independence, not equivalence to a separately Make-built ICG or to the
+model compiler. `ICGConfiguration.txt` records the parsing policy explicitly.
+
+**Open frontend compatibility issue:** model headers gated on the real GCC
+version can expose a different layout to Clang's 4.2.1 compatibility macros.
+The core inventory currently has no version-number-gated model fields, but that
+does not qualify user simulations. C1 must report the parser/model compiler
+policy and qualify such headers before advertising general simulation support.
+An upstream bug report should reproduce GCC 13.3 + LLVM 14.0.6 + glibc 2.39 by
+parsing `files_to_ICG.hh` with host-GCC predefines and exposing system errors;
+the unsupported `_Float32`/malloc attributes are the original failure. Forcing
+4.2.1 is a documented compatibility choice, not a fix for arbitrary GCC-gated
+models. The issue is independent of output placement and of the icg2 contract.
 
 BD-01/BD-18: CMake output ownership and native depfiles replace timestamp checks
 and recursive Make. Metadata is a dedicated archive pending B5/B6 linkage;

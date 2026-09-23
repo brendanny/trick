@@ -46,4 +46,11 @@ if(BUILD_TESTING)
         "-DMANIFEST=${core_manifest}" "-DINVENTORY=${CMAKE_CURRENT_BINARY_DIR}/core-headers.txt"
         "-DROOT=${core_metadata_root}" -P "${PROJECT_SOURCE_DIR}/cmake/tests/CoreManifest.cmake")
     set_tests_properties(icg.core_manifest PROPERTIES LABELS "icg;runtime")
+    add_test(NAME icg.core_output_parity COMMAND "${CMAKE_COMMAND}"
+        "-DICG=$<TARGET_FILE:trick-ICG>" "-DMANIFEST=${core_manifest}"
+        "-DTRICK_SOURCE=${PROJECT_SOURCE_DIR}" "-DDEFINITIONS=${core_definitions}"
+        "-DUDUNITS_INCLUDE=${UDUNITS2_INCLUDE_DIR}"
+        "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/output-parity/$<CONFIG>"
+        -P "${PROJECT_SOURCE_DIR}/cmake/tests/CoreOutputParity.cmake")
+    set_tests_properties(icg.core_output_parity PROPERTIES LABELS "icg;runtime" TIMEOUT 120)
 endif()
