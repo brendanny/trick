@@ -138,7 +138,7 @@ disposition.
 
 | ID | Proposal / open question | Resolution needed by |
 | --- | --- | --- |
-| DEC-01 | Resolved for B6: native runtime uses Python 3; legacy route retains Python 2 during transition. Existing Python 3/SWIG floors are unchanged and older tuples still need qualification. | A4/B6; BD-07 |
+| DEC-01 | Resolved: default to Python 3/SWIG 4; explicitly allow Python 2/SWIG 3 with prominent deprecation warnings. Rocky 8 compatibility CI covers both Python majors with SWIG 3. No removal release is scheduled. | A4/B6; BD-07 |
 | DEC-02 | Python-standard-library source installer and a versioned user prefix such as `$HOME/.local/opt/trick/<version>`; exact launcher minimum and prefix are unsettled. | E1; BD-02/11 |
 | DEC-03 | Normal profile enables runtime, ICG, ER7, data products and Java; X11/HDF5/GSL/CivetWeb use `AUTO`/`ON`/`OFF`. Resolve reproducible release defaults and headless behavior. | A4 and each component PR; BD-09 |
 | DEC-04 | Exact maintained macOS releases/architectures and Java/Python/package tuples; source-installer policy for older RHEL 8 minors. Existing documented platform scope is the starting point. | A4/A5 and qualification F1 |

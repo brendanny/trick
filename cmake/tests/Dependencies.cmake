@@ -51,6 +51,10 @@ elseif(CASE MATCHES "^llvm-")
     endif()
     file(WRITE "${prefix}/include/clang/Basic/Version.inc" "#define CLANG_VERSION_MAJOR ${clang_version}\n")
     file(WRITE "${prefix}/clang/ClangConfig.cmake" "add_library(clangTooling INTERFACE IMPORTED)\nset(CLANG_INCLUDE_DIRS \"${prefix}/include\")\n")
+    if(CASE STREQUAL "llvm-shared")
+        file(WRITE "${prefix}/llvm/LLVMConfig.cmake" "set(LLVM_PACKAGE_VERSION ${version})\nadd_library(LLVM INTERFACE IMPORTED)\n")
+        file(WRITE "${prefix}/clang/ClangConfig.cmake" "add_library(clang-cpp INTERFACE IMPORTED)\nset(CLANG_INCLUDE_DIRS \"${prefix}/include\")\n")
+    endif()
     file(WRITE "${source}/CMakeLists.txt" "${preamble}include(\"${TRICK_SOURCE}/cmake/TrickLLVM.cmake\")\n")
     if(CASE STREQUAL "llvm-old")
         configure_case("requires LLVM >=14" "-DLLVM_DIR=${prefix}/llvm")
@@ -79,7 +83,9 @@ if(CASE STREQUAL "python-embed" OR CASE STREQUAL "python-mismatch")
         execute_process(COMMAND "${PYTHON_EXECUTABLE}" -c "import sys; print('%d.%d' % sys.version_info[:2])" OUTPUT_VARIABLE python_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
         file(MAKE_DIRECTORY "${TEST_ROOT}/wrong")
         file(WRITE "${TEST_ROOT}/wrong/wrong.c" "const char *Py_GetVersion(void) { return \"0.0\"; }\nvoid Py_Initialize(void) {}\nint Py_IsInitialized(void) { return 1; }\nvoid Py_Finalize(void) {}\n")
-        file(WRITE "${TEST_ROOT}/wrong/CMakeLists.txt" "${preamble}add_library(wrong SHARED wrong.c)\nset_target_properties(wrong PROPERTIES OUTPUT_NAME python${python_version})\nfile(GENERATE OUTPUT \"${TEST_ROOT}/wrong-$<CONFIG>.txt\" CONTENT \"$<TARGET_FILE:wrong>\")\n")
+        # A distinct soname prevents the runner's LD_LIBRARY_PATH from replacing
+        # this deliberately incompatible library with a real libpython.
+        file(WRITE "${TEST_ROOT}/wrong/CMakeLists.txt" "${preamble}add_library(wrong SHARED wrong.c)\nset_target_properties(wrong PROPERTIES OUTPUT_NAME python${python_version}_trick_mismatch)\nfile(GENERATE OUTPUT \"${TEST_ROOT}/wrong-$<CONFIG>.txt\" CONTENT \"$<TARGET_FILE:wrong>\")\n")
         execute_process(COMMAND "${CMAKE_COMMAND}" -S "${TEST_ROOT}/wrong" -B "${TEST_ROOT}/wrong-build"
             -G "${GENERATOR}" "-DCMAKE_MAKE_PROGRAM=${MAKE_PROGRAM}" "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_CXX_COMPILER=${CXX_COMPILER}"
             -DCMAKE_BUILD_TYPE=Debug RESULT_VARIABLE result OUTPUT_VARIABLE out ERROR_VARIABLE err)

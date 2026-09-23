@@ -1,7 +1,7 @@
 # B6: embedded Python and complete native runtime linkage
 
 Predecessor: B5. Enable `TRICK_BUILD_PYTHON=ON`, or use the `runtime` preset.
-This enables Core and its prerequisite layers, finds a coherent Python 3
+This enables Core and its prerequisite layers, finds a coherent Python
 interpreter/embed library, and discovers SWIG. It exposes `Trick::PythonInput`
 and the complete build-tree `Trick::Runtime` linkage. SDK installation and
 `trick-CP` integration remain C1/C2; this is still a developer preview.
@@ -52,11 +52,30 @@ and a grammar comment and restores them. Run it separately from other builds.
 CI runs the native build with read-only production source directories first,
 then these regeneration checks, on Linux and macOS and with ER7 enabled/disabled.
 
-DEC-01/BD-07: the native runtime is Python 3-only; explicitly selecting Python 2
-fails. A4's standalone preflight can still inspect Python 2, and the legacy build
-route remains during transition. This layer does not raise the documented
-Python 3 or SWIG floor based on unrelated modernization work: local evidence is
-Python 3.12.14/SWIG 4.2.0, and older supported tuples still require qualification.
+DEC-01/BD-07: the defaults are `TRICK_PYTHON_MAJOR=3` and
+`TRICK_SWIG_MAJOR=4`. The deprecated compatibility selections remain available:
+
+```sh
+cmake -S . -B build/compat -DTRICK_BUILD_PYTHON=ON \
+  -DTRICK_PYTHON_MAJOR=2 -DTRICK_SWIG_MAJOR=3 \
+  -DPython2_EXECUTABLE=/usr/bin/python2 -DSWIG_EXECUTABLE=/usr/bin/swig
+```
+
+Each selected legacy tool produces a prominent configure warning naming its
+version/path and the modern replacement, even when ordinary CMake deprecation
+warnings are disabled. No removal release is scheduled by this change. There is
+no silent fallback from the modern defaults. The dependency report records the
+actual interpreter, embed library, SWIG executable and versions. Python 2 module
+registration uses the Python 2 initialization ABI; Python 3 uses `PyInit_*`.
+Python 2 is selectable with either SWIG major. Use a fresh build directory when changing
+toolchain installations, or update the cached executable/library hints together.
+
+The Rocky 8 CI compatibility lanes build the entire runtime and run its embedded
+smoke with GCC 8.5, CMake 3.26.0 and SWIG 3 for both Python 2 and Python 3. They
+also verify the deprecation warnings and run graph checks with `python3.9 -O`.
+A third Rocky 8 lane tests SWIG 4/Python 2 independently. The existing
+Linux/macOS lanes qualify the modern defaults. Package reports in
+each run provide exact revisions; adding a lane is not itself a passing result.
 
 See [validation](b-stack-validation.json) and the CI workflow for exact tested
 platform/tool versions and remaining qualification limits. Trick 27 deprecates

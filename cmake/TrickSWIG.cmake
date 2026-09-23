@@ -1,0 +1,12 @@
+include_guard(GLOBAL)
+
+set(TRICK_SWIG_MAJOR "4" CACHE STRING "SWIG major (4, or deprecated 3)")
+set_property(CACHE TRICK_SWIG_MAJOR PROPERTY STRINGS 4 3)
+if(NOT TRICK_SWIG_MAJOR MATCHES "^[34]$")
+    message(FATAL_ERROR "TRICK_SWIG_MAJOR must be 3 or 4")
+endif()
+math(EXPR swig_next_major "${TRICK_SWIG_MAJOR} + 1")
+find_package(SWIG ${TRICK_SWIG_MAJOR}.0...<${swig_next_major}.0 REQUIRED COMPONENTS python)
+if(SWIG_VERSION VERSION_LESS 4)
+    message(WARNING "DEPRECATED: SWIG ${SWIG_VERSION} (${SWIG_EXECUTABLE}) is enabled for compatibility only. Upgrade to SWIG 4 and configure with -DTRICK_SWIG_MAJOR=4. SWIG 3 support will be removed in a future release; no removal version is scheduled yet.")
+endif()

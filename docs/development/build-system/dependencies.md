@@ -50,8 +50,9 @@ within the same Python major/minor are allowed.
 are `Python3_EXECUTABLE`, `Python3_ROOT_DIR`, `Python3_INCLUDE_DIR` and
 `Python3_LIBRARY`, or the `Python2_*` equivalents. CMake 3.26's supported Python
 versions apply; no Python 3.11 floor or Python-2 retirement is imposed here.
-DEC-01's final supported combinations remain open for B6; Python 2 discovery is
-implemented but unqualified in this layer. The imported `Trick::Python` alias
+Python 2 is a deprecated compatibility selection with a prominent warning.
+`TRICK_SWIG_MAJOR` selects `4` by default, or deprecated `3` explicitly.
+Python 2 is selectable with either SWIG major. See [runtime policy and CI](python-input.md). The imported `Trick::Python` alias
 wraps the selected built-in embedding target.
 
 Use `BISON_EXECUTABLE`, `FLEX_EXECUTABLE`, `SWIG_EXECUTABLE` and `PERL_EXECUTABLE`

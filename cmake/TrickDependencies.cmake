@@ -31,13 +31,10 @@ if(TRICK_BUILD_MEMORY_MANAGER)
 endif()
 
 if(TRICK_BUILD_PYTHON)
-    if(DEFINED TRICK_PYTHON_MAJOR AND NOT TRICK_PYTHON_MAJOR STREQUAL "3")
-        message(FATAL_ERROR "The native Python runtime supports Python 3. Python 2 remains on the legacy build route during transition.")
-    endif()
     if(NOT TARGET Trick::Python)
         include("${CMAKE_CURRENT_LIST_DIR}/TrickPython.cmake")
     endif()
-    find_package(SWIG 3.0 REQUIRED COMPONENTS python)
+    include("${CMAKE_CURRENT_LIST_DIR}/TrickSWIG.cmake")
 endif()
 
 # Plain-text report avoids serializing arbitrary paths into executable CMake code.
@@ -48,7 +45,8 @@ if(TRICK_BUILD_MEMORY_MANAGER)
     list(APPEND report_variables BISON_EXECUTABLE BISON_VERSION FLEX_EXECUTABLE FLEX_VERSION)
 endif()
 if(TRICK_BUILD_PYTHON)
-    list(APPEND report_variables SWIG_EXECUTABLE SWIG_VERSION Python3_EXECUTABLE Python3_VERSION Python3_INCLUDE_DIRS Python3_LIBRARIES)
+    list(APPEND report_variables TRICK_SWIG_MAJOR SWIG_EXECUTABLE SWIG_VERSION TRICK_PYTHON_MAJOR
+        ${python_package}_EXECUTABLE ${python_package}_VERSION ${python_package}_INCLUDE_DIRS ${python_package}_LIBRARIES)
 endif()
 if(TRICK_DEPENDENCY_PROFILE MATCHES "^(RUNTIME|ALL)$")
     list(APPEND report_variables BISON_EXECUTABLE BISON_VERSION FLEX_EXECUTABLE FLEX_VERSION SWIG_EXECUTABLE SWIG_VERSION PERL_EXECUTABLE PERL_VERSION_STRING TRICK_PYTHON_MAJOR

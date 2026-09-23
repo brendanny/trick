@@ -16,6 +16,24 @@ source = args.source.resolve()
 build = args.build.resolve()
 
 
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def check_inventory(root):
+    inventory = build / "trick_source/sim_services/core-headers.txt"
+    expected = set(inventory.read_text().splitlines())
+    actual = json.loads((root / "manifest.json").read_text())["headers"]
+    require(
+        len(actual) == len(expected), "Metadata count differs from core-headers.txt"
+    )
+    require(
+        {entry["header"] for entry in actual} == expected,
+        "Metadata headers differ from core-headers.txt",
+    )
+
+
 def run(target):
     subprocess.run(
         [
@@ -42,7 +60,7 @@ stamp = root / "generation.stamp"
 run("trick_core_codegen")
 before = stamp.stat().st_mtime_ns
 run("trick_core_codegen")
-assert stamp.stat().st_mtime_ns == before, "No-op build reran ICG"
+require(stamp.stat().st_mtime_ns == before, "No-op build reran ICG")
 
 # Restore source mtimes so this does not leave unrelated build invalidations.
 header = source / "include/trick/Clock.hh"
@@ -50,16 +68,16 @@ original = header.stat()
 try:
     os.utime(header, None)
     run("trick_core_codegen")
-    assert stamp.stat().st_mtime_ns != before, "Transitive header failed to rerun ICG"
+    require(stamp.stat().st_mtime_ns != before, "Transitive header failed to rerun ICG")
 finally:
     os.utime(header, ns=(original.st_atime_ns, original.st_mtime_ns))
 
 manifest = json.loads((root / "manifest.json").read_text())
 output = Path(manifest["headers"][0]["output"])
-assert root in output.parents
+require(root in output.parents, "Metadata output escaped the generation directory")
 output.unlink()
 run("trick_core_codegen")
-assert output.exists(), "Deleted metadata was not regenerated"
+require(output.exists(), "Deleted metadata was not regenerated")
 
 icg_candidates = [
     build / "trick_source/codegen/Interface_Code_Gen" / args.config / "trick-ICG",
@@ -69,7 +87,7 @@ icg = next(path for path in icg_candidates if path.exists())
 before = stamp.stat().st_mtime_ns
 os.utime(icg, None)
 run("trick_core_codegen")
-assert stamp.stat().st_mtime_ns != before, "Changed ICG did not rerun generation"
+require(stamp.stat().st_mtime_ns != before, "Changed ICG did not rerun generation")
 
 parser_dir = build / "trick_source/sim_services/MemoryManager/parsers"
 unchanged = {
@@ -84,9 +102,15 @@ try:
     grammar.chmod(original.st_mode | 0o200)
     grammar.write_bytes(contents + b"\n/* Native parser regeneration test. */\n")
     run("trick_mm")
-    assert (parser_dir / "adef_parser.tab.cpp").stat().st_mtime_ns != before
+    require(
+        (parser_dir / "adef_parser.tab.cpp").stat().st_mtime_ns != before,
+        "Grammar edit did not regenerate its parser",
+    )
     for name, timestamp in unchanged.items():
-        assert (parser_dir / (name + "_parser.tab.cpp")).stat().st_mtime_ns == timestamp
+        require(
+            (parser_dir / (name + "_parser.tab.cpp")).stat().st_mtime_ns == timestamp,
+            "Grammar edit regenerated an unrelated parser: " + name,
+        )
 finally:
     grammar.write_bytes(contents)
     grammar.chmod(original.st_mode)
@@ -119,15 +143,15 @@ def configure_er7(value):
 try:
     configure_er7("OFF" if original_on else "ON")
     run("trick_core_codegen")
-    changed = json.loads((root / "manifest.json").read_text())
-    assert len(changed["headers"]) == (145 if original_on else 213)
+    check_inventory(root)
 finally:
     configure_er7(original_er7)
     run("trick_core_codegen")
-assert len(json.loads((root / "manifest.json").read_text())["headers"]) == (
-    213 if original_on else 145
-)
+check_inventory(root)
 
+# UseSWIG can invalidate its support files while the feature cache is changed.
+# Build the restored configuration before measuring a transitive input edit.
+run("trick_swig_sim_services")
 swig_input = source / "include/trick/swig/trick_swig.i"
 wrapper = (
     build / "trick_source/trick_swig/sim_services/wrapper/sim_servicesPYTHON_wrap.cxx"
@@ -137,8 +161,9 @@ before = wrapper.stat().st_mtime_ns
 try:
     os.utime(swig_input, None)
     run("trick_swig_sim_services")
-    assert wrapper.stat().st_mtime_ns != before, (
-        "Transitive SWIG input did not regenerate wrapper"
+    require(
+        wrapper.stat().st_mtime_ns != before,
+        "Transitive SWIG input did not regenerate wrapper",
     )
 finally:
     os.utime(swig_input, ns=(original.st_atime_ns, original.st_mtime_ns))

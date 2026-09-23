@@ -19,7 +19,7 @@ These are **test targets**, not claims that these combinations were built during
 
 | ID | Platform / OS | Required version coverage | Purpose |
 | --- | --- | --- | --- |
-| **EL8-min** | RHEL/Rocky/Alma 8.10, Linux x86_64 | GCC **8.5.0**, LLVM **14.0.6**, CMake **3.26.0** and packaged **3.26.x**; Python 3.6.8/SWIG 3.0.12 compatibility lane only if the Python/SWIG support decision retains them; pin actual package revisions and build tools. | Joint minimums; embedding/static linkage; oldest launcher Python; `lib64`. |
+| **EL8-min** | RHEL/Rocky/Alma 8.10, Linux x86_64 | GCC **8.5.0**, LLVM **14.0.6**, CMake **3.26.0** and packaged **3.26.x**; Python 2.7 and Python 3.6.8/SWIG 3.0.12 deprecated compatibility lanes; pin actual package revisions and build tools. | Joint minimums; embedding/static linkage; oldest launcher Python; `lib64`. |
 | **EL8-32** | Oracle Linux 8.10, x86_64 host → i686 target | GCC 8.5.0, host LLVM 14.0.6, CMake 3.26.x; target 32-bit Python and every target development library pinned separately. | Real host/target split and 32-bit simulation coverage. |
 | **EL-next** | Supported RHEL-family 9 and 10 releases | Distribution toolchains, with complete version locks; include a recent CMake 4.x lane. | Newer dependency layouts, compiler/policy compatibility. |
 | **UBU** | Ubuntu 24.04 and 26.04, Linux x86_64 | Distribution GCC/LLVM/Python, recorded exactly; separate LLVM 14 minimum-library lane if necessary; CMake 3.26 plus distro/newer versions. | Debian multiarch at `/usr`; Ninja/Make; contemporary Python. |

@@ -1,4 +1,4 @@
-# Keep the legacy Python major selectable until DEC-01 is resolved for B6.
+# Modern default; legacy major requires explicit selection.
 set(TRICK_PYTHON_MAJOR "3" CACHE STRING "Embedded Python major (2 or 3)")
 set_property(CACHE TRICK_PYTHON_MAJOR PROPERTY STRINGS 2 3)
 if(NOT TRICK_PYTHON_MAJOR MATCHES "^[23]$")
@@ -7,6 +7,9 @@ endif()
 set(python_package "Python${TRICK_PYTHON_MAJOR}")
 # Request both in one call: never pair a python-config from a different install.
 find_package(${python_package} REQUIRED COMPONENTS Interpreter Development.Embed)
+if(TRICK_PYTHON_MAJOR STREQUAL "2")
+    message(WARNING "DEPRECATED: Python ${Python2_VERSION} (${Python2_EXECUTABLE}) is enabled for compatibility only. Upgrade to Python 3 and configure with -DTRICK_PYTHON_MAJOR=3. Python 2 support will be removed in a future release; no removal version is scheduled yet.")
+endif()
 add_library(Trick::Python ALIAS ${python_package}::Python)
 
 include(CheckCXXSourceRuns)

@@ -35,7 +35,7 @@ if(BUILD_TESTING)
     add_test(NAME runtime.core COMMAND trick_core_smoke)
     set_tests_properties(runtime.core PROPERTIES LABELS runtime)
     if(TRICK_BUILD_RUNTIME_TESTS)
-        find_package(GTest CONFIG REQUIRED)
+        find_package(GTest REQUIRED)
         add_executable(trick_scheduled_queue_test ScheduledJobQueue/test/ScheduledJobQueue_test.cpp
             "${PROJECT_SOURCE_DIR}/cmake/tests/MessageSink.cpp")
         trick_retain_metadata(trick_scheduled_queue_test Trick__JobData Trick__SimObject)

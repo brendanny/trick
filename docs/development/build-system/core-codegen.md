@@ -4,8 +4,9 @@ Predecessor: B3. Enable `TRICK_BUILD_CORE_METADATA=ON` to build ICG, MemoryManag
 and the selected integrators, generate the core metadata, and compile
 `Trick::CoreMetadata`. It is not a linked runtime or installed SDK yet.
 
-`cmake/TrickCoreHeaders.cmake` is the reviewed output inventory: 145 headers with
-Trick algorithms and 213 with ER7. The latter includes ER7's duplicate basenames.
+`cmake/TrickCoreHeaders.cmake` is the reviewed output inventory. The configured
+`core-headers.txt` records the selected headers, including ER7's duplicate basenames
+when enabled; validation derives both the count and set of headers from that file.
 The legacy `files_to_ICG.hh` remains the input umbrella. Each source has one
 owning target. CMake declares the metadata sources, maps, SIE fragment, manifest
 and success stamp as outputs. The depfile carries all parsed transitive headers;

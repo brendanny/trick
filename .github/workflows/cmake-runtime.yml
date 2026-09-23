@@ -9,7 +9,85 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: cmake-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  legacy-runtime:
+    name: Rocky 8 GCC 8.5 SWIG ${{ matrix.swig }} Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    container: rockylinux/rockylinux:8
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {swig: '3', python: '2'}
+          - {swig: '3', python: '3'}
+          - {swig: '4', python: '2'}
+    steps:
+      - name: Install compatibility toolchain
+        run: |
+          echo "TRICK_COMPAT_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          dnf install -y epel-release dnf-plugins-core
+          dnf config-manager --enable powertools
+          dnf module enable -y swig:${{ matrix.swig }}.0
+          dnf install -y git gcc gcc-c++ make llvm-devel llvm-static clang clang-devel \
+            udunits2-devel bison flex swig gtest-devel python2-devel python3-devel \
+            libffi-devel zlib-devel libxml2-devel libzstd-devel \
+            python39 python39-pip which diffutils
+          python3.9 -m venv /opt/cmake-tools
+          /opt/cmake-tools/bin/pip install cmake==3.26.0 ninja==1.11.1.1
+          echo /opt/cmake-tools/bin >> "$GITHUB_PATH"
+      - uses: actions/checkout@v7
+      - name: Configure and verify compatibility selection
+        shell: bash
+        run: |
+          set -o pipefail
+          test "$(gcc -dumpfullversion)" = 8.5.0
+          swig -version | grep 'SWIG Version ${{ matrix.swig }}\.'
+          /usr/bin/python${{ matrix.python }} --version
+          cmake -S . -B "$RUNNER_TEMP/trick-runtime" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_PYTHON=ON \
+            -DTRICK_BUILD_RUNTIME_TESTS=ON -DTRICK_BUILD_UTILITY_TESTS=ON \
+            -DTRICK_SWIG_MAJOR=${{ matrix.swig }} -DSWIG_EXECUTABLE=/usr/bin/swig \
+            -DCMAKE_WARN_DEPRECATED=OFF \
+            -DTRICK_PYTHON_MAJOR=${{ matrix.python }} \
+            -DPython${{ matrix.python }}_EXECUTABLE=/usr/bin/python${{ matrix.python }} \
+            -DLLVM_DIR="$(llvm-config --cmakedir)" 2>&1 | tee "$RUNNER_TEMP/configure.log"
+          if [ '${{ matrix.swig }}' = 3 ]; then
+            grep 'DEPRECATED: SWIG 3' "$RUNNER_TEMP/configure.log"
+          fi
+          if [ '${{ matrix.python }}' = 2 ]; then
+            grep 'DEPRECATED: Python 2' "$RUNNER_TEMP/configure.log"
+          fi
+      - name: Build and test the complete compatibility runtime
+        run: |
+          cmake --build "$RUNNER_TEMP/trick-runtime" --parallel 3
+          ctest --test-dir "$RUNNER_TEMP/trick-runtime" --output-on-failure --parallel 4
+      - name: Verify regeneration with Python optimization enabled
+        run: |
+          python3.9 -O cmake/tests/verify_build_graph.py --source . --build "$RUNNER_TEMP/trick-runtime"
+          cmake --build "$RUNNER_TEMP/trick-runtime" --parallel 3
+          ctest --test-dir "$RUNNER_TEMP/trick-runtime" --output-on-failure --parallel 4
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - name: Record compatibility packages
+        if: always()
+        run: |
+          rpm -qa | sort > "$RUNNER_TEMP/packages.txt"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime-rocky8-swig${{ matrix.swig }}-python${{ matrix.python }}
+          path: |
+            ${{ env.TRICK_COMPAT_TEMP }}/configure.log
+            ${{ env.TRICK_COMPAT_TEMP }}/packages.txt
+            ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/TrickDependencies.txt
+            ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/CMakeCache.txt
+            ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/Testing/Temporary/
   runtime:
     strategy:
       fail-fast: false
