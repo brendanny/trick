@@ -1,0 +1,47 @@
+name: CMake dependencies
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Provision development packages and CMake
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flex bison swig libudunits2-dev llvm-14-dev libclang-14-dev clang-14 python3-dev
+          python -m venv "$RUNNER_TEMP/cmake-tools"
+          "$RUNNER_TEMP/cmake-tools/bin/pip" install cmake==3.26.0 ninja==1.11.1.1
+          echo "$RUNNER_TEMP/cmake-tools/bin" >> "$GITHUB_PATH"
+      - name: Check full dependency profile
+        run: |
+          cmake -S . -B build/cmake/dependencies -G Ninja \
+            -DTRICK_DEPENDENCY_PROFILE=ALL -DLLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm \
+            -DPython3_EXECUTABLE=/usr/bin/python3
+          cmake --build build/cmake/dependencies --parallel 4
+          ctest --test-dir build/cmake/dependencies --output-on-failure --parallel 4
+          dpkg-query -W flex bison swig libudunits2-dev llvm-14-dev libclang-14-dev clang-14 python3-dev > build/cmake/dependencies/packages.txt
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: dependency-preflight
+          path: |
+            build/cmake/dependencies/TrickDependencies.txt
+            build/cmake/dependencies/packages.txt
+            build/cmake/dependencies/CMakeCache.txt
+            build/cmake/dependencies/CMakeFiles/CMakeConfigureLog.yaml
+            build/cmake/dependencies/Testing/Temporary/

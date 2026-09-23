@@ -14,6 +14,9 @@ include(cmake/TrickVersion.cmake)
 trick_read_version("${CMAKE_CURRENT_SOURCE_DIR}/share/trick/trick_ver.txt")
 project(Trick VERSION "${TRICK_VERSION_NUMBER}" LANGUAGES C CXX)
 
+include(cmake/TrickCompilers.cmake)
+include(cmake/TrickDependencies.cmake)
+
 configure_file(cmake/TrickVersionInfo.cmake.in TrickVersionInfo.cmake @ONLY)
 
 include(CTest)
@@ -29,11 +32,11 @@ if(BUILD_TESTING)
     add_subdirectory(cmake/tests)
 endif()
 
-message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (A3)")
+message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (A4)")
 message(WARNING
     "This preview builds utility archives only, not a complete Trick SDK. "
     "Use the documented Autoconf/Make route for a usable installation. "
-    "See docs/development/build-system/utilities.md.")
+    "See docs/development/build-system/dependencies.md.")
 
 # Avoid a successful empty installation that looks like a usable Trick SDK.
 install(CODE [[
