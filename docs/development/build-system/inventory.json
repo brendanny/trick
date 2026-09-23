@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "baseline": {
+    "repository": "nasa/trick",
+    "pr": 2190,
+    "commit": "62d6091db51c25e73874f62f670fdcb3772b6220",
+    "evidence": "source inspection only; no build/install/run results"
+  },
+  "scope": "Component/artifact-family inventory; not yet a source-per-target or complete file-per-install manifest. Later owner PRs resolve families to explicit files.",
+  "components": [
+    {
+      "id": "core",
+      "evidence": [
+        "Makefile"
+      ],
+      "artifacts": [
+        "libtrick.a"
+      ],
+      "role": "installed library",
+      "owner": "B5",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "Core services and selected utilities; generated metadata handled separately. Existing archive boundary is the starting point."
+    },
+    {
+      "id": "memory-manager",
+      "evidence": [
+        "trick_source/sim_services/MemoryManager/Makefile",
+        "share/trick/makefiles/Makefile.tricklib"
+      ],
+      "artifacts": [
+        "libtrick_mm.a"
+      ],
+      "role": "installed library",
+      "owner": "B2",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "math",
+      "evidence": [
+        "trick_source/trick_utils/math/Makefile"
+      ],
+      "artifacts": [
+        "libtrick_math.a"
+      ],
+      "role": "installed library",
+      "owner": "A3",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "units",
+      "evidence": [
+        "trick_source/trick_utils/units/Makefile"
+      ],
+      "artifacts": [
+        "libtrick_units.a"
+      ],
+      "role": "installed library",
+      "owner": "A3",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "comm",
+      "evidence": [
+        "trick_source/trick_utils/comm/Makefile"
+      ],
+      "artifacts": [
+        "libtrick_comm.a"
+      ],
+      "role": "installed library",
+      "owner": "A3",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "connection_handlers",
+      "evidence": [
+        "trick_source/trick_utils/connection_handlers/Makefile"
+      ],
+      "artifacts": [
+        "libtrick_connection_handlers.a"
+      ],
+      "role": "installed library",
+      "owner": "A3",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "optimization",
+      "evidence": [
+        "trick_source/trick_utils/optimization/Makefile"
+      ],
+      "artifacts": [
+        "libtrick_optimization.a"
+      ],
+      "role": "installed library",
+      "owner": "A3",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "var_binary_parser",
+      "evidence": [
+        "trick_source/trick_utils/var_binary_parser/Makefile"
+      ],
+      "artifacts": [
+        "libtrick_var_binary_parser.a"
+      ],
+      "role": "installed library",
+      "owner": "A3",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "er7",
+      "evidence": [
+        "Makefile",
+        "autoconf/m4/tr_er7_utils.m4"
+      ],
+      "artifacts": [
+        "liber7_utils.a",
+        "include/er7_utils"
+      ],
+      "role": "installed library and headers",
+      "owner": "B3",
+      "condition": "USE_ER7_UTILS",
+      "status": "source-observed",
+      "notes": "CheckpointHelper availability is separately inventoried as an external hook."
+    },
+    {
+      "id": "python-input",
+      "evidence": [
+        "Makefile",
+        "trick_source/trick_swig/Makefile",
+        "trick_source/sim_services/InputProcessor/Makefile"
+      ],
+      "artifacts": [
+        "libtrick_pyip.a",
+        "share/trick/swig/sim_services.py",
+        "share/trick/swig/swig_double.py",
+        "share/trick/swig/swig_int.py",
+        "share/trick/swig/swig_ref.py"
+      ],
+      "role": "installed embedded-Python archive and modules",
+      "owner": "B6",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "icg",
+      "evidence": [
+        "trick_source/codegen/Interface_Code_Gen/makefile",
+        "trick_source/codegen/Interface_Code_Gen/HeaderSearchDirs.cpp"
+      ],
+      "artifacts": [
+        "bin/trick-ICG"
+      ],
+      "role": "installed host executable",
+      "owner": "A5",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "core-metadata",
+      "evidence": [
+        "include/trick/files_to_ICG.hh",
+        "trick_source/codegen/Interface_Code_Gen/PrintAttributes.cpp"
+      ],
+      "artifacts": [
+        "io_*.cpp",
+        "class_map.cpp",
+        "extern_init_attr.h",
+        ".class_map.cpp (temporary)",
+        ".enum_map.cpp (temporary)",
+        "sim_services_classes.resource"
+      ],
+      "role": "generated source/helper/resource families",
+      "owner": "B1/B4",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "Families, not a CMake output list. B4 must enumerate exact feature-dependent outputs; -o currently flattens basenames, including colliding ER7 names. Enum metadata is combined into class_map.cpp; no final enum_map.cpp is assumed."
+    },
+    {
+      "id": "parsers",
+      "evidence": [
+        "share/trick/makefiles/Makefile.tricklib",
+        "trick_source/sim_services/MemoryManager/adef_parser.l",
+        "trick_source/sim_services/MemoryManager/adef_parser.y",
+        "trick_source/sim_services/MemoryManager/ref_parser.l",
+        "trick_source/sim_services/MemoryManager/ref_parser.y",
+        "trick_source/sim_services/CheckPointAgent/input_parser.l",
+        "trick_source/sim_services/CheckPointAgent/input_parser.y"
+      ],
+      "artifacts": [
+        "*.lex.c",
+        "*.tab.cpp",
+        "*.tab.hpp",
+        "*_premade"
+      ],
+      "role": "generated source families",
+      "owner": "B2/E2",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "data-product-internal",
+      "evidence": [
+        "trick_source/data_products/makefile",
+        "trick_source/data_products/Var/makefile",
+        "trick_source/data_products/Log/makefile",
+        "trick_source/data_products/EQParse/makefile",
+        "trick_source/data_products/DPX/DPC/makefile",
+        "trick_source/data_products/DPX/DPM/makefile",
+        "trick_source/data_products/DPX/DPV/UTILS/makefile"
+      ],
+      "artifacts": [
+        "libvar.a",
+        "liblog.a",
+        "libeqparse.a",
+        "libDPC.a",
+        "libDPM.a",
+        "libDPV.a"
+      ],
+      "role": "internal archives; not automatically public SDK",
+      "owner": "D1",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "data-product-units",
+      "evidence": [
+        "trick_source/data_products/units/makefile",
+        "trick_source/trick_utils/units/Makefile"
+      ],
+      "artifacts": [
+        "libtrick_units.a"
+      ],
+      "role": "overlapping artifact basename requiring ownership review",
+      "owner": "D1",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "Do not assume two same-named archives are interchangeable or combine their sources without review."
+    },
+    {
+      "id": "data-conversion",
+      "evidence": [
+        "trick_source/data_products/Apps/Trk2csv/makefile"
+      ],
+      "artifacts": [
+        "bin/trick-trk2ascii"
+      ],
+      "role": "installed native tool",
+      "owner": "D1",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "x-tools",
+      "evidence": [
+        "trick_source/data_products/DPX/APPS/GXPLOT/makefile",
+        "trick_source/data_products/DPX/APPS/FXPLOT/makefile"
+      ],
+      "artifacts": [
+        "bin/trick-gxplot",
+        "bin/trick-fxplot"
+      ],
+      "role": "native GUI tools",
+      "owner": "D2",
+      "condition": "X/Motif; FXPLOT also depends on fermi-ware availability",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "external-programs",
+      "evidence": [
+        "trick_source/data_products/Apps/ExternalPrograms/makefile"
+      ],
+      "artifacts": [
+        "object_<host>/*.so"
+      ],
+      "role": "legacy helper family with commented install rule",
+      "owner": "D1",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "Inventory existing build references; do not assert installation success or turn these into a public API by accident."
+    },
+    {
+      "id": "java",
+      "evidence": [
+        "trick_source/java/pom.xml",
+        "trick_source/java/Makefile",
+        "Makefile",
+        "libexec/trick/pm/launch_java.pm"
+      ],
+      "artifacts": [
+        "DP.jar",
+        "Dre.jar",
+        "JXPlot.jar",
+        "MM.jar",
+        "MTV.jar",
+        "QP.jar",
+        "Sie.jar",
+        "SimControl.jar",
+        "SimSniffer.jar",
+        "TrickView.jar",
+        "trick-java-<version>.jar",
+        "classes/trick/common/resources"
+      ],
+      "role": "installed application/JAR/resource families",
+      "owner": "D3",
+      "condition": "USE_JAVA",
+      "status": "source-observed",
+      "notes": "JAR names listed by legacy offline rule; resolve Maven outputs and launcher requirements in D3."
+    },
+    {
+      "id": "civet",
+      "evidence": [
+        "trick_source/web/CivetServer/makefile",
+        "autoconf/m4/tr_civetweb_home.m4"
+      ],
+      "artifacts": [
+        "libtrickCivet.a",
+        "trick_source/web resources"
+      ],
+      "role": "optional library and resource inventory",
+      "owner": "D6",
+      "condition": "USE_CIVETWEB",
+      "status": "source-observed",
+      "notes": ""
+    },
+    {
+      "id": "public-headers",
+      "evidence": [
+        "Makefile"
+      ],
+      "artifacts": [
+        "include/trick",
+        "include/er7_utils"
+      ],
+      "role": "installed public and compatibility headers",
+      "owner": "C2",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "ER7 headers originate in trick_source/er7_utils; installation expands them separately."
+    },
+    {
+      "id": "installed-scripts",
+      "evidence": [
+        "Makefile",
+        "bin/trick-CP",
+        "bin/trick-config",
+        "bin/trick-gte"
+      ],
+      "artifacts": [
+        "bin/*",
+        "libexec/trick/*"
+      ],
+      "role": "tracked script and helper families copied by legacy installation",
+      "owner": "C2",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "Broad legacy copy is evidence, not the new install manifest; distinguish generated binaries from tracked wrappers."
+    },
+    {
+      "id": "installed-data",
+      "evidence": [
+        "Makefile",
+        "libexec/trick/pm/gte.pm"
+      ],
+      "artifacts": [
+        "share/trick",
+        "share/doc/trick",
+        "share/man/man1",
+        "libexec/trick/java"
+      ],
+      "role": "configuration, Python/SWIG/Perl support, XML/catalog, docs and runtime resources",
+      "owner": "C2/D1/D3",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "Audit live source-relative resource readers and package only selected categories explicitly."
+    },
+    {
+      "id": "simulation-sdk",
+      "evidence": [
+        "bin/trick-CP",
+        "bin/trick-config",
+        "share/trick/makefiles/Makefile.common",
+        "share/trick/makefiles/Makefile.trickconfig",
+        "share/trick/makefiles/trickify.mk"
+      ],
+      "artifacts": [
+        "config_user.mk",
+        "Makefile.common",
+        "Makefile.trickconfig",
+        "trickify.mk",
+        "generated simulation Makefiles"
+      ],
+      "role": "installed simulation build interface",
+      "owner": "C1/C2",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "GNU Make remains a simulation tool after Autoconf removal."
+    },
+    {
+      "id": "sa-integrator",
+      "evidence": [
+        "trick_source/trick_utils/SAIntegrator/makefile",
+        "Makefile"
+      ],
+      "artifacts": [
+        "libSAInteg.a",
+        "SAIntegrator tests/examples"
+      ],
+      "role": "standalone library and extra-coverage route",
+      "owner": "A3/F1",
+      "condition": "always",
+      "status": "source-observed",
+      "notes": "Not listed in the normal root runtime archive; explicitly classify whether to expose as optional CMake component."
+    }
+  ],
+  "obsolete_framework_cmake": [
+    "CMakeLists.txt",
+    "CMakeModules/FindLLVM.cmake",
+    "CMakeModules/FindMaven.cmake",
+    "CMakeModules/FindTee.cmake",
+    "CMakeModules/FindUDUNITS2.cmake",
+    "CMakeTestFiles/TestICGLinkedLibs.cpp",
+    "share/trick/makefiles/config_user_cmake.mk.in",
+    "trick_source/codegen/Interface_Code_Gen/CMakeLists.txt",
+    "trick_source/data_products/CMakeLists.txt",
+    "trick_source/data_products/DPX/APPS/FXPLOT/CMakeLists.txt",
+    "trick_source/data_products/DPX/APPS/GXPLOT/CMakeLists.txt",
+    "trick_source/data_products/DPX/CMakeLists.txt",
+    "trick_source/data_products/DPX/DPC/CMakeLists.txt",
+    "trick_source/data_products/DPX/DPM/CMakeLists.txt",
+    "trick_source/data_products/DPX/DPV/UTILS/CMakeLists.txt",
+    "trick_source/data_products/EQParse/CMakeLists.txt",
+    "trick_source/data_products/Log/CMakeLists.txt",
+    "trick_source/data_products/Var/CMakeLists.txt",
+    "trick_source/data_products/units/CMakeLists.txt",
+    "trick_source/er7_utils/CMakeLists.txt",
+    "trick_source/java/CMakeLists.txt",
+    "trick_source/sim_services/CMakeLists.txt",
+    "trick_source/sim_services/InputProcessor/CMakeLists.txt",
+    "trick_source/sim_services/MemoryManager/CMakeLists.txt",
+    "trick_source/trick_utils/CMakeLists.txt",
+    "trick_source/trick_utils/comm/CMakeLists.txt",
+    "trick_source/trick_utils/math/CMakeLists.txt",
+    "trick_source/trick_utils/units/CMakeLists.txt"
+  ],
+  "independent_cmake_to_preserve": [
+    "trick_sims/ROS/catkin/trick_msgs/CMakeLists.txt",
+    "trick_sims/SIM_billiards/models/graphics/cpp/CMakeLists.txt"
+  ],
+  "legacy_hooks": [
+    {
+      "id": "jsc-local-build",
+      "evidence": [
+        "Makefile",
+        "autoconf/m4/tr_jsc_dirs.m4"
+      ],
+      "disposition": "pending owner input",
+      "owner": "G2",
+      "note": "Makefile_jsc_dirs is an optional local include; no checked-in implementation is presumed."
+    },
+    {
+      "id": "timing-hardware",
+      "evidence": [
+        "share/trick/makefiles/config_Linux.mk"
+      ],
+      "disposition": "preserve supported capability through explicit optional imported targets",
+      "owner": "F1",
+      "note": "TPROCTE and BC635 paths and platform definitions need a dedicated implementation PR if used."
+    },
+    {
+      "id": "bfd-avahi",
+      "evidence": [
+        "share/trick/makefiles/config_Linux.mk",
+        "share/trick/makefiles/Makefile.common"
+      ],
+      "disposition": "preserve supported capability through optional dependencies",
+      "owner": "F1",
+      "note": "BFD_HOME / HAVE_BFD and HAVE_ZEROCONF; capture package versions and test requirements."
+    },
+    {
+      "id": "external-er7-checkpointhelper",
+      "evidence": [
+        "Makefile",
+        "share/trick/makefiles/Makefile.common"
+      ],
+      "disposition": "pending external variant inventory",
+      "owner": "B3",
+      "note": "Do not infer presence from an optional directory check."
+    },
+    {
+      "id": "fermi-ware",
+      "evidence": [
+        "trick_source/data_products/makefile",
+        "trick_source/data_products/DPX/APPS/FXPLOT/makefile"
+      ],
+      "disposition": "pending supported optional source/dependency availability",
+      "owner": "D2",
+      "note": "Do not silently promise or remove FXPLOT support."
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "record_kind": "template",
+  "status": "not-run",
+  "environment_id": null,
+  "trick": {
+    "repository": null,
+    "commit": null,
+    "route": null
+  },
+  "platform": {
+    "os": null,
+    "release": null,
+    "build": null,
+    "architecture": null,
+    "pointer_bits": null,
+    "container_digest": null,
+    "wsl_version": null
+  },
+  "tools": {
+    "cmake": null,
+    "generator": null,
+    "make_or_ninja": null,
+    "c_compiler": null,
+    "cxx_compiler": null,
+    "cxx_runtime": null,
+    "linker": null,
+    "llvm": null,
+    "clang_libraries": null,
+    "llvm_resource_directory": null,
+    "python_interpreter": null,
+    "python_development_library": null,
+    "python_abi": null,
+    "swig": null,
+    "flex": null,
+    "bison": null,
+    "perl": null,
+    "java": null,
+    "maven": null,
+    "xcode_clt": null,
+    "macos_sdk": null,
+    "deployment_target": null
+  },
+  "dependency_packages": [],
+  "configuration": {
+    "cache_settings": {},
+    "relevant_environment": {},
+    "prefix": null,
+    "libdir": null,
+    "host_icg": null
+  },
+  "runs": [],
+  "behavior_difference_ids": [],
+  "limitations": []
+}
