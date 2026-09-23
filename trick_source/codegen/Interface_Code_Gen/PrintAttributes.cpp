@@ -782,11 +782,66 @@ std::string PrintAttributes::sieFileName(bool enumeration) const
     return "build/classes.resource";
 }
 
-void PrintAttributes::finishOutputContract()
+void PrintAttributes::finishOutputContract(const std::string& inventory)
 {
     if (output_root.empty())
     {
         return;
+    }
+    if (!inventory.empty())
+    {
+        std::ifstream input(inventory);
+        if (!input)
+        {
+            throw std::runtime_error("Cannot open output inventory: " + inventory);
+        }
+        std::set<std::string> expected;
+        std::string header;
+        while (std::getline(input, header))
+        {
+            if (header.empty())
+            {
+                continue;
+            }
+            char* canonical = realpath(header.c_str(), nullptr);
+            if (!canonical)
+            {
+                throw std::runtime_error("Cannot resolve inventory header: " + header);
+            }
+            expected.insert(canonical);
+            free(canonical);
+        }
+        if (input.bad())
+        {
+            throw std::runtime_error("Cannot read output inventory");
+        }
+        for (const auto& entry : all_io_files)
+        {
+            if (!expected.count(entry.first))
+            {
+                throw std::runtime_error("Generated header is absent from output inventory: " + entry.first);
+            }
+        }
+        for (const auto& path : expected)
+        {
+            if (!all_io_files.count(path))
+            {
+                // Empty or feature-disabled headers still have a declared output.
+                const auto output = createIOFileName(path);
+                llvm::SmallString<256> directory(output);
+                llvm::sys::path::remove_filename(directory);
+                if (auto error = llvm::sys::fs::create_directories(directory))
+                {
+                    throw std::runtime_error("Cannot create inventory output: " + error.message());
+                }
+                std::ofstream empty;
+                empty.exceptions(std::ios::failbit | std::ios::badbit);
+                empty.open(output);
+                empty << "// No metadata in this configuration.\n";
+                empty.close();
+                all_io_files[path] = output;
+            }
+        }
     }
     std::set<std::string> dependencies;
     for (auto it = ci.getSourceManager().fileinfo_begin(); it != ci.getSourceManager().fileinfo_end(); ++it)

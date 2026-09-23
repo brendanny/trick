@@ -10,7 +10,7 @@ file(WRITE "${TEST_ROOT}/input/All.hh" "#include \"a/State.hh\"\n#include \"b/St
 set(root "${TEST_ROOT}/output with spaces")
 function(generate expected)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=TRICK_HOME TRICK_CXX=
-        "${ICG}" --output-root "${root}" "${TEST_ROOT}/input/All.hh"
+        "${ICG}" --output-root "${root}" ${inventory_args} ${system_args} "${TEST_ROOT}/input/All.hh"
         WORKING_DIRECTORY "${TEST_ROOT}/work" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
     if(expected AND NOT result EQUAL 0)
         message(FATAL_ERROR "ICG failed: ${output}\n${error}")
@@ -67,3 +67,29 @@ generate(FALSE)
 if(EXISTS "${root}/generation.stamp" OR EXISTS "${root}/manifest.json")
     message(FATAL_ERROR "Output failure retained a success record")
 endif()
+
+# The declared output inventory supplies stubs for empty/inactive headers and
+# rejects newly generated headers until the build graph has been updated.
+file(REMOVE_RECURSE "${root}/classes.resource")
+file(WRITE "${TEST_ROOT}/inventory.txt" "${TEST_ROOT}/input/All.hh\n${TEST_ROOT}/input/a/State.hh\n")
+set(inventory_args --output-inventory "${TEST_ROOT}/inventory.txt")
+generate(TRUE)
+file(READ "${root}/manifest.json" manifest)
+string(JSON count LENGTH "${manifest}" headers)
+if(NOT count EQUAL 2)
+    message(FATAL_ERROR "Missing empty inventory outputs")
+endif()
+file(WRITE "${TEST_ROOT}/input/All.hh" "#include \"b/State.hh\"\n")
+generate(FALSE)
+if(EXISTS "${root}/generation.stamp")
+    message(FATAL_ERROR "Inventory mismatch published success")
+endif()
+
+# Dependencies installed in compiler include directories must not reorder the
+# compiler's C/C++ wrappers (notably UDUNITS in /usr/include on Ubuntu).
+set(inventory_args)
+foreach(path IN LISTS SYSTEM_INCLUDES)
+    list(PREPEND system_args "-isystem${path}")
+endforeach()
+file(WRITE "${TEST_ROOT}/input/All.hh" "#include <cstdlib>\n#include <string>\nstruct NativeIncludes { int x; };\n")
+generate(TRUE)

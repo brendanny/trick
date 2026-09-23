@@ -41,7 +41,7 @@ class PrintAttributes {
 
         // The explicit output contract is opt-in; legacy callers keep their layout.
         void setOutputRoot(const std::string& root);
-        void finishOutputContract();
+        void finishOutputContract(const std::string& inventory = "");
 
         /** Adds construct names to ignore from TRICK_ICG_IGNORE_TYPES environment variable */
         void addIgnoreTypes() ;

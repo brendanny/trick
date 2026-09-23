@@ -128,6 +128,20 @@ void HeaderSearchDirs::AddSystemSearchDirs ( std::vector<std::string> & isystem_
         //std::cout << "isystem dirs " << isystem_dirs[ii] << std::endl ;
         char * resolved_path = almostRealPath(isystem_dirs[ii].c_str()) ;
         if ( resolved_path != NULL ) {
+#ifdef TRICK_ICG_CMAKE_CONFIG
+            // Keep compiler directories in their native order. Moving a C
+            // include directory ahead of the C++ wrappers breaks include_next.
+            bool compiler_path = false;
+            for (const char* path : TrickICGConfig::system_includes)
+            {
+                compiler_path = compiler_path || std::string(resolved_path) == path;
+            }
+            if (compiler_path)
+            {
+                free(resolved_path);
+                continue;
+            }
+#endif
             //std::cout << "adding resolved_path = " << resolved_path << std::endl ;
             hso.AddPath(resolved_path , clang::frontend::System, false, true);
         }

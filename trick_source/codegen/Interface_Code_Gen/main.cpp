@@ -55,6 +55,9 @@ llvm::cl::opt<int> attr_version("v", llvm::cl::desc("Select version of attribute
 llvm::cl::opt<std::string> standard_version("icg-std", llvm::cl::desc("Set the C++ standard to use when parsing. c++11, c++14, c++17, and c++20 are valid. Default is c++17 or the newest supported by your LLVM version."), llvm::cl::init(""), llvm::cl::ZeroOrMore);
 llvm::cl::opt<int> debug_level("d", llvm::cl::desc("Set debug level"), llvm::cl::init(0), llvm::cl::ZeroOrMore);
 llvm::cl::opt<bool> create_map("m", llvm::cl::desc("Create map files"), llvm::cl::init(false));
+llvm::cl::opt<std::string>
+    output_inventory("output-inventory",
+                     llvm::cl::desc("Newline-delimited complete header output inventory (requires --output-root)"));
 llvm::cl::opt<std::string> output_root("output-root",
                                        llvm::cl::desc("Explicit output root with manifest, depfile and success stamp"));
 llvm::cl::opt<std::string> output_dir("o", llvm::cl::desc("Output directory"));
@@ -90,7 +93,9 @@ void set_lang_opts(clang::CompilerInstance & ci) {
     const char* gcc_version = "";
 #endif
 
-    ci.getLangOpts().GNUCVersion = gccVersionToIntOrDefault(gcc_version, 80500);
+    // Clang's driver advertises GNU compatibility 4.2.1 by default. Advertising
+    // the host GCC version enables glibc syntax that older libclang cannot parse.
+    ci.getLangOpts().GNUCVersion = output_root.empty() ? gccVersionToIntOrDefault(gcc_version, 80500) : 40201;
     ci.getLangOpts().CPlusPlus17 = true ;
 
     // Check if standard_version was specified and if it's a version that is supported by this libclang
@@ -155,6 +160,11 @@ int runICG(int argc, char* argv[])
         setenv("TRICK_HOME", TrickICGConfig::source_dir, 0);
     }
 #endif
+    if (!output_inventory.empty() && output_root.empty())
+    {
+        std::cerr << "--output-inventory requires --output-root" << std::endl;
+        return 1;
+    }
     clang::CompilerInstance ci;
 
 #if (LIBCLANG_MAJOR >= 22)
@@ -293,7 +303,8 @@ int runICG(int argc, char* argv[])
     ci.getSourceManager().setMainFileID(
         ci.getSourceManager().createFileID(fileEntryRef, clang::SourceLocation(), clang::SrcMgr::C_User));
 #endif
-    ICGDiagnosticConsumer *icgDiagConsumer = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd);
+    ICGDiagnosticConsumer* icgDiagConsumer
+        = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd, !output_root.empty());
     ci.getDiagnostics().setClient(icgDiagConsumer);
     ci.getDiagnosticClient().BeginSourceFile(ci.getLangOpts(), &ci.getPreprocessor());
     clang::ParseAST(ci.getSema());
@@ -315,7 +326,7 @@ int runICG(int argc, char* argv[])
         exit(-1);
     }
 
-    printAttributes.finishOutputContract();
+    printAttributes.finishOutputContract(output_inventory);
     return 0;
 }
 

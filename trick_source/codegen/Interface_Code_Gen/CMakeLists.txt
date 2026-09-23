@@ -116,6 +116,7 @@ if(BUILD_TESTING)
     add_test(NAME icg.outputs COMMAND "${CMAKE_COMMAND}"
         "-DICG=$<TARGET_FILE:trick-ICG>"
         "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/output-contract"
+        "-DSYSTEM_INCLUDES=${icg_system_includes}"
         -P "${PROJECT_SOURCE_DIR}/cmake/tests/ICGOutputs.cmake")
     set_tests_properties(icg.outputs PROPERTIES LABELS icg TIMEOUT 120)
 endif()

@@ -15,3 +15,7 @@ endif()
 if(TRICK_BUILD_INTEGRATORS)
     add_subdirectory(Integrator)
 endif()
+
+if(TRICK_BUILD_CORE_METADATA)
+    include("${PROJECT_SOURCE_DIR}/cmake/TrickCoreCodegen.cmake")
+endif()
