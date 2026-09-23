@@ -1,0 +1,56 @@
+name: CMake bootstrap
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-26]
+        generator: ["Unix Makefiles", "Ninja", "Ninja Multi-Config"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Python provisions CI tools only; the bootstrap itself needs CMake and C/C++.
+      - name: Install pinned CMake and generator tools
+        run: |
+          python -m venv "$RUNNER_TEMP/cmake-current"
+          "$RUNNER_TEMP/cmake-current/bin/pip" install cmake==3.26.0 ninja==1.11.1.1
+          python -m venv "$RUNNER_TEMP/cmake-old"
+          "$RUNNER_TEMP/cmake-old/bin/pip" install cmake==3.25.2
+          echo "$RUNNER_TEMP/cmake-current/bin" >> "$GITHUB_PATH"
+      - name: Configure
+        env:
+          CMAKE_GENERATOR: ${{ matrix.generator }}
+        run: |
+          cmake --version
+          cmake --preset bootstrap -DTRICK_TEST_OLD_CMAKE="$RUNNER_TEMP/cmake-old/bin/cmake"
+      - name: Build and test preview
+        run: |
+          cmake --build --preset bootstrap
+          ctest --preset bootstrap --parallel 4
+      - name: Check source tree cleanliness
+        run: |
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - name: Upload configuration and test logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bootstrap-${{ matrix.os }}-${{ matrix.generator }}
+          path: |
+            build/cmake/bootstrap/CMakeCache.txt
+            build/cmake/bootstrap/CMakeFiles/CMakeConfigureLog.yaml
+            build/cmake/bootstrap/Testing/Temporary/

@@ -1,0 +1,137 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 26,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "bootstrap",
+      "displayName": "Trick configuration-only developer preview",
+      "binaryDir": "${sourceDir}/build/cmake/${presetName}",
+      "cacheVariables": {
+        "BUILD_TESTING": true,
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "bootstrap-ninja",
+      "inherits": "bootstrap",
+      "generator": "Ninja"
+    },
+    {
+      "name": "bootstrap-multi",
+      "inherits": "bootstrap",
+      "generator": "Ninja Multi-Config",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": null
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "bootstrap",
+      "configurePreset": "bootstrap",
+      "configuration": "Debug"
+    },
+    {
+      "name": "bootstrap-ninja",
+      "configurePreset": "bootstrap-ninja",
+      "configuration": "Debug"
+    },
+    {
+      "name": "bootstrap-multi",
+      "configurePreset": "bootstrap-multi",
+      "configuration": "Debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "bootstrap",
+      "configurePreset": "bootstrap",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "bootstrap-ninja",
+      "configurePreset": "bootstrap-ninja",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "bootstrap-multi",
+      "configurePreset": "bootstrap-multi",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "bootstrap",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "bootstrap"
+        },
+        {
+          "type": "build",
+          "name": "bootstrap"
+        },
+        {
+          "type": "test",
+          "name": "bootstrap"
+        }
+      ]
+    },
+    {
+      "name": "bootstrap-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "bootstrap-ninja"
+        },
+        {
+          "type": "build",
+          "name": "bootstrap-ninja"
+        },
+        {
+          "type": "test",
+          "name": "bootstrap-ninja"
+        }
+      ]
+    },
+    {
+      "name": "bootstrap-multi",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "bootstrap-multi"
+        },
+        {
+          "type": "build",
+          "name": "bootstrap-multi"
+        },
+        {
+          "type": "test",
+          "name": "bootstrap-multi"
+        }
+      ]
+    }
+  ]
+}

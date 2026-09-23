@@ -1,5 +1,15 @@
 # Behavior differences and option migration
 
+## A2 implementation status
+
+A2 implements the configuration-only portion of BD-01 (external build trees),
+BD-03/04 (native configuration/compiler selection), and BD-14 (CTest bootstrap
+checks). It also replaces the obsolete CMake entry point. Runtime code generation,
+dependency discovery, installation, and simulation behavior remain unimplemented.
+The preview rejects installation explicitly. See [bootstrap.md](bootstrap.md)
+and [A2 evidence](a2-validation.json) for tested platform/tool versions; the
+proposed end-state entries below do not become verified wholesale.
+
 Maintain this register with machine-readable environment/test records alongside it. Every difference gets: ID; user-visible effect; legacy source behavior; new behavior; rationale; affected platform/OS/tool versions; implementation PR; reproduction; compatibility action; and status.
 
 Status vocabulary: **proposed**, **implemented/unverified**, **verified**, **known regression**, **retired**. The entries below are **proposed**, including the Python 3-only selection, source-installer prefix, and feature defaults; A1 does not approve those choices. See the [decision register](README.md#decisions-to-finalize). Their environment IDs refer to [qualification matrix](qualification.md); a result cannot become verified while its exact version fields are unresolved.
