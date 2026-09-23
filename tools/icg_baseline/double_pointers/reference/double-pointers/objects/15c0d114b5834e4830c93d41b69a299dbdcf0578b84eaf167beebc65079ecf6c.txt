@@ -1,0 +1,2 @@
+${TRICK_ROOT}/tools/icg_baseline/double_pointers/fixtures/DoublePointers.hh
+${SIM_ROOT}/input.cpp

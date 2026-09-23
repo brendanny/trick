@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "tools/icg_baseline"))
 import array_metadata  # noqa: E402
 import character_metadata  # noqa: E402
 import differential  # noqa: E402
+import double_pointer_metadata  # noqa: E402
 import enum_metadata  # noqa: E402
 import enum_pointer_metadata  # noqa: E402
 import integer_metadata  # noqa: E402
@@ -273,6 +274,133 @@ class EmitterTests(unittest.TestCase):
         else:
             self.assertNotEqual(p.returncode, 0)
             self.assertIn(expected_error, p.stderr.decode())
+
+    def test_double_pointer_legacy_native_and_replay(self):
+        result = double_pointer_metadata.capture(EXTRACTOR, self.work, COMPILER)
+        self.assertEqual(len(result["records"]["DoublePointerModel"]), 19)
+        self.assertEqual(len(result["negative_controls"]), 8)
+        facts = json.loads((self.work / "facts.json").read_text())
+        request = resolve.request_for(facts)
+        model = resolve.resolve(facts, request)
+        index = next(
+            i
+            for i, d in enumerate(model["declarations"])
+            if d["metadata"]
+            and d["metadata"].get("storage", {}).get("inner_pointer_type_id")
+        )
+        storage = model["declarations"][index]["metadata"]["storage"]
+        types = {t["id"]: t for t in facts["types"]}
+        self.assertEqual(
+            types[storage["pointer_type_id"]]["pointee_id"],
+            storage["inner_pointer_type_id"],
+        )
+        self.assertEqual(
+            types[storage["inner_pointer_type_id"]]["pointee_id"],
+            storage["element_type_id"],
+        )
+        for change in (
+            lambda s: s.pop("inner_pointer_type_id"),
+            lambda s: s.update(inner_pointer_type_id="type:" + "0" * 64),
+            lambda s: s.update(pointer_type_id=s["inner_pointer_type_id"]),
+            lambda s: s.update(cpp_type=s["cpp_type"].replace("**", "*")),
+            lambda s: s.update(dimensions=[2]),
+        ):
+            changed = deepcopy(model)
+            change(changed["declarations"][index]["metadata"]["storage"])
+            changed["digest"] = resolve.model_digest(changed)
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_CONSISTENCY"):
+                emit.write(facts, request, changed, self.work / "forbidden.cpp")
+        self.assertFalse((self.work / "forbidden.cpp").exists())
+
+    def test_double_pointer_boundaries_and_rank(self):
+        for member in (
+            "int*** value;",
+            "const int** value;",
+            "volatile int** value;",
+            "int* const* value;",
+            "int* volatile* value;",
+            "int** const value=nullptr;",
+            "int** volatile value;",
+            "void** value;",
+            "long double** value;",
+            "wchar_t** value;",
+            "char32_t** value;",
+            "int* (*value)[2];",
+            "int (**value)[2];",
+            "Model** value;",
+            "enum E { e }; E** value;",
+        ):
+            with (
+                self.subTest(member=member),
+                self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"),
+            ):
+                self.model("struct Model { " + member + " };")
+        header = self.work / "function.hh"
+        header.write_text("struct Model { void (**value)(); };")
+        process = subprocess.run(
+            [str(EXTRACTOR), "--source-root", str(self.work), str(header), "--"],
+            capture_output=True,
+            env=self.env,
+        )
+        self.assertNotEqual(process.returncode, 0)
+        self.assertIn("ICG_UNSUPPORTED_TYPE", process.stderr.decode())
+        with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_ARRAY_RANK"):
+            self.model("struct Model { int** value[1][1][1][1][1][1][1]; };")
+        documents = self.model(
+            "using P=int*; using PP=P*; using Row=PP[2]; struct Model { Row value[1][1][1][1][3]; };"
+        )
+        candidate = emit.render(*documents)
+        self.assertIn("int**[1][1][1][1][3][2]", candidate)
+        self.assertIn("NULL, 8, {{1, 0}", candidate)
+        self.compile_enum_metadata(candidate, "double-rank8")
+
+    def test_double_pointer_private_access_and_type_guard(self):
+        for friend in (
+            "",
+            "friend void init_attrModel();",
+            "friend void init_attrOther();",
+            "friend class InputProcessor;",
+        ):
+            documents = self.model(
+                "class Model { "
+                + friend
+                + " int** value; int** values[2]; public: int** read() const { return value == values[0] ? value : values[1]; } };"
+            )
+            candidate = emit.render(*documents)
+            self.assertEqual(
+                candidate.count("offsetof(::Model,"),
+                2 if friend == "friend void init_attrModel();" else 0,
+            )
+            self.compile_enum_metadata(candidate, "double-private")
+        candidate = emit.render(*self.model("struct Model { int** value; };"))
+        (self.work / "model.hh").write_text("struct Model { double** value; };")
+        self.compile_enum_metadata(
+            candidate, "changed-double-base", expected_error="ICG field type mismatch"
+        )
+        candidate = emit.render(*self.model("struct Model { int** value; };"))
+        (self.work / "model.hh").write_text("struct Model { int* value; };")
+        self.compile_enum_metadata(
+            candidate, "changed-pointer-depth", expected_error="ICG field type mismatch"
+        )
+
+    def test_double_pointer_profile_separation_and_io_omission(self):
+        for outputs in (["lifecycle"], [*resolve.OUTPUTS, "lifecycle"]):
+            with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_TYPE"):
+                self.model("struct Model { int** value; };", outputs=outputs)
+        with self.assertRaises(rules.PolicyError):
+            self.model(
+                "template<class T> struct Box { T value; }; struct Model { Box<int**> chosen; };",
+                outputs=["template-attributes"],
+                template_fields=["Model::chosen"],
+            )
+        documents = self.model(
+            cases.HEADER
+            + "struct Model { int*** omitted; /* trick_io(**) */\n int** included; };"
+        )
+        candidate = emit.render(*documents)
+        self.assertNotIn('"omitted"', candidate)
+        self.assertIn('"included"', candidate)
+        self.compile_enum_metadata(candidate, "double-omission")
 
     def test_record_pointer_legacy_candidate_compile_and_replay(self):
         facts = record_pointer_metadata.extract(EXTRACTOR, self.work)
@@ -657,7 +785,7 @@ class EmitterTests(unittest.TestCase):
 
     def test_pointer_boundaries_and_rank(self):
         for member in (
-            "int** value;",
+            "int*** value;",
             "int (*value)[2];",
             "const int* value;",
             "volatile int* value;",

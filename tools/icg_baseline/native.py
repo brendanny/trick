@@ -209,7 +209,8 @@ def validate(document: dict, report: dict, observed: dict) -> None:
                 if field.get("pointer"):
                     # Audited LP64 profile: ATTRIBUTES.size is the pointee size,
                     # while the record contains eight-byte pointer objects.
-                    total_size = 8 * math.prod(dimensions[:-1])
+                    depth = field.get("pointer_depth", 1)
+                    total_size = 8 * math.prod(dimensions[:-depth])
                 if native != dict(
                     name=field["name"],
                     size_bytes=row["size_bytes"],

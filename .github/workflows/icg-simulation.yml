@@ -124,6 +124,12 @@ jobs:
           build/icg-schema-venv/bin/python tools/icg_baseline/pointer_runtime.py \
             --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
             --output build/icg-simulation-evidence/pointers
+      - name: Compare two-level builtin pointer slots, strings and checkpoint readback
+        if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
+        run: |
+          build/icg-schema-venv/bin/python tools/icg_baseline/double_pointer_runtime.py \
+            --extractor build/icg-extract/trick-icg-extract --compiler g++-13 \
+            --output build/icg-simulation-evidence/double-pointers
       - name: Compare enum pointer identity and symbolic target readback
         if: ${{ !cancelled() && steps.facts.outcome == 'success' }}
         run: |

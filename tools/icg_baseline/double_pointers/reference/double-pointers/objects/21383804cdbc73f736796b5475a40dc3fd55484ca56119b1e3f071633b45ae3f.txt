@@ -1,0 +1,1 @@
+build${TRICK_ROOT}/tools/icg_baseline/double_pointers/fixtures/io_DoublePointers.o

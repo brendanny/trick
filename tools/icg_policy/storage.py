@@ -42,6 +42,7 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
             )
         node = types[types[node["element_id"]]["canonical_id"]]
     pointer_id = None
+    inner_pointer_id = None
     if node["kind"] == "pointer" and declarations is not None:
         if any(node["qualifiers"].values()):
             raise PolicyError(
@@ -49,12 +50,24 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
             )
         pointer_id = node["id"]
         node = types[types[node["pointee_id"]]["canonical_id"]]
+        if node["kind"] == "pointer":
+            if any(node["qualifiers"].values()):
+                raise PolicyError(
+                    "ICG_POLICY_TYPE", "qualified inner pointers are not characterized"
+                )
+            inner_pointer_id = node["id"]
+            node = types[types[node["pointee_id"]]["canonical_id"]]
+            if node["kind"] != "builtin":
+                raise PolicyError(
+                    "ICG_POLICY_TYPE",
+                    "two pointer levels require a characterized builtin terminal type",
+                )
         if node["kind"] not in ("builtin", "enum", "record"):
             raise PolicyError(
                 "ICG_POLICY_TYPE",
-                "only single builtin/enum/record pointers are characterized",
+                "pointer target outside characterized builtin/enum/record profile",
             )
-        if len(dimensions) >= 8:
+        if len(dimensions) + 1 + bool(inner_pointer_id) > 8:
             raise PolicyError(
                 "ICG_POLICY_ARRAY_RANK", "pointer index exceeds TRICK_MAX_INDEX (8)"
             )
@@ -115,11 +128,13 @@ def resolve(field: dict, types: dict, declarations: dict | None = None) -> dict:
         element_type_id=node["id"],
         type_name=name,
         cpp_type=name
-        + ("*" if pointer_id else "")
+        + ("**" if inner_pointer_id else "*" if pointer_id else "")
         + "".join(f"[{extent}]" for extent in dimensions),
         trick_type="TRICK_UNSIGNED_BITFIELD" if field["bitfield"] else KINDS[name],
         dimensions=dimensions,
     )
     if pointer_id:
         result["pointer_type_id"] = pointer_id
+    if inner_pointer_id:
+        result["inner_pointer_type_id"] = inner_pointer_id
     return result

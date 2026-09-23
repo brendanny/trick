@@ -95,7 +95,7 @@ def report_for(facts: dict, expected_records: dict = EXPECTED) -> dict:
             while type_node["kind"] == "array":
                 shape.append(int(type_node["extent"]))
                 type_node = types[types[type_node["element_id"]]["canonical_id"]]
-            if row.get("pointer"):
+            for _ in range(row.get("pointer_depth", int(row.get("pointer", False)))):
                 if type_node["kind"] != "pointer" or any(
                     type_node["qualifiers"].values()
                 ):

@@ -901,7 +901,14 @@ cycles; nine metadata and eight runtime mutation controls enforce the gate.
 Required target metadata must be included and its fields supported. Allocation,
 ownership, template pointer fields and lifecycle remain separate profiles.
 
-Next characterize deeper pointer indirection. Continue
+Policy v17 / emitter v16 add two-level builtin pointers across all 15 admitted
+terminal types. The [double-pointer corpus](../../tools/icg_baseline/double_pointers/README.md)
+captures three legacy snapshots, verifies 19 rows and compares compact/expanded
+checkpoint readback with 18 mutation controls. Both address levels are checked;
+terminal character pointers retain legacy's string allocation behavior. Array
+rank includes both pointer indices. Lifecycle/template profiles remain closed.
+
+Next characterize enum/record double pointers and pointers to fixed arrays. Continue
 requiring independent legacy/native comparisons, ABI checks and runtime round
 trips.
 Then widen template/STL emission through the existing independent and configured

@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v16,
+This standalone development backend consumes **facts v12, resolved policy v17,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -9,7 +9,7 @@ lifecycle helpers against the existing Trick ABI. It is not a production
 `unsigned char`, `short`, `unsigned short`, `int`, `unsigned int`, `long`,
 `unsigned long`, `long long`, `unsigned long long`, `float`, `double`, and `char16_t`.
 The backend also emits unsigned-int bitfields, fixed arrays and aliases of those
-scalars. Ordinary records also support one pointer indirection to any of these
+scalars. Ordinary records also support up to two pointer indirections to any of these
 15 bases, including aliases and fixed arrays of pointers. `wchar_t` is deliberately rejected despite legacy emitting its metadata;
 [ICG-003](../../docs/developer_docs/architecture/ICG-003-wide-character-compatibility.md)
 requires migration before affected simulations switch generators. `char32_t`
@@ -32,7 +32,7 @@ python tools/icg_emit/emit.py facts.json --request request.json \
 ```
 
 Create the request with `tools.icg_policy.resolve.request_for(facts)` as described
-in the [policy documentation](../icg_policy/README.md). Old policy v1–v15 documents
+in the [policy documentation](../icg_policy/README.md). Old policy v1–v16 documents
 must be resolved again; relabeling their version is not a migration.
 
 ## Generated contract
@@ -75,11 +75,12 @@ errors. These emitter limits are
 narrower than successful fact extraction or policy resolution.
 
 In ordinary-record metadata, arrays require one to eight fixed positive extents,
-each fitting signed `INDEX.int`. Single builtin/enum pointers consume one additional
-index with zero extent, leaving at most seven outer fixed dimensions. Pointer rows
-use the pointee type/size while native storage guards use the full pointer/array
-type. Const/volatile, multiple indirection, pointer-to-array/function, reference,
-by-value ordinary structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
+each fitting signed `INDEX.int`. Single builtin/enum/record pointers consume one
+additional zero index, leaving at most seven outer fixed dimensions. Builtin double
+pointers consume two zero indices, leaving six outer dimensions. Pointer rows use
+the terminal type/size while native storage guards use the full pointer/array type.
+Const/volatile, deeper chains, enum/record double pointers, pointers to arrays/functions,
+references and by-value ordinary structured elements remain rejected. Named nonempty 32-bit `int`/`unsigned int`
 enum elements use the same rank/extent checks. The explicit template profile
 also supports its bounded structured arrays. UnitsMap keys retain enclosing record
 names but omit namespaces, correcting the prior emitter's namespace prefix.
@@ -346,7 +347,7 @@ expanded checkpoint passes restore all 16 enum elements and both neighboring bui
 fields. Numeric private-field metadata preserves the exact init-friend access boundary.
 Enum lifecycle output, record-nested enum definitions and other widths remain rejected.
 
-Next characterize deeper pointer indirection. General
+Next characterize enum/record double pointers and pointers to fixed arrays. General
 annotations, inheritance, broader template/STL emission, and lifecycle
 exception/ownership handling remain subsequent milestones.
 
@@ -400,3 +401,20 @@ cycles through the real MemoryManager. This does not confer allocation, ownershi
 or deletion semantics. Unions, nested/anonymous/inline-namespace pointees,
 inheritance, template specializations, qualifiers, deeper indirection and pointers
 to arrays/functions remain outside this increment.
+
+## Two-level builtin pointers
+
+Policy v17 / emitter v16 add `T**` for all 15 supported builtin types, including
+aliases and fixed outer arrays. Closed storage records both canonical pointer
+IDs plus the terminal type ID; exact replay rejects changing either pointer level.
+Two trailing zero indices follow at most six positive array dimensions. Qualified
+pointers/pointees, three or more levels, enum/record double pointers and pointers
+to arrays/functions remain rejected, as do pointer fields in lifecycle/template
+profiles. C++ field guards check the full type and physical storage.
+
+The [double-pointer corpus](../icg_baseline/double_pointers/README.md) verifies
+19 rows and two checkpoint round trips with 18 mutation controls. Native address
+checks cover both levels, including nulls, shared slots and interior targets.
+Terminal `char*`/`signed char*` still restore as strings in new storage, while
+the outer pointers preserve slot identity. No general target ownership or
+allocation policy is introduced.

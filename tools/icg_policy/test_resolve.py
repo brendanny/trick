@@ -73,7 +73,7 @@ class RuleTests(unittest.TestCase):
                 / "trick_source/codegen/TrickCodeGen/ir/fixtures/minimal-record.json"
             ).read_text()
         )
-        for version in range(16):
+        for version in range(17):
             request = resolve.request_for(facts)
             request["policy_version"] = f"scalar-metadata-{version}"
             with self.assertRaisesRegex(rules.PolicyError, "ICG_POLICY_REQUEST"):
@@ -249,7 +249,7 @@ class ExtractionTests(unittest.TestCase):
 
     def test_unsupported_required_type_fails_but_explicit_io_omission_is_allowed(self):
         for declaration in (
-            "int **x;",
+            "int ***x;",
             "const int x = 1;",
             "int (*x)[2];",
             "const int x[2] = {};",
@@ -335,7 +335,7 @@ class ExtractionTests(unittest.TestCase):
             "char16_t value : 3;",
             "const char16_t value;",
             "volatile char16_t value[2];",
-            "char16_t** value;",
+            "char16_t*** value;",
             "char32_t value;",
             "__int128 value;",
             "unsigned __int128 value;",
@@ -347,7 +347,7 @@ class ExtractionTests(unittest.TestCase):
             "long value : 3;",
             "const bool value;",
             "volatile long value;",
-            "float** value;",
+            "float*** value;",
         ):
             with self.subTest(field=field):
                 facts = self.extract(f"struct Model {{ {field} }};")
@@ -379,7 +379,7 @@ class ExtractionTests(unittest.TestCase):
                 resolve.resolve(facts, resolve.request_for(facts))
 
     def test_cli_failures_publish_nothing(self):
-        facts = self.extract("struct Model { int **x; };\n")
+        facts = self.extract("struct Model { int ***x; };\n")
         (self.work / "facts.json").write_text(json.dumps(facts))
         (self.work / "request.json").write_text(json.dumps(resolve.request_for(facts)))
         p = subprocess.run(

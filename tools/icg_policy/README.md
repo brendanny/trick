@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
 This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v16**, not C++, and does not replace production ICG.
+It emits **resolved policy v17**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-16"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-17"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
 `template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
@@ -44,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v16 and policy
-`scalar-metadata-16` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1–v15 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v17 and policy
+`scalar-metadata-17` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1–v16 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -272,7 +272,7 @@ retains the sorted explicit requests (empty for automatic dependencies), and
 `dependency_record_ids` identifies the included structured child tables. Each
 entry also records the concrete record, primary template, argument type IDs,
 C++ spelling, cached legacy symbol,
-initializer and field decisions. Schema v16 requires exact replay of this evidence.
+initializer and field decisions. Schema v17 requires exact replay of this evidence.
 
 Traversal starts with selected global ordinary records whose template fields
 are all in one physical file. Roots and fields follow physical source order,
@@ -392,8 +392,9 @@ The emitter appends the legacy zero extent for the pointer and uses `cpp_type`
 (e.g. `double*[3][2]`) for physical storage and access assertions. Pointee size and
 physical pointer size are distinct. Rehashed pointer decisions must replay exactly.
 
-All qualification, deeper indirection, pointer-to-array/function, record
-pointers and references fail closed. The following extension admits enum pointees. Template and lifecycle callers retain their
+Qualification, pointers to arrays/functions and references remain rejected.
+The extensions below admit single enum/record pointers and builtin double pointers.
+Template and lifecycle callers retain their
 existing storage limits. I/O-disabled metadata still omits fields before storage
 resolution. See the [independent corpus](../icg_baseline/pointers/README.md),
 including legacy character-pointer string semantics and the separate reference
@@ -430,3 +431,16 @@ all IDs, dimensions and dependency decisions. Metadata support does not extend
 lifecycle or template output profiles, nor authorize target allocation/ownership.
 
 See the [legacy/runtime evidence](../icg_baseline/record_pointers/README.md).
+
+## Two-level builtin pointer storage
+
+Policy v17 adds closed `double_pointer_storage`: `pointer_type_id` names the
+outer canonical pointer, `inner_pointer_type_id` names its canonical pointee
+pointer, and `element_type_id` names the builtin terminal type. `dimensions`
+contains at most six positive outer extents; emission adds two zero indices.
+Aliases are expanded structurally. Qualifications at every level, non-builtin
+terminal types and deeper chains fail with `ICG_POLICY_TYPE`; exceeding the
+combined rank limit fails with `ICG_POLICY_ARRAY_RANK`. I/O omission still precedes
+storage resolution, and lifecycle/template profile boundaries remain unchanged.
+
+See [legacy/native/runtime evidence](../icg_baseline/double_pointers/README.md).

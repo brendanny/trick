@@ -1,0 +1,118 @@
+{
+  "artifact_spec": [
+    {
+      "id": "legacy-metadata",
+      "patterns": [
+        "build/**/io_*.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry",
+      "patterns": [
+        "build/class_map.cpp"
+      ],
+      "required": true
+    },
+    {
+      "id": "registry-declarations",
+      "patterns": [
+        "build/extern_init_attr.h"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-make",
+      "patterns": [
+        "build/Makefile_io_src"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-dependencies",
+      "patterns": [
+        "build/Makefile_ICG"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-link",
+      "patterns": [
+        "build/io_link_list",
+        "build/trickify_io_link_list"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-processed",
+      "patterns": [
+        "build/ICG_processed"
+      ],
+      "required": true
+    },
+    {
+      "id": "icg-policy",
+      "patterns": [
+        "build/ICG_ext_lib",
+        "build/ICG_no_found"
+      ],
+      "required": false
+    },
+    {
+      "id": "sie-classes",
+      "patterns": [
+        "build/classes.resource"
+      ],
+      "required": true
+    }
+  ],
+  "artifacts": {
+    "build${TRICK_ROOT}/tools/icg_baseline/double_pointers/fixtures/io_DoublePointers.cpp": {
+      "group": "legacy-metadata",
+      "sha256": "1c233a635b4f84678861920fde9dbbc00e01a66a88ef1101c600e64e74e90cce"
+    },
+    "build/ICG_ext_lib": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_no_found": {
+      "group": "icg-policy",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build/ICG_processed": {
+      "group": "icg-processed",
+      "sha256": "15c0d114b5834e4830c93d41b69a299dbdcf0578b84eaf167beebc65079ecf6c"
+    },
+    "build/Makefile_ICG": {
+      "group": "icg-dependencies",
+      "sha256": "24767535878bee8e210c249c0f6f0c57037d34d3ef9e04a50f271e2a78981fce"
+    },
+    "build/Makefile_io_src": {
+      "group": "icg-make",
+      "sha256": "674a68ab0228bc5a99549741daa09257db310cb640a0290436643514b30a3a05"
+    },
+    "build/class_map.cpp": {
+      "group": "registry",
+      "sha256": "4012f14c6a1d6bd33a2dbeb167f2db199a0be3db75e9d040bbfd3decc27bd1ff"
+    },
+    "build/classes.resource": {
+      "group": "sie-classes",
+      "sha256": "31fc46a5ca9edb710759ca417ab472a532b3f008048677a2154480f6241d44fb"
+    },
+    "build/extern_init_attr.h": {
+      "group": "registry-declarations",
+      "sha256": "0ab241d64e9db621c83df2d8b4afe39f716affe5f3071323b0b0ec471c7b60ed"
+    },
+    "build/io_link_list": {
+      "group": "icg-link",
+      "sha256": "8f28b5a0dcea1037cc3732d73471d155f4df4ca3075ed07ea0cf1caea6857a2b"
+    },
+    "build/trickify_io_link_list": {
+      "group": "icg-link",
+      "sha256": "21383804cdbc73f736796b5475a40dc3fd55484ca56119b1e3f071633b45ae3f"
+    }
+  },
+  "case": "double-pointers",
+  "normalization_version": 2,
+  "schema_version": 2
+}
