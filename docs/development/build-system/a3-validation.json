@@ -1,0 +1,93 @@
+{
+  "layer": "A3",
+  "base_commit": "44777e4b2b3232a70bb75a195269e5df79211589",
+  "recorded_at_utc": "2026-09-14T23:20:23.383168+00:00",
+  "environment": {
+    "platform": "Linux x86_64",
+    "os": "Ubuntu 24.04.3 LTS",
+    "kernel": "6.18.44",
+    "CMake": "3.26.0",
+    "C": "GCC 13.3.0",
+    "CXX": "G++ 13.3.0",
+    "linker": "GNU ld 2.42",
+    "make": "GNU Make 4.3",
+    "ninja": "1.11.1.git.kitware.jobserver-1 (PyPI ninja 1.11.1.1)",
+    "GoogleTest": "1.14.0",
+    "GoogleTest_commit": "f8d7d77c06936315286eb55f8de22cd23c188571"
+  },
+  "results": [
+    {
+      "preset": "utilities-ninja",
+      "generator": "Ninja",
+      "configuration": "Debug",
+      "status": "passed",
+      "archives_built": 6,
+      "ctest_entries_passed": 13,
+      "GoogleTest_cases_passed": 154,
+      "configure": "cmake --preset utilities-ninja -DCMAKE_PREFIX_PATH=/path/to/gtest-prefix",
+      "build": "cmake --build --preset utilities-ninja --config Debug --parallel",
+      "test": "ctest --preset utilities-ninja -C Debug --parallel 4"
+    },
+    {
+      "preset": "utilities",
+      "generator": "Unix Makefiles",
+      "configuration": "Debug",
+      "status": "passed",
+      "archives_built": 6,
+      "ctest_entries_passed": 13,
+      "GoogleTest_cases_passed": 154,
+      "configure": "cmake --preset utilities -DCMAKE_PREFIX_PATH=/path/to/gtest-prefix -G \"Unix Makefiles\"",
+      "build": "cmake --build --preset utilities --config Debug --parallel",
+      "test": "ctest --preset utilities -C Debug --parallel 4"
+    },
+    {
+      "preset": "utilities-multi",
+      "generator": "Ninja Multi-Config",
+      "configuration": "Release",
+      "status": "passed",
+      "archives_built": 6,
+      "ctest_entries_passed": 13,
+      "GoogleTest_cases_passed": 154,
+      "configure": "cmake --preset utilities-multi -DCMAKE_PREFIX_PATH=/path/to/gtest-prefix",
+      "build": "cmake --build --preset utilities-multi --config Release --parallel",
+      "test": "ctest --preset utilities-multi -C Release --parallel 4"
+    }
+  ],
+  "source_sha256": {
+    ".github/workflows/cmake-utilities.yml": "b1df798ee1bc367599f0129c0e51489e36f5544cf2693e46650585f67f450c64",
+    "CMakeLists.txt": "41f2c0e38af7e7f8bbbf12e8bf8f656a23671c669b2bbb8c4390fb7b0ff140a0",
+    "CMakePresets.json": "5cb41ca6513176b8a2498c3644cc5879421062b10354b109905a16263a96a5d1",
+    "cmake/tests/Bootstrap.cmake": "fe9a362543077d6678b6c2709accc8bfdc8a0c201bcc4e96a89fe945a7282d4f",
+    "docs/development/build-system/behavior-differences.md": "d9d3f2265281eb121cb3a02423920a97452ea4e678f38f895feea5429816a5b8",
+    "docs/development/build-system/bootstrap.md": "3e097e92045be56089885458ada668aad7955ad8ff576c5027caf8832e80d8a0",
+    "docs/development/build-system/utilities.md": "b6e57be76d7a0f4d6d29b115f0edf6b6a1c26e919b488339de1b3ca525ea800a",
+    "trick_source/trick_utils/CMakeLists.txt": "d2ce3f89c4e24eb17b7b9fcc352a0b9ce6a3d7b0bba82e6f3edbfeecbc661a28",
+    "trick_source/trick_utils/comm/CMakeLists.txt": "6de68e96bc06716c211c33fc75418faa8f8869b00a35af685a8f30cdfe3eeb9c",
+    "trick_source/trick_utils/connection_handlers/CMakeLists.txt": "7080bcfc6be171456aed06e1d720f61d0e62c5c24c4fa2e32ecdcd455a5d73c4",
+    "trick_source/trick_utils/math/CMakeLists.txt": "1f0c41e3ecdf1bec6034a445830a75194490719ae5229c6796332ec0b5ef82fa",
+    "trick_source/trick_utils/optimization/CMakeLists.txt": "78e749ebba071b78651f01200138b57a187c99d7c3e79337bcdd2a72c1c44b3e",
+    "trick_source/trick_utils/tests/CMakeLists.txt": "ffaf28151069f3e24ddc1514c0d8b8ee4e1e3ef46b80a57f295e544bec7096c6",
+    "trick_source/trick_utils/tests/ConsumerOptions.cmake": "c387e5f9164df835198e985298a4e37def2ffd173ea83c4a4e09218c3f33e28d",
+    "trick_source/trick_utils/tests/Units.cpp": "f7b1f77fc7df1c5080cfde4be0c2a97b6cacaca81d0f642c3d8f3ff77bd3940c",
+    "trick_source/trick_utils/units/CMakeLists.txt": "6d44f1e216dc0ed89889bb3a44937c0709ebb92e3d1f8bb866daa14b7a7cb07d",
+    "trick_source/trick_utils/var_binary_parser/CMakeLists.txt": "b0a9059fc421fdf7539d1502d232736ebf45c8295acae9ca1874a8cde4bbab8a"
+  },
+  "limitations": [
+    "No paired Autoconf/Make build was run; comparison is source-observed.",
+    "macOS CI is configured but not locally executed.",
+    "RHEL 8/GCC 8.5 and LLVM 14 qualification pending.",
+    "Math RNG entry points still require runtime message service; GSL selection is deferred to D5.",
+    "SDK installation is intentionally rejected.",
+    "Existing production warnings remain; warning-free build is not claimed."
+  ],
+  "additional_checks": {
+    "no_GoogleTest_archive_build": "passed with BUILD_TESTING=OFF and GTest discovery disabled",
+    "missing_requested_GoogleTest": "correctly rejected",
+    "utility_tests_without_BUILD_TESTING": "correctly rejected",
+    "explicit_source_inventory": "125/125 production sources in six archive components",
+    "ninja_noop": "ninja: no work to do.",
+    "private_warning_propagation": "CTest consumer-options passed",
+    "production_source_changes": "none",
+    "bootstrap_presets": "utility builds remain disabled"
+  }
+}

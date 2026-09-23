@@ -10,6 +10,25 @@ The preview rejects installation explicitly. See [bootstrap.md](bootstrap.md)
 and [A2 evidence](a2-validation.json) for tested platform/tool versions; the
 proposed end-state entries below do not become verified wholesale.
 
+## A3 implementation status
+
+The utility portion of BD-01, BD-03/04 and BD-14 is now implemented. See
+[utility build instructions](utilities.md) and [exact local evidence](a3-validation.json).
+The following observations are verified on **Linux x86_64, Ubuntu 24.04.3,
+GCC/G++ 13.3.0, GNU ld 2.42, CMake 3.26.0, GNU Make 4.3 and Ninja
+1.11.1.git.kitware.jobserver-1**, with GoogleTest 1.14.0. macOS and EL8 remain
+unverified. Legacy comparisons here are source-observed, not a paired legacy build.
+
+| IDs | Legacy source behavior | A3 behavior and action |
+| --- | --- | --- |
+| BD-01 | Archives in `lib_${TRICK_HOST_CPU}`, objects beside component sources. | Archives/objects stay under the selected binary directory's component paths (configuration subdirectory for multi-config). Do not rely on the legacy build-tree paths; consume targets. Installed layout is deferred to C2. |
+| BD-03/04 | Common Make flags and manually assembled `-I`/`-l` arguments. | CMake configuration flags and target requirements; private warnings do not propagate. Use native toolchain/cache inputs. |
+| BD-14 | Per-directory Make tests, manually selected GoogleTest paths, XML under the checkout. | Explicit opt-in utility tests use `find_package(GTest)`, CTest and build-tree output. Supply `GTest_DIR` or `CMAKE_PREFIX_PATH`; requesting tests without a package fails. |
+
+GSL-off Math retains the legacy runtime message dependency; this is a staged
+limitation, not a new self-contained RNG API. No algorithms or public runtime
+headers are changed. Other proposed rows below remain unverified.
+
 Maintain this register with machine-readable environment/test records alongside it. Every difference gets: ID; user-visible effect; legacy source behavior; new behavior; rationale; affected platform/OS/tool versions; implementation PR; reproduction; compatibility action; and status.
 
 Status vocabulary: **proposed**, **implemented/unverified**, **verified**, **known regression**, **retired**. The entries below are **proposed**, including the Python 3-only selection, source-installer prefix, and feature defaults; A1 does not approve those choices. See the [decision register](README.md#decisions-to-finalize). Their environment IDs refer to [qualification matrix](qualification.md); a result cannot become verified while its exact version fields are unresolved.

@@ -14,7 +14,7 @@ function(run_configure)
     execute_process(COMMAND "${CMAKE_COMMAND}" -S "${source}" -B "${binary}"
         -G "${GENERATOR}" "-DCMAKE_MAKE_PROGRAM=${MAKE_PROGRAM}"
         "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_CXX_COMPILER=${CXX_COMPILER}"
-        -DBUILD_TESTING=OFF
+        -DBUILD_TESTING=OFF -DTRICK_BUILD_UTILITIES=OFF
         RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
     if(NOT result EQUAL 0)
         message(FATAL_ERROR "Configure failed: ${output}\n${error}")
@@ -46,7 +46,7 @@ elseif(CASE STREQUAL "invalid-version")
     foreach(bad IN ITEMS "not-a-version" "25.1" "25.1.2\"\ncurrent_version = \"26.0.0")
         file(WRITE "${source}/share/trick/trick_ver.txt" "current_version = \"${bad}\"\n")
         expect_failure("Invalid Trick version"
-            "${CMAKE_COMMAND}" -S "${source}" -B "${binary}" -DBUILD_TESTING=OFF)
+            "${CMAKE_COMMAND}" -S "${source}" -B "${binary}" -DBUILD_TESTING=OFF -DTRICK_BUILD_UTILITIES=OFF)
     endforeach()
 elseif(CASE STREQUAL "version")
     foreach(version IN ITEMS 27.0.0 27.0.0-rc.1 27.0.0+build.2)

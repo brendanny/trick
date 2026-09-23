@@ -17,15 +17,23 @@ project(Trick VERSION "${TRICK_VERSION_NUMBER}" LANGUAGES C CXX)
 configure_file(cmake/TrickVersionInfo.cmake.in TrickVersionInfo.cmake @ONLY)
 
 include(CTest)
+option(TRICK_BUILD_UTILITIES "Build the native utility archives" ON)
+option(TRICK_BUILD_UTILITY_TESTS "Build focused utility tests (requires GoogleTest)" OFF)
+if(TRICK_BUILD_UTILITY_TESTS AND (NOT BUILD_TESTING OR NOT TRICK_BUILD_UTILITIES))
+    message(FATAL_ERROR "Utility tests require BUILD_TESTING and TRICK_BUILD_UTILITIES")
+endif()
+if(TRICK_BUILD_UTILITIES)
+    add_subdirectory(trick_source/trick_utils)
+endif()
 if(BUILD_TESTING)
     add_subdirectory(cmake/tests)
 endif()
 
-message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (A2)")
+message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (A3)")
 message(WARNING
-    "This configuration-only preview does not build or install Trick yet. "
+    "This preview builds utility archives only, not a complete Trick SDK. "
     "Use the documented Autoconf/Make route for a usable installation. "
-    "See docs/development/build-system/bootstrap.md.")
+    "See docs/development/build-system/utilities.md.")
 
 # Avoid a successful empty installation that looks like a usable Trick SDK.
 install(CODE [[

@@ -12,7 +12,8 @@
       "binaryDir": "${sourceDir}/build/cmake/${presetName}",
       "cacheVariables": {
         "BUILD_TESTING": true,
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "TRICK_BUILD_UTILITIES": false
       }
     },
     {
@@ -26,6 +27,30 @@
       "generator": "Ninja Multi-Config",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": null
+      }
+    },
+    {
+      "name": "utilities",
+      "inherits": "bootstrap",
+      "cacheVariables": {
+        "TRICK_BUILD_UTILITIES": true,
+        "TRICK_BUILD_UTILITY_TESTS": true
+      }
+    },
+    {
+      "name": "utilities-ninja",
+      "inherits": "bootstrap-ninja",
+      "cacheVariables": {
+        "TRICK_BUILD_UTILITIES": true,
+        "TRICK_BUILD_UTILITY_TESTS": true
+      }
+    },
+    {
+      "name": "utilities-multi",
+      "inherits": "bootstrap-multi",
+      "cacheVariables": {
+        "TRICK_BUILD_UTILITIES": true,
+        "TRICK_BUILD_UTILITY_TESTS": true
       }
     }
   ],
@@ -43,6 +68,21 @@
     {
       "name": "bootstrap-multi",
       "configurePreset": "bootstrap-multi",
+      "configuration": "Debug"
+    },
+    {
+      "name": "utilities",
+      "configurePreset": "utilities",
+      "configuration": "Debug"
+    },
+    {
+      "name": "utilities-ninja",
+      "configurePreset": "utilities-ninja",
+      "configuration": "Debug"
+    },
+    {
+      "name": "utilities-multi",
+      "configurePreset": "utilities-multi",
       "configuration": "Debug"
     }
   ],
@@ -72,6 +112,39 @@
     {
       "name": "bootstrap-multi",
       "configurePreset": "bootstrap-multi",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "utilities",
+      "configurePreset": "utilities",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "utilities-ninja",
+      "configurePreset": "utilities-ninja",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "utilities-multi",
+      "configurePreset": "utilities-multi",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -130,6 +203,57 @@
         {
           "type": "test",
           "name": "bootstrap-multi"
+        }
+      ]
+    },
+    {
+      "name": "utilities",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "utilities"
+        },
+        {
+          "type": "build",
+          "name": "utilities"
+        },
+        {
+          "type": "test",
+          "name": "utilities"
+        }
+      ]
+    },
+    {
+      "name": "utilities-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "utilities-ninja"
+        },
+        {
+          "type": "build",
+          "name": "utilities-ninja"
+        },
+        {
+          "type": "test",
+          "name": "utilities-ninja"
+        }
+      ]
+    },
+    {
+      "name": "utilities-multi",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "utilities-multi"
+        },
+        {
+          "type": "build",
+          "name": "utilities-multi"
+        },
+        {
+          "type": "test",
+          "name": "utilities-multi"
         }
       ]
     }

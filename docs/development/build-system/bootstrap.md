@@ -31,10 +31,10 @@ All use separate directories under `build/cmake`. A multi-config build uses
 `--config`/the preset's configuration; it does not depend on `CMAKE_BUILD_TYPE`.
 The presets use schema 6, supported by the minimum CMake.
 
-Direct configuration remains supported:
+For a configuration-only direct invocation (A3 otherwise builds utilities):
 
 ```sh
-cmake -S . -B /tmp/trick-preview -G Ninja -DBUILD_TESTING=OFF
+cmake -S . -B /tmp/trick-preview -G Ninja -DBUILD_TESTING=OFF -DTRICK_BUILD_UTILITIES=OFF
 cmake --build /tmp/trick-preview
 ```
 
@@ -85,3 +85,6 @@ Trick build; those require their later component/dependency checks.
 
 See [the build contract](README.md), [roadmap](roadmap.md), and
 [qualification records](qualification.md) for the remaining migration scope.
+
+A3 adds [native utility archives and focused tests](utilities.md). The bootstrap
+presets keep utility builds disabled so these checks remain dependency-free.
