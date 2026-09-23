@@ -8,6 +8,7 @@
 #include "trick/message_proto.h"
 
 // System includes
+#include <limits>
 #include <sstream>
 
 // Anonymous namespace for local functions
