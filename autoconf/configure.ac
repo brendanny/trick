@@ -169,6 +169,8 @@ AC_ARG_WITH(
   ]
 )
 
+AS_IF([test "$PYTHON_MAJOR" = "2"], [AC_MSG_WARN([DEPRECATED: Python 2 is enabled for compatibility only. Upgrade to Python 3. Support will be removed in Trick 27.])])
+
 PYTHON_LIBS_COMMAND="${PYTHON_CONFIG} --ldflags --libs"
 
 AX_COMPARE_VERSION(
@@ -189,6 +191,7 @@ TR_PREPEND_PATH()
 AC_PATH_PROG(GNUPLOT, gnuplot, nognuplot)
 AS_IF([test "$ac_cv_path_GNUPLOT" = "nognuplot"],AC_MSG_NOTICE([could not find gnuplot]),[])
 TR_SWIG_BIN([3.0])
+AS_CASE([$swig_version], [3.*], [AC_MSG_WARN([DEPRECATED: SWIG 3 is enabled for compatibility only. Upgrade to SWIG 4. Support will be removed in Trick 27.])])
 TR_JAVA
 
 AX_PTHREAD()
