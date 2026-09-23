@@ -7249,6 +7249,11 @@ esac
 fi
 
 
+if test "$PYTHON_MAJOR" = "2"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: DEPRECATED: Python 2 is enabled for compatibility only. Upgrade to Python 3. Support will be removed in Trick 27." >&5
+$as_echo "$as_me: WARNING: DEPRECATED: Python 2 is enabled for compatibility only. Upgrade to Python 3. Support will be removed in Trick 27." >&2;}
+fi
+
 PYTHON_LIBS_COMMAND="${PYTHON_CONFIG} --ldflags --libs"
 
 
@@ -7633,6 +7638,12 @@ esac
 fi
 
 
+
+case $swig_version in
+  3.*) :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: DEPRECATED: SWIG 3 is enabled for compatibility only. Upgrade to SWIG 4. Support will be removed in Trick 27." >&5
+$as_echo "$as_me: WARNING: DEPRECATED: SWIG 3 is enabled for compatibility only. Upgrade to SWIG 4. Support will be removed in Trick 27." >&2;} ;;
+esac
 
     # Check whether --enable-java was given.
 if test ${enable_java+y}
