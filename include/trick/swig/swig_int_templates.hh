@@ -908,27 +908,14 @@ template <> struct StrTraits<std::string>
 {
     static constexpr TRICK_TYPE   trick_type = TRICK_STRING;
     static constexpr const char * type_name  = "std::string";
-    static std::string from_pyunicode(PyObject *item)
-    {
-        const char *utf8 = PyUnicode_AsUTF8(item);
-        return utf8 ? std::string(utf8) : std::string();
-    }
+    static std::string from_pyunicode(PyObject* item) { return trick_python_unicode_string(item); }
 };
 
 template <> struct StrTraits<std::wstring>
 {
     static constexpr TRICK_TYPE   trick_type = TRICK_WSTRING;
     static constexpr const char * type_name  = "std::wstring";
-    static std::wstring from_pyunicode(PyObject *item)
-    {
-        Py_ssize_t wlen;
-        wchar_t *wcs = PyUnicode_AsWideCharString(item, &wlen);
-        if (!wcs)
-            return std::wstring();
-        std::wstring result(wcs, wlen);
-        PyMem_Free(wcs);
-        return result;
-    }
+    static std::wstring from_pyunicode(PyObject* item) { return trick_python_unicode_wstring(item); }
 };
 
 // str_typemap_in_1d — Python sequence -> new T[out_size]()

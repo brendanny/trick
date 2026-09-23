@@ -1,0 +1,35 @@
+name: Python compatibility
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/python-compatibility.yml'
+      - 'include/trick/swig/**'
+      - 'trick_source/trick_swig/tests/**'
+      - 'trick_source/sim_services/InputProcessor/IPPython.cpp'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unicode:
+    name: Python ${{ matrix.python }} Unicode APIs
+    runs-on: ubuntu-24.04
+    container: rockylinux/rockylinux:8
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['2', '3']
+    steps:
+      - name: Install compiler and Python development files
+        run: dnf install -y git gcc-c++ python${{ matrix.python }}-devel
+      - uses: actions/checkout@v7
+      - name: Compile and run without configuring Trick
+        run: |
+          python${{ matrix.python }} --version
+          g++ -std=c++17 -Iinclude $(python${{ matrix.python }}-config --includes) \
+            trick_source/trick_swig/tests/PythonUnicode.cpp \
+            $(python${{ matrix.python }}-config --ldflags) -o "$RUNNER_TEMP/python-unicode"
+          "$RUNNER_TEMP/python-unicode"

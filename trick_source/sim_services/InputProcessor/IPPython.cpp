@@ -162,19 +162,23 @@ int Trick::IPPython::init() {
 
     // The following PyRun_ calls do not require the PyGILState guards because no threads are launched
     /* Import simulation specific routines into interpreter. */
-    PyRun_SimpleString(
-     "import sys\n"
-     "import os\n"
-     "import struct\n"
-     "import binascii\n"
-     "if 'VIRTUAL_ENV' in os.environ:\n"
-     "    sys.path.append(os.path.join(os.environ['VIRTUAL_ENV'], \"lib\", f\"python{sys.version_info.major}.{sys.version_info.minor}\", \"site-packages\"))\n"
-     "sys.path.append(os.getcwd() + '/trick.zip')\n"
-     "sys.path.append(os.path.join(os.environ['TRICK_HOME'], 'share/trick/pymods'))\n"
-     "sys.path += map(str.strip, os.environ['TRICK_PYTHON_PATH'].split(':'))\n"
-     "import trick\n"
-     "sys.path.append(os.getcwd() + \"/Modified_data\")\n"
-    ) ;
+    ret = PyRun_SimpleString(
+        "import sys\n"
+        "import os\n"
+        "import struct\n"
+        "import binascii\n"
+        "if 'VIRTUAL_ENV' in os.environ:\n"
+        "    sys.path.append(os.path.join(os.environ['VIRTUAL_ENV'], \"lib\", \"python%d.%d\" % "
+        "sys.version_info[:2], \"site-packages\"))\n"
+        "sys.path.append(os.getcwd() + '/trick.zip')\n"
+        "sys.path.append(os.path.join(os.environ['TRICK_HOME'], 'share/trick/pymods'))\n"
+        "sys.path += [p.strip() for p in os.environ.get('TRICK_PYTHON_PATH', '').split(':') if p.strip()]\n"
+        "import trick\n"
+        "sys.path.append(os.getcwd() + \"/Modified_data\")\n");
+    if (ret != 0)
+    {
+        exec_terminate_with_return(ret, __FILE__, __LINE__, "Python startup failed before input file execution");
+    }
 
     /* Make shortcut names for all known sim_objects. */
     get_TMM_named_variables() ;
