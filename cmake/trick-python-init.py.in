@@ -1,0 +1,5 @@
+"""Build-tree core Trick bindings. Simulation-specific modules are added by C1."""
+from sim_services import *
+import swig_double
+import swig_int
+import swig_ref

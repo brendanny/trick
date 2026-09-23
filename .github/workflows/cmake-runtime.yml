@@ -1,0 +1,89 @@
+name: CMake runtime
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            generator: Ninja
+            er7: 'ON'
+          - os: ubuntu-24.04
+            generator: Unix Makefiles
+            er7: 'OFF'
+          - os: macos-26
+            generator: Ninja
+            er7: 'ON'
+          - os: macos-26
+            generator: Ninja Multi-Config
+            er7: 'OFF'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Provision CMake
+        run: |
+          python -m venv "$RUNNER_TEMP/cmake-tools"
+          "$RUNNER_TEMP/cmake-tools/bin/pip" install cmake==3.26.0 ninja==1.11.1.1
+          echo "$RUNNER_TEMP/cmake-tools/bin" >> "$GITHUB_PATH"
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-14-dev libclang-14-dev clang-14 libudunits2-dev bison flex swig libgtest-dev
+          echo "LLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm" >> "$GITHUB_ENV"
+      - name: macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm@20 udunits bison flex swig googletest
+          echo "LLVM_DIR=$(brew --prefix llvm@20)/lib/cmake/llvm" >> "$GITHUB_ENV"
+          echo "UDUNITS2_ROOT=$(brew --prefix udunits)" >> "$GITHUB_ENV"
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+      - name: Configure
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/trick-runtime" -G '${{ matrix.generator }}' \
+            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_PYTHON=ON \
+            -DTRICK_BUILD_RUNTIME_TESTS=ON -DTRICK_BUILD_UTILITY_TESTS=ON \
+            -DTRICK_USE_ER7_UTILS=${{ matrix.er7 }} -DLLVM_DIR="$LLVM_DIR" \
+            -DPython3_EXECUTABLE="$(command -v python)"
+      - name: Build with read-only production sources and run tests
+        run: |
+          chmod -R a-w include trick_source
+          cmake --build "$RUNNER_TEMP/trick-runtime" --config Release --parallel 3
+          ctest --test-dir "$RUNNER_TEMP/trick-runtime" -C Release --output-on-failure --parallel 4
+      - name: Check native regeneration
+        run: |
+          python cmake/tests/verify_build_graph.py --source . --build "$RUNNER_TEMP/trick-runtime" --config Release
+          cmake --build "$RUNNER_TEMP/trick-runtime" --config Release --parallel 3
+          ctest --test-dir "$RUNNER_TEMP/trick-runtime" -C Release --output-on-failure --parallel 4
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - name: Record tools
+        if: always()
+        run: |
+          { uname -a; cmake --version; c++ --version; bison --version; flex --version; swig -version; python --version; } > "$RUNNER_TEMP/trick-runtime/tool-versions.txt"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime-${{ matrix.os }}-${{ matrix.er7 }}
+          path: |
+            ${{ runner.temp }}/trick-runtime/TrickDependencies.txt
+            ${{ runner.temp }}/trick-runtime/CMakeCache.txt
+            ${{ runner.temp }}/trick-runtime/tool-versions.txt
+            ${{ runner.temp }}/trick-runtime/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ runner.temp }}/trick-runtime/Testing/Temporary/
+            ${{ runner.temp }}/trick-runtime/trick_source/codegen/Interface_Code_Gen/ICGConfiguration.txt

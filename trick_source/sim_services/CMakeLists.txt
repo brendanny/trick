@@ -23,3 +23,7 @@ endif()
 if(TRICK_BUILD_CORE)
     include("${PROJECT_SOURCE_DIR}/cmake/TrickCore.cmake")
 endif()
+
+if(TRICK_BUILD_PYTHON)
+    add_subdirectory(InputProcessor)
+endif()

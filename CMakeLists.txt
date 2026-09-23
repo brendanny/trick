@@ -26,6 +26,10 @@ if(TRICK_USE_ER7_CHECKPOINTHELPER)
 endif()
 option(TRICK_BUILD_CORE_METADATA "Generate and compile core ICG metadata" OFF)
 option(TRICK_BUILD_CORE "Build native core runtime services" OFF)
+option(TRICK_BUILD_PYTHON "Build the embedded Python input processor and SWIG modules" OFF)
+if(TRICK_BUILD_PYTHON)
+    set(TRICK_BUILD_CORE ON)
+endif()
 if(TRICK_BUILD_CORE)
     set(TRICK_BUILD_CORE_METADATA ON)
     set(TRICK_BUILD_UTILITIES ON)
@@ -62,11 +66,11 @@ if(BUILD_TESTING)
     add_subdirectory(cmake/tests)
 endif()
 
-message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (A5)")
+message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (B6)")
 message(WARNING
-    "This preview builds selected utilities and ICG, not a complete Trick SDK. "
+    "This preview builds native runtime components but cannot install a Trick SDK yet. "
     "Use the documented Autoconf/Make route for a usable installation. "
-    "See docs/development/build-system/icg.md.")
+    "See docs/development/build-system/python-input.md.")
 
 # Avoid a successful empty installation that looks like a usable Trick SDK.
 install(CODE [[

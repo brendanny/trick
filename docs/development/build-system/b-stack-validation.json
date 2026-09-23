@@ -1,0 +1,60 @@
+{
+  "layers": [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6"
+  ],
+  "snapshot": "local validation before initial publication",
+  "date": "2026-09-23",
+  "base": "8454f807bd12ee750ce1b86fdb6b68b834e7f6e8",
+  "platform": {
+    "os": "Ubuntu 24.04.3 LTS",
+    "kernel": "6.18.44",
+    "architecture": "x86_64",
+    "compiler": "GCC/G++ 13.3.0",
+    "linker": "GNU ld 2.42",
+    "cmake": "3.26.0",
+    "generator": "Ninja",
+    "ninja": "1.11.1.git.kitware.jobserver-1",
+    "llvm": "14.0.6 (Ubuntu 1:14.0.6-19build4)",
+    "udunits": "2.2.28 (Ubuntu 2.2.28-7build1)",
+    "bison": "3.8.2",
+    "flex": "2.6.4",
+    "swig": "4.2.0",
+    "python": "3.12.14",
+    "gtest": "1.14.0"
+  },
+  "configuration": {
+    "build_type": "unset",
+    "TRICK_BUILD_PYTHON": true,
+    "TRICK_BUILD_RUNTIME_TESTS": true,
+    "TRICK_BUILD_UTILITY_TESTS": true,
+    "TRICK_USE_ER7_UTILS": true
+  },
+  "results": {
+    "native_build": "pass",
+    "ctest": "39/39 pass",
+    "ER7_on_numerical_smoke": "pass",
+    "ER7_off_numerical_smoke": "pass",
+    "ICG_explicit_output_contract": "pass",
+    "core_manifest_213_outputs": "pass",
+    "metadata_runtime_retention": "pass",
+    "embedded_python_scalar_array_integrator_pointer": "pass",
+    "no_op_codegen": "pass",
+    "transitive_header_codegen": "pass",
+    "deleted_metadata_recovery": "pass",
+    "changed_generator_codegen": "pass",
+    "isolated_grammar_regeneration": "pass",
+    "transitive_swig_regeneration": "pass"
+  },
+  "limits": [
+    "Local dependency packages were extracted under a temporary prefix, not system-installed.",
+    "CMake-native build rpaths were used; UDUNITS2_XML_PATH selects extracted XML data.",
+    "Minimum GCC 8.5/RHEL 8 and older Python 3/SWIG tuples remain unqualified.",
+    "Linux/macOS Release, Make and multi-config results are recorded by the runtime CI matrix after publication.",
+    "SDK installation and simulation tooling integration remain C1/C2."
+  ]
+}

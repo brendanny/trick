@@ -1,8 +1,11 @@
 # CMake migration build contract (A1)
 
-**Current implementation:** [A5 native ICG](icg.md), with
-[A4 dependency preflight](dependencies.md),
-[A3 utility archives](utilities.md) and [A2 bootstrap](bootstrap.md).
+**Current implementation:** [B6 embedded Python/runtime](python-input.md), building
+on [B1 ICG outputs](icg-outputs.md), [B2 memory manager](memory-manager.md),
+[B3 integrators](integrators.md), [B4 metadata](core-codegen.md), and
+[B5 core archives](core-runtime.md). A1–B6 are consolidated on PR #1 with one
+commit per layer. The CMake route remains a developer preview; C1/C2 own a usable
+simulation SDK and installation.
 
 This directory defines the migration from Trick's Autoconf and handwritten
 framework Make build to a replacement CMake implementation. It is the first
@@ -135,7 +138,7 @@ disposition.
 
 | ID | Proposal / open question | Resolution needed by |
 | --- | --- | --- |
-| DEC-01 | Python 3-only CMake discovery; whether to retain Python 3.6/SWIG 3 compatibility. Do not infer these support floors from PR 2190. | A4/B6; BD-07 |
+| DEC-01 | Resolved for B6: native runtime uses Python 3; legacy route retains Python 2 during transition. Existing Python 3/SWIG floors are unchanged and older tuples still need qualification. | A4/B6; BD-07 |
 | DEC-02 | Python-standard-library source installer and a versioned user prefix such as `$HOME/.local/opt/trick/<version>`; exact launcher minimum and prefix are unsettled. | E1; BD-02/11 |
 | DEC-03 | Normal profile enables runtime, ICG, ER7, data products and Java; X11/HDF5/GSL/CivetWeb use `AUTO`/`ON`/`OFF`. Resolve reproducible release defaults and headless behavior. | A4 and each component PR; BD-09 |
 | DEC-04 | Exact maintained macOS releases/architectures and Java/Python/package tuples; source-installer policy for older RHEL 8 minors. Existing documented platform scope is the starting point. | A4/A5 and qualification F1 |

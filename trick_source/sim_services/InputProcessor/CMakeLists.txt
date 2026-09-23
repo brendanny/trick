@@ -1,0 +1,43 @@
+trick_service(trick_pyip PythonInput)
+target_sources(trick_pyip PRIVATE
+    IPPython.cpp
+    IPPythonEvent.cpp
+    InputProcessor.cpp
+    MTV.cpp
+    MTV_c_intf.cpp
+    input_processor_ext.cpp
+    ../../trick_swig/PrimitiveAttributesMap.cpp
+    ../../trick_swig/swig_convert_units.cpp
+    ../../trick_swig/swig_global_vars.cpp
+)
+target_link_libraries(trick_pyip PUBLIC Trick::Core Trick::Python PRIVATE Trick::MemorySupport)
+# Core services call the input processor. LINK_ONLY keeps Python include flags
+# off unrelated core compilation while declaring the real static link cycle.
+target_link_libraries(trick_core PRIVATE "$<LINK_ONLY:trick_pyip>")
+add_subdirectory("${PROJECT_SOURCE_DIR}/trick_source/trick_swig" "${PROJECT_BINARY_DIR}/trick_source/trick_swig")
+
+# Registration is a separate entry point; simulation-generated init_swig_modules
+# remains available to legacy consumers and will be integrated by C1.
+add_library(trick_python_registration STATIC "${PROJECT_SOURCE_DIR}/cmake/TrickPythonRegistration.cpp")
+target_link_libraries(trick_python_registration PUBLIC Trick::PythonInput)
+foreach(module IN ITEMS sim_services swig_double swig_int swig_ref)
+    target_link_libraries(trick_python_registration PUBLIC trick_swig_${module})
+    add_dependencies(trick_python_registration trick_${module}_proxy)
+endforeach()
+add_library(trick_runtime INTERFACE)
+add_library(Trick::Runtime ALIAS trick_runtime)
+target_link_libraries(trick_runtime INTERFACE trick_python_registration Trick::Core Trick::MemorySupport
+    "$<LINK_LIBRARY:WHOLE_ARCHIVE,trick_core_metadata>")
+# MemoryManager's named allocators are discovered with dlsym in the executable.
+function(trick_enable_runtime target)
+    target_link_libraries(${target} PRIVATE Trick::Runtime)
+    set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
+endfunction()
+
+if(BUILD_TESTING)
+    add_executable(trick_python_smoke "${PROJECT_SOURCE_DIR}/cmake/tests/PythonInput.cpp")
+    trick_enable_runtime(trick_python_smoke)
+    add_test(NAME runtime.python_input COMMAND trick_python_smoke)
+    set_tests_properties(runtime.python_input PROPERTIES LABELS "runtime;python" TIMEOUT 120
+        ENVIRONMENT "PYTHONPATH=${TRICK_PYTHON_STAGE};TRICK_HOME=${PROJECT_SOURCE_DIR};TRICK_PYTHON_PATH=${TRICK_PYTHON_STAGE};PYTHONDONTWRITEBYTECODE=1")
+endif()

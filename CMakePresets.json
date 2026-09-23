@@ -60,6 +60,14 @@
       "cacheVariables": {
         "TRICK_BUILD_ICG": true
       }
+    },
+    {
+      "name": "runtime",
+      "displayName": "Native core and embedded Python developer preview",
+      "inherits": "bootstrap-ninja",
+      "cacheVariables": {
+        "TRICK_BUILD_PYTHON": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -96,6 +104,11 @@
     {
       "name": "icg",
       "configurePreset": "icg",
+      "configuration": "Debug"
+    },
+    {
+      "name": "runtime",
+      "configurePreset": "runtime",
       "configuration": "Debug"
     }
   ],
@@ -169,6 +182,17 @@
     {
       "name": "icg",
       "configurePreset": "icg",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "runtime",
+      "configurePreset": "runtime",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -295,6 +319,23 @@
         {
           "type": "test",
           "name": "icg"
+        }
+      ]
+    },
+    {
+      "name": "runtime",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "runtime"
+        },
+        {
+          "type": "build",
+          "name": "runtime"
+        },
+        {
+          "type": "test",
+          "name": "runtime"
         }
       ]
     }

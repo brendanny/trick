@@ -2,6 +2,8 @@
 
 Start with **27 planned PRs in seven short stacks**. This is an initial decomposition: split or combine layers when actual dependencies justify it, retaining focused reviews and independently valid intermediate states. These are planning identifiers, not existing GitHub PR numbers. Each row is one reviewable unit with its own tests and documentation. A layer may depend on lower layers; “self-contained” means that the layer works with its declared dependencies and has no forward dependency on a later repair PR.
 
+**Current delivery:** A1–B6 are implemented as separate commits on the single branch of fork PR #1, as requested. The planning identifiers below remain the unit of review. Stack C is next.
+
 Every implementation PR must include: purpose and non-goals; exact predecessor; owned files/targets; a runnable acceptance command; behavior-difference IDs; and evidence for affected platforms. Introduce relevant tests in the same PR as the behavior. The later CI stack broadens coverage; it is not where tests begin.
 
 Before the complete runtime exists, CMake is explicitly a developer preview with a supported subset, not a source-install alternative. Installing a partial build must not claim to provide the full Trick SDK. Keep Autotools buildable from separate clean checkouts through Trick 28.

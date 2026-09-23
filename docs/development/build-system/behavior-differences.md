@@ -124,3 +124,18 @@ metadata names, complete dependency reporting, confined maps/SIE/temporary
 files, and success publication after diagnostics and output checks. Legacy
 callers retain their existing layout; obsolete `EXTERNAL_BUILD` branches are
 replaced by the runtime option.
+
+## B-stack implementation status
+
+| IDs | Native behavior | Evidence / qualification |
+| --- | --- | --- |
+| BD-01, BD-06 | Binary-tree ICG outputs, declared metadata inventory, depfile, manifest and stamp; parser and SWIG output ownership. | Ubuntu 24.04 x86_64, CMake 3.26.0, Ninja 1.11.1, GCC 13.3, LLVM 14.0.6, Flex 2.6.4, Bison 3.8.2; exact evidence in `b-stack-validation.json`. |
+| BD-05 | Explicit-output ICG uses Clang's GNU compatibility version and surfaces system-header errors. | GCC 13.3/LLVM 14.0.6/glibc 2.39 required this to parse core headers; legacy invocation mode is unchanged. |
+| BD-07 | Native runtime accepts Python 3 only; A4 preflight and legacy route can still inspect/use Python 2. | Local Python 3.12.14/SWIG 4.2.0; no new compatibility claim for older tuples. |
+| BD-08 | Parser generation fails on generator errors instead of falling back to premade source. | Native Flex/Bison rules with scanner/header ordering; grammar edit validation. |
+| BD-18 | CheckPointAgent belongs to the memory-manager archive; integrators, metadata, main and SWIG wrappers have separate owners and target links. Narrow retention or whole-metadata retention protects runtime lookup. | Linux ELF GNU ld 2.42 locally. macOS Mach-O and generator combinations are covered by the runtime CI matrix; use run results rather than assuming qualification. |
+
+The B stack does not supply an installed SDK, external ER7/CheckpointHelper
+variants, or distribution features scheduled in later layers. See each layer's
+usage document for its exact boundary. GCC 8.5/RHEL 8, older Python/SWIG tuples,
+and native platform qualification beyond the CI matrix remain explicit work.
