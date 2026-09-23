@@ -19,3 +19,7 @@ endif()
 if(TRICK_BUILD_CORE_METADATA)
     include("${PROJECT_SOURCE_DIR}/cmake/TrickCoreCodegen.cmake")
 endif()
+
+if(TRICK_BUILD_CORE)
+    include("${PROJECT_SOURCE_DIR}/cmake/TrickCore.cmake")
+endif()
