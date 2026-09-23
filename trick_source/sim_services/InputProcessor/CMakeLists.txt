@@ -35,9 +35,25 @@ function(trick_enable_runtime target)
 endfunction()
 
 if(BUILD_TESTING)
+    add_executable(trick_python_unicode "${PROJECT_SOURCE_DIR}/trick_source/trick_swig/tests/PythonUnicode.cpp")
+    target_compile_features(trick_python_unicode PRIVATE cxx_std_17)
+    target_include_directories(trick_python_unicode PRIVATE "${PROJECT_SOURCE_DIR}/include")
+    target_link_libraries(trick_python_unicode PRIVATE Trick::Python)
+    add_test(NAME runtime.python_unicode COMMAND trick_python_unicode)
+    set_tests_properties(runtime.python_unicode PROPERTIES LABELS "runtime;python")
     add_executable(trick_python_smoke "${PROJECT_SOURCE_DIR}/cmake/tests/PythonInput.cpp")
     trick_enable_runtime(trick_python_smoke)
     add_test(NAME runtime.python_input COMMAND trick_python_smoke)
-    set_tests_properties(runtime.python_input PROPERTIES LABELS "runtime;python" TIMEOUT 120
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/startup_input.py" "trick_startup_input_ran = True\n")
+    add_test(NAME runtime.python_input_unset_path COMMAND trick_python_smoke
+        "${CMAKE_CURRENT_BINARY_DIR}/startup_input.py")
+    add_test(NAME runtime.python_startup_failure COMMAND trick_python_smoke
+        "${CMAKE_CURRENT_BINARY_DIR}/startup_input.py" expect-startup-failure)
+    set_tests_properties(runtime.python_input runtime.python_input_unset_path runtime.python_startup_failure
+        PROPERTIES LABELS "runtime;python" TIMEOUT 120
         ENVIRONMENT "PYTHONPATH=${TRICK_PYTHON_STAGE};TRICK_HOME=${PROJECT_SOURCE_DIR};TRICK_PYTHON_PATH=${TRICK_PYTHON_STAGE};PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(runtime.python_input_unset_path PROPERTIES
+        ENVIRONMENT_MODIFICATION "TRICK_PYTHON_PATH=unset:")
+    set_tests_properties(runtime.python_startup_failure PROPERTIES
+        ENVIRONMENT_MODIFICATION "TRICK_HOME=unset:")
 endif()

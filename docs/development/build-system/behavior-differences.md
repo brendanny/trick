@@ -68,6 +68,25 @@ are local provisioning details, not hard-coded in the project. The built ICG
 itself passes its smoke test without a library-search environment override.
 Generation/output changes remain B1; no claim is made yet for a complete SDK.
 
+## Review follow-up: diagnostics and Python startup
+
+- **BD-06, ICG error reporting:** the old user-code failure summary,
+  `Trick build was terminated due to error in user code!`, was written to stdout.
+  It is now `ICG failed due to parsing errors; see diagnostics above.` on stderr
+  for both Make-built and CMake-built ICG, in every output layout. External
+  scripts must check the exit status and capture stderr rather than match the old
+  stdout string. Make-built `--output-root` also prints system-header errors
+  directly; it no longer suggests running another executable. Parsing macros and
+  include order are unchanged by output selection. The shared system-error test
+  exercises both actual builds on Ubuntu 24.04.3 x86_64, GCC 13.3.0, LLVM 14.0.6,
+  glibc 2.39, GNU Make 4.3 and CMake 3.26.0.
+- **BD-07, Python startup (prerequisite PR #5):** an absent `TRICK_PYTHON_PATH`
+  is treated as empty. Other startup failures terminate through the executive
+  exception instead of returning an ignored status and skipping the input file.
+  Native runtime tests exercise the missing-path and fatal-error cases on every
+  Python/SWIG CI combination; local qualification uses Python 3.12.14/SWIG 4.2.0
+  on the Ubuntu tuple above. Additional platform results belong to the CI run.
+
 Maintain this register with machine-readable environment/test records alongside it. Every difference gets: ID; user-visible effect; legacy source behavior; new behavior; rationale; affected platform/OS/tool versions; implementation PR; reproduction; compatibility action; and status.
 
 Status vocabulary: **proposed**, **implemented/unverified**, **verified**, **known regression**, **retired**. The entries below are **proposed**, including the source-installer prefix and optional feature defaults; A1 does not approve those choices. See the [decision register](README.md#decisions-to-finalize). Their environment IDs refer to [qualification matrix](qualification.md); a result cannot become verified while its exact version fields are unresolved.
@@ -137,5 +156,19 @@ replaced by the runtime option.
 
 The B stack does not supply an installed SDK, external ER7/CheckpointHelper
 variants, or distribution features scheduled in later layers. See each layer's
-usage document for its exact boundary. GCC 8.5/RHEL 8, older Python/SWIG tuples,
-and native platform qualification beyond the CI matrix remain explicit work.
+usage document for its exact boundary. Native platform qualification beyond the completed CI matrix remains explicit work;
+EL8 container results do not qualify an EL8 host kernel or every LLVM/GCC pairing.
+
+## Python compatibility follow-up
+
+The independent prerequisite branch fixes the Python 2 C API build regression
+also present on upstream master after the `std::wstring` changes in #2117.
+The CMake stack consumes that fix without owning the SWIG header changes.
+
+| ID | Previous behavior | Corrected behavior | Verified platform/tool scope |
+| --- | --- | --- | --- |
+| BD-21 | Python 3 Unicode to `std::string` used `PyUnicode_AsUTF8` followed by a NUL-terminated constructor, truncating at an embedded NUL. | Length-aware UTF-8 conversion preserves every byte, including embedded NULs. Wide-string conversion continues to preserve lengths. This changes Python 3 behavior as well as restoring Python 2 compilation. | Ubuntu 24.04 x86_64, GCC 13.3, Python 3.12.14 locally; previous native CI: Rocky 8 x86_64, GCC 8.5/Python 2.7.18 and 3.6.8; Ubuntu 24.04/Python 3.11.16; macOS 26 arm64/AppleClang 21/Python 3.11.9. All used CMake 3.26.0; the standalone test also runs without CMake or SWIG. |
+
+The regression test uses `a\0é🚀` and checks both the complete contents and length.
+Python 2/SWIG 3 compatibility ends in Trick 27; this does not change the separate
+Autotools timeline (deprecate in Trick 27, remove in Trick 29).

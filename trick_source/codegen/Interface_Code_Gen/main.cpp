@@ -307,8 +307,8 @@ int runICG(int argc, char* argv[])
     ci.getSourceManager().setMainFileID(
         ci.getSourceManager().createFileID(fileEntryRef, clang::SourceLocation(), clang::SrcMgr::C_User));
 #endif
-    ICGDiagnosticConsumer* icgDiagConsumer
-        = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd, native_frontend);
+    ICGDiagnosticConsumer* icgDiagConsumer = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd,
+                                                                       native_frontend || !output_root.empty());
     ci.getDiagnostics().setClient(icgDiagConsumer);
     ci.getDiagnosticClient().BeginSourceFile(ci.getLangOpts(), &ci.getPreprocessor());
     clang::ParseAST(ci.getSema());
@@ -327,7 +327,7 @@ int runICG(int argc, char* argv[])
     if (icgDiagConsumer->error_in_user_code
         || ((native_frontend || !output_root.empty()) && ci.getDiagnostics().hasErrorOccurred()))
     {
-        std::cout << color(ERROR, "Trick build was terminated due to error in user code!") << std::endl;
+        std::cerr << color(ERROR, "ICG failed due to parsing errors; see diagnostics above.") << std::endl;
         exit(-1);
     }
 

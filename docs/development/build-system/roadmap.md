@@ -10,7 +10,7 @@ Before the complete runtime exists, CMake is explicitly a developer preview with
 
 ### Stack A — foundation and the host generator
 
-Base: nasa/trick PR #2190 at `62d6091db51c25e73874f62f670fdcb3772b6220`; then the merged result on `master` once that PR lands. A1 is implemented on `brendanny/trick:cmake/01-contract`.
+Base: nasa/trick PR #2190 at `62d6091db51c25e73874f62f670fdcb3772b6220`; then the merged result on `master` once that PR lands. The implementation has now been rebased onto upstream master `8b25adf1`, which includes merged PR 2190; A1–B6 are consolidated in fork PR #1 above prerequisite PR #5. The original per-layer branch names below are planning labels, not active PR heads.
 
 | PR / branch suffix | Scope and useful result | Acceptance before merge |
 | --- | --- | --- |

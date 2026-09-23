@@ -18,12 +18,33 @@ extern "C"
 #define TRICK_PY_INIT(module) init##module
 #endif
 
-    // Call before Py_Initialize. The executable decides when Python starts.
+    // Python 3 registers before initialization. IPPython's Python 2 hook runs
+    // afterward, so initialize those modules directly in the existing runtime.
     int trick_init_core_python_modules()
     {
         if (Py_IsInitialized())
         {
+#if PY_MAJOR_VERSION < 3
+            init_sim_services();
+            if (PyErr_Occurred())
+            {
+                return -1;
+            }
+            init_swig_double();
+            if (PyErr_Occurred())
+            {
+                return -1;
+            }
+            init_swig_int();
+            if (PyErr_Occurred())
+            {
+                return -1;
+            }
+            init_swig_ref();
+            return PyErr_Occurred() ? -1 : 0;
+#else
             return -1;
+#endif
         }
         if (PyImport_AppendInittab("_sim_services", TRICK_PY_INIT(_sim_services)) != 0)
         {

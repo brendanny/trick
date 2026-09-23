@@ -26,6 +26,7 @@ jobs:
           - {swig: '3', python: '2'}
           - {swig: '3', python: '3'}
           - {swig: '4', python: '2'}
+          - {swig: '4', python: '3'}
     steps:
       - name: Install compatibility toolchain
         run: |
@@ -41,6 +42,10 @@ jobs:
           /opt/cmake-tools/bin/pip install cmake==3.26.0 ninja==1.11.1.1
           echo /opt/cmake-tools/bin >> "$GITHUB_PATH"
       - uses: actions/checkout@v7
+      - name: Trust this container checkout for source cleanliness checks
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse --show-toplevel
       - name: Configure and verify compatibility selection
         shell: bash
         run: |
@@ -48,12 +53,18 @@ jobs:
           test "$(gcc -dumpfullversion)" = 8.5.0
           swig -version | grep 'SWIG Version ${{ matrix.swig }}\.'
           /usr/bin/python${{ matrix.python }} --version
+          legacy_options=()
+          if [ '${{ matrix.swig }}' = 3 ]; then
+            legacy_options+=(-DTRICK_SWIG_MAJOR=3)
+          fi
+          if [ '${{ matrix.python }}' = 2 ]; then
+            legacy_options+=(-DTRICK_PYTHON_MAJOR=2)
+          fi
           cmake -S . -B "$RUNNER_TEMP/trick-runtime" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_PYTHON=ON \
             -DTRICK_BUILD_RUNTIME_TESTS=ON -DTRICK_BUILD_UTILITY_TESTS=ON \
-            -DTRICK_SWIG_MAJOR=${{ matrix.swig }} -DSWIG_EXECUTABLE=/usr/bin/swig \
+            "${legacy_options[@]}" -DSWIG_EXECUTABLE=/usr/bin/swig \
             -DCMAKE_WARN_DEPRECATED=OFF \
-            -DTRICK_PYTHON_MAJOR=${{ matrix.python }} \
             -DPython${{ matrix.python }}_EXECUTABLE=/usr/bin/python${{ matrix.python }} \
             -DLLVM_DIR="$(llvm-config --cmakedir)" 2>&1 | tee "$RUNNER_TEMP/configure.log"
           if [ '${{ matrix.swig }}' = 3 ]; then
@@ -61,6 +72,13 @@ jobs:
           fi
           if [ '${{ matrix.python }}' = 2 ]; then
             grep 'DEPRECATED: Python 2' "$RUNNER_TEMP/configure.log"
+          fi
+          if [ '${{ matrix.swig }}:${{ matrix.python }}' = 4:3 ]; then
+            grep '^TRICK_SWIG_MAJOR:STRING=4$' "$RUNNER_TEMP/trick-runtime/CMakeCache.txt"
+            grep '^TRICK_PYTHON_MAJOR:STRING=3$' "$RUNNER_TEMP/trick-runtime/CMakeCache.txt"
+            if grep -E 'DEPRECATED: (SWIG|Python)' "$RUNNER_TEMP/configure.log"; then
+              exit 1
+            fi
           fi
       - name: Build and test the complete compatibility runtime
         run: |

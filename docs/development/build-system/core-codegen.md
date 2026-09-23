@@ -33,9 +33,13 @@ as failures and advertise Clang's GNU compatibility version
 24.04/GCC 13.3/LLVM 14.0.6/glibc 2.39 tuple, impersonating GCC 13 selected
 unsupported `_Float32` declarations and malloc attributes in glibc. This change
 uses one build-time frontend policy (`TRICK_ICG_CMAKE_CONFIG`) for configured
-include ordering, GNU compatibility macros, and strict diagnostics. Neither
-`-o` nor `--output-root` selects frontend semantics. Make-built ICG retains its
-historical frontend policy; explicit output still refuses to stamp parse errors.
+include ordering, GNU compatibility macros, and strict failure handling. Neither
+`-o` nor `--output-root` changes parsing macros or include ordering. Make-built
+ICG retains its historical parsing policy; `--output-root` also prints all
+system-header errors on stderr and refuses to stamp parse errors. This diagnostic
+visibility does not select a different parser dialect. The Linux ICG CI lane
+builds the actual legacy Makefile and runs the same system-error regression as
+the native executable.
 The old claim that all legacy callers were unchanged was too broad: a caller
 using a **CMake-built** ICG receives this native policy with either output layout.
 The native ICG also leaves explicitly requested system directories in their
@@ -55,11 +59,15 @@ version can expose a different layout to Clang's 4.2.1 compatibility macros.
 The core inventory currently has no version-number-gated model fields, but that
 does not qualify user simulations. C1 must report the parser/model compiler
 policy and qualify such headers before advertising general simulation support.
-An upstream bug report should reproduce GCC 13.3 + LLVM 14.0.6 + glibc 2.39 by
-parsing `files_to_ICG.hh` with host-GCC predefines and exposing system errors;
+The upstream report reproduces GCC 13.3 + LLVM 14.0.6 + glibc 2.39 with a reduced `<cstdlib>` header and host-GCC predefines;
 the unsupported `_Float32`/malloc attributes are the original failure. Forcing
 4.2.1 is a documented compatibility choice, not a fix for arbitrary GCC-gated
 models. The issue is independent of output placement and of the icg2 contract.
+
+The [upstream report draft](icg-frontend-issue.md) contains a separately verified
+Clang-driver reproduction and the model-layout counterexample. Filing was
+attempted on 2026-09-23 but GitHub returned HTTP 403 (integration lacks access).
+File and resolve the policy issue before C1 advertises general simulation support.
 
 BD-01/BD-18: CMake output ownership and native depfiles replace timestamp checks
 and recursive Make. Metadata is a dedicated archive pending B5/B6 linkage;

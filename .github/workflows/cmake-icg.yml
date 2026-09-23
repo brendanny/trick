@@ -48,6 +48,14 @@ jobs:
           ctest --test-dir build/cmake/icg --output-on-failure --parallel 4
           git diff --exit-code
           test -z "$(git ls-files --others --exclude-standard)"
+      - name: Make-built ICG system-header diagnostics
+        if: runner.os == 'Linux'
+        run: |
+          python cmake/tests/verify_make_icg.py --source . --work "$RUNNER_TEMP/make-icg" \
+            --llvm-root /usr/lib/llvm-14 --udunits-include /usr/include \
+            --udunits-library /usr/lib/x86_64-linux-gnu/libudunits2.so
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
       - name: macOS dynamic library inspection
         if: runner.os == 'macOS'
         run: otool -L build/cmake/icg/trick_source/codegen/Interface_Code_Gen/trick-ICG

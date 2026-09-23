@@ -25,7 +25,7 @@ if(TRICK_TEST_OLD_CMAKE)
     set_tests_properties(bootstrap.minimum-version PROPERTIES LABELS bootstrap TIMEOUT 30)
 endif()
 
-foreach(test_case IN ITEMS minimal invalid-profile gcc-8.4 gcc-8.5 llvm-selected llvm-shared llvm-old llvm-mismatch llvm-header-mismatch llvm-missing udunits-root udunits-selected udunits-mismatch python-major)
+foreach(test_case IN ITEMS minimal invalid-profile gcc-8.4 gcc-8.5 llvm-selected llvm-shared llvm-old llvm-mismatch llvm-header-mismatch llvm-missing udunits-root udunits-selected udunits-mismatch python-major swig-default-legacy swig-legacy)
     string(REPLACE "gcc-" "" test_version "${test_case}")
     add_test(NAME "dependencies.${test_case}"
         COMMAND "${CMAKE_COMMAND}"

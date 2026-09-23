@@ -9,6 +9,7 @@ function(configure_case expected)
         -G "${GENERATOR}" "-DCMAKE_MAKE_PROGRAM=${MAKE_PROGRAM}"
         "-DCMAKE_C_COMPILER=${C_COMPILER}" "-DCMAKE_CXX_COMPILER=${CXX_COMPILER}"
         ${ARGN} RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+    set(configure_log "${output}\n${error}" PARENT_SCOPE)
     if(expected STREQUAL "pass")
         if(NOT result EQUAL 0)
             message(FATAL_ERROR "Configure failed: ${output}\n${error}")
@@ -76,6 +77,24 @@ elseif(CASE STREQUAL "udunits-root")
 elseif(CASE STREQUAL "python-major")
     file(WRITE "${source}/CMakeLists.txt" "${preamble}include(\"${TRICK_SOURCE}/cmake/TrickPython.cmake\")\n")
     configure_case("TRICK_PYTHON_MAJOR must be 2 or 3" -DTRICK_PYTHON_MAJOR=4)
+elseif(CASE MATCHES "^swig-")
+    # Exercise the real FindSWIG version rejection without requiring SWIG 3 on
+    # every host. This executable advertises only the discovery interface.
+    set(prefix "${TEST_ROOT}/swig3")
+    file(MAKE_DIRECTORY "${prefix}")
+    file(WRITE "${prefix}/swig.swg" "")
+    file(WRITE "${prefix}/swig" "#!/bin/sh\ncase \"$1\" in\n-version) echo 'SWIG Version 3.0.12';;\n-swiglib) echo '${prefix}';;\n-help) echo ' -python - Generate Python wrappers';;\n*) exit 1;;\nesac\n")
+    file(CHMOD "${prefix}/swig" PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+    file(WRITE "${source}/CMakeLists.txt" "${preamble}include(\"${TRICK_SOURCE}/cmake/TrickSWIG.cmake\")\n")
+    if(CASE STREQUAL "swig-default-legacy")
+        configure_case("-DTRICK_SWIG_MAJOR=3" "-DSWIG_EXECUTABLE=${prefix}/swig" "-DSWIG_DIR=${prefix}")
+    else()
+        configure_case(pass -DTRICK_SWIG_MAJOR=3 -DCMAKE_WARN_DEPRECATED=OFF
+            "-DSWIG_EXECUTABLE=${prefix}/swig" "-DSWIG_DIR=${prefix}")
+        if(NOT configure_log MATCHES "DEPRECATED: SWIG 3.0.12" OR NOT configure_log MATCHES "Trick 27")
+            message(FATAL_ERROR "Missing SWIG 3 deprecation/removal warning: ${configure_log}")
+        endif()
+    endif()
 endif()
 
 if(CASE STREQUAL "python-embed" OR CASE STREQUAL "python-mismatch")

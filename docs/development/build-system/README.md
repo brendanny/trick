@@ -12,10 +12,12 @@ framework Make build to a replacement CMake implementation. It is the first
 reviewable layer, A1. It changes documentation only; it does not make the
 existing CMake implementation usable.
 
-The source baseline is [nasa/trick PR 2190](https://github.com/nasa/trick/pull/2190)
+The original source inventory baseline is [nasa/trick PR 2190](https://github.com/nasa/trick/pull/2190)
 at `62d6091db51c25e73874f62f670fdcb3772b6220`. Source observations are pinned
-to that revision. Reconcile this inventory when the prerequisite lands or
-changes. The separate draft CMake implementation is not a design input.
+to that revision. The implementation is now rebased onto upstream master
+`8b25adf131b4886dfc11f1229c1acce621646326`, which includes merged PR 2190.
+The original inventory remains historical evidence; current build tests qualify
+the rebased tree. The separate draft CMake implementation is not a design input.
 
 ## Contents
 
@@ -138,7 +140,7 @@ disposition.
 
 | ID | Proposal / open question | Resolution needed by |
 | --- | --- | --- |
-| DEC-01 | Resolved: default to Python 3/SWIG 4; explicitly allow Python 2/SWIG 3 with prominent deprecation warnings. Rocky 8 compatibility CI covers both Python majors with SWIG 3. No removal release is scheduled. | A4/B6; BD-07 |
+| DEC-01 | Resolved: default to Python 3/SWIG 4; explicitly allow Python 2/SWIG 3 with prominent deprecation warnings. Rocky 8 CI covers all four Python 2/3 and SWIG 3/4 combinations. Python 2 and SWIG 3 support will be removed in Trick 27. Autotools removal remains Trick 29. | A4/B6; BD-07 |
 | DEC-02 | Python-standard-library source installer and a versioned user prefix such as `$HOME/.local/opt/trick/<version>`; exact launcher minimum and prefix are unsettled. | E1; BD-02/11 |
 | DEC-03 | Normal profile enables runtime, ICG, ER7, data products and Java; X11/HDF5/GSL/CivetWeb use `AUTO`/`ON`/`OFF`. Resolve reproducible release defaults and headless behavior. | A4 and each component PR; BD-09 |
 | DEC-04 | Exact maintained macOS releases/architectures and Java/Python/package tuples; source-installer policy for older RHEL 8 minors. Existing documented platform scope is the starting point. | A4/A5 and qualification F1 |
@@ -160,9 +162,11 @@ and `not-run`; never promote it to a verified result without actual execution.
 
 ## Branching
 
-A1 is based on PR 2190's inspected head and lives on
-`brendanny/trick:cmake/01-contract`. A native GitHub stack must keep all branches
-within one repository. A fork PR into `nasa/trick` is not a native cross-fork
-stack; use dependent PRs or arrange same-repository upstream branches when
-landing the series. Rebase onto PR 2190's merged result before merging this
-work independently.
+[PR #5](https://github.com/brendanny/trick/pull/5) contains three independent
+prerequisite commits based directly on upstream master `8b25adf1`.
+[PR #1](https://github.com/brendanny/trick/pull/1) targets that prerequisite
+branch and contains A1–B6 plus review fixes as a linear series. Fork branch
+`upstream/master` records the upstream base for PR #5; the fork's own master is
+not rewritten. PRs #2, #3 and #4 are closed and superseded by PR #1.
+A native GitHub stack must keep its branches within one repository; landing
+upstream can use dependent fork PRs or same-repository upstream branches.

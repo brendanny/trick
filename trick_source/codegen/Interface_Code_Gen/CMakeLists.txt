@@ -119,4 +119,10 @@ if(BUILD_TESTING)
         "-DSYSTEM_INCLUDES=${icg_system_includes}"
         -P "${PROJECT_SOURCE_DIR}/cmake/tests/ICGOutputs.cmake")
     set_tests_properties(icg.outputs PROPERTIES LABELS icg TIMEOUT 120)
+    add_test(NAME icg.system_errors COMMAND "${CMAKE_COMMAND}"
+        "-DICG=$<TARGET_FILE:trick-ICG>"
+        "-DTRICK_SOURCE=${PROJECT_SOURCE_DIR}"
+        "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/system-errors"
+        -P "${PROJECT_SOURCE_DIR}/cmake/tests/ICGSystemErrors.cmake")
+    set_tests_properties(icg.system_errors PROPERTIES LABELS icg TIMEOUT 120)
 endif()

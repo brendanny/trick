@@ -8,7 +8,7 @@ set(python_package "Python${TRICK_PYTHON_MAJOR}")
 # Request both in one call: never pair a python-config from a different install.
 find_package(${python_package} REQUIRED COMPONENTS Interpreter Development.Embed)
 if(TRICK_PYTHON_MAJOR STREQUAL "2")
-    message(WARNING "DEPRECATED: Python ${Python2_VERSION} (${Python2_EXECUTABLE}) is enabled for compatibility only. Upgrade to Python 3 and configure with -DTRICK_PYTHON_MAJOR=3. Python 2 support will be removed in a future release; no removal version is scheduled yet.")
+    message(WARNING "DEPRECATED: Python ${Python2_VERSION} (${Python2_EXECUTABLE}) is enabled for compatibility only. Upgrade to Python 3 and configure with -DTRICK_PYTHON_MAJOR=3. Python 2 support will be removed in Trick 27.")
 endif()
 add_library(Trick::Python ALIAS ${python_package}::Python)
 
