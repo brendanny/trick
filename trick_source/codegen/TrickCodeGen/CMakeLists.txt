@@ -23,18 +23,20 @@ if(NOT resource_result EQUAL 0 OR NOT EXISTS "${ICG_RESOURCE_DIR}/include/stddef
 endif()
 configure_file(extractor/Config.hh.in generated/Config.hh @ONLY)
 
-add_executable(trick-icg-extract extractor/main.cpp extractor/Facts.cpp
+add_library(icg-extract-core OBJECT extractor/Facts.cpp
     extractor/Sources.cpp extractor/Selection.cpp extractor/Evidence.cpp
     extractor/TypeNode.cpp extractor/TypeGraph.cpp extractor/DeclarationIdentity.cpp extractor/TemplateFacts.cpp)
-set_target_properties(trick-icg-extract PROPERTIES
-    CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
-target_include_directories(trick-icg-extract SYSTEM PRIVATE
-    ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
-target_include_directories(trick-icg-extract PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_compile_options(trick-icg-extract PRIVATE -Wall -Wextra -Wpedantic)
-if(NOT LLVM_ENABLE_RTTI)
-    target_compile_options(trick-icg-extract PRIVATE -fno-rtti)
-endif()
+add_executable(trick-icg-extract extractor/main.cpp $<TARGET_OBJECTS:icg-extract-core>)
+foreach(target IN ITEMS trick-icg-extract icg-extract-core)
+    set_target_properties(${target} PROPERTIES
+        CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+    target_include_directories(${target} SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
+    target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    if(NOT LLVM_ENABLE_RTTI)
+        target_compile_options(${target} PRIVATE -fno-rtti)
+    endif()
+endforeach()
 # RHEL/Rocky ship the combined C++ library without the component archives.
 # Respect the package's supported linkage instead of inventing -lclangTooling.
 set(ICG_CLANG_LINKAGE AUTO CACHE STRING "Clang linkage: AUTO, SHARED, or COMPONENTS")
@@ -44,10 +46,14 @@ if(NOT ICG_CLANG_LINKAGE MATCHES "^(AUTO|SHARED|COMPONENTS)$")
 endif()
 if(ICG_CLANG_LINKAGE STREQUAL "SHARED" OR
    (ICG_CLANG_LINKAGE STREQUAL "AUTO" AND CLANG_LINK_CLANG_DYLIB AND TARGET clang-cpp))
-    target_link_libraries(trick-icg-extract PRIVATE clang-cpp LLVM)
+    set(ICG_LINK_LIBRARIES clang-cpp LLVM)
 else()
-    target_link_libraries(trick-icg-extract PRIVATE clangTooling clangIndex)
+    set(ICG_LINK_LIBRARIES clangTooling clangIndex)
 endif()
+
+foreach(target IN ITEMS trick-icg-extract icg-extract-core)
+    target_link_libraries(${target} PRIVATE ${ICG_LINK_LIBRARIES})
+endforeach()
 
 include(CTest)
 if(BUILD_TESTING)
@@ -70,6 +76,19 @@ if(BUILD_TESTING)
     target_compile_options(icg-type-owner-test PRIVATE ${ICG_TEST_COMPILE_OPTIONS})
     target_link_libraries(icg-type-owner-test PRIVATE ${ICG_TEST_LINK_LIBRARIES})
     add_test(NAME icg_type_missing_owner COMMAND icg-type-owner-test)
+    add_executable(icg-worklist-test extractor/main.cpp $<TARGET_OBJECTS:icg-extract-core>)
+    set_target_properties(icg-worklist-test PROPERTIES
+        CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+    target_include_directories(icg-worklist-test SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
+    target_include_directories(icg-worklist-test PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    target_compile_options(icg-worklist-test PRIVATE ${ICG_TEST_COMPILE_OPTIONS})
+    target_compile_definitions(icg-worklist-test PRIVATE ICG_TEST_WORKLIST=1)
+    target_link_libraries(icg-worklist-test PRIVATE ${ICG_TEST_LINK_LIBRARIES})
+    add_test(NAME icg_worklist_order
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_worklist.py"
+            --extractor "$<TARGET_FILE:trick-icg-extract>"
+            --worklist-extractor "$<TARGET_FILE:icg-worklist-test>"
+            --clang "${ICG_CLANG_EXECUTABLE}")
     # Homebrew's libc++ is separate from the resource dir. Map that root and
     # explicitly select the matching package's headers for the container probe;
     # the embedded driver must not find another installed version by accident.

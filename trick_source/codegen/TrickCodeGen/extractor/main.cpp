@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <deque>
 #include <memory>
 #include <set>
 
@@ -213,7 +214,7 @@ namespace
             std::unique_ptr<trick::icg::TypeGraph> types;
             std::unique_ptr<trick::icg::DeclarationIdentity> identities;
             std::unique_ptr<trick::icg::TemplateFacts> templates;
-            std::vector<const clang::NamedDecl*> pending;
+            std::deque<const clang::NamedDecl*> pending;
             std::set<std::string> queued;
 
             std::string declarationID(const clang::NamedDecl* decl) { return identities->get(decl).id; }
@@ -1171,22 +1172,40 @@ namespace
                     { unsupported(ctx, decl, message); });
                 // A worklist closes record/alias references without recursively
                 // expanding self-referential records during type interning.
-                for (size_t index = 0; index < pending.size(); ++index)
-                    if (llvm::isa<clang::ClassTemplateDecl, clang::ClassTemplatePartialSpecializationDecl>(
-                            pending[index]))
-                        classTemplate(ctx, pending[index]);
-                    else if (const auto* value = llvm::dyn_cast<clang::CXXRecordDecl>(pending[index]))
+                while (!pending.empty())
+                {
+                    const auto* next = pending.front();
+#ifdef ICG_TEST_WORKLIST
+                    // Built only into the order-regression executable. Alter the
+                    // live queue, including dependencies discovered by extraction.
+                    const auto* order = std::getenv("ICG_TEST_WORKLIST_ORDER");
+                    if (order && std::string(order) == "lifo")
+                    {
+                        next = pending.back();
+                        pending.pop_back();
+                    }
+                    else
+                        pending.pop_front();
+                    llvm::errs() << "ICG_TEST_VISIT " << serialize(qualifiedDisplayName(next, ctx.getPrintingPolicy()))
+                                 << '\n';
+#else
+                    pending.pop_front();
+#endif
+                    if (llvm::isa<clang::ClassTemplateDecl, clang::ClassTemplatePartialSpecializationDecl>(next))
+                        classTemplate(ctx, next);
+                    else if (const auto* value = llvm::dyn_cast<clang::CXXRecordDecl>(next))
                         record(ctx, value);
-                    else if (const auto* value = llvm::dyn_cast<clang::EnumDecl>(pending[index]))
+                    else if (const auto* value = llvm::dyn_cast<clang::EnumDecl>(next))
                         enumeration(ctx, value);
-                    else if (const auto* value = llvm::dyn_cast<clang::TypedefNameDecl>(pending[index]))
+                    else if (const auto* value = llvm::dyn_cast<clang::TypedefNameDecl>(next))
                         alias(ctx, value);
-                    else if (const auto* value = llvm::dyn_cast<clang::NamespaceDecl>(pending[index]))
+                    else if (const auto* value = llvm::dyn_cast<clang::NamespaceDecl>(next))
                         namespaceDecl(ctx, value);
-                    else if (const auto* value = llvm::dyn_cast<clang::FunctionDecl>(pending[index]))
+                    else if (const auto* value = llvm::dyn_cast<clang::FunctionDecl>(next))
                         callable(ctx, value);
                     else
-                        namespaceAlias(ctx, llvm::cast<clang::NamespaceAliasDecl>(pending[index]));
+                        namespaceAlias(ctx, llvm::cast<clang::NamespaceAliasDecl>(next));
+                }
                 if (facts.failed)
                     return;
                 // Namespace membership is the selected closure, never all sibling

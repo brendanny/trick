@@ -121,6 +121,20 @@ still require explicit unsupported-declaration
 errors and empty stdout; they do not claim successful STL extraction. The earlier
 vector-only probe did not establish this combined-container behavior.
 
+The `icg_worklist_order` CTest compares production extraction with a test-only
+executable that drains the live declaration queue in FIFO and LIFO order, including
+newly discovered dependencies. Successful runs must produce byte-identical facts
+and diagnostics; traces verify that the same declarations were visited in a
+different order. Coverage includes the semantic fixture corpus, nested template
+dependencies, concrete alias owners, and implicit/defaulted exception specifications.
+A header accepted by plain Clang parsing but rejected during implicit exception
+specification evaluation must publish no facts in either order. Failed runs compare
+complete diagnostic multisets; dependency closure may stop earlier after an error.
+The production executable has neither the scheduling environment hook nor traces.
+This regression gate runs in the existing CTest matrix. It provides evidence for
+these fixtures, not a proof of order independence for arbitrary C++ inputs; Sema
+preparation still occurs during extraction.
+
 A separate CTest uses a real parsed template to exercise missing type owners.
 `TypeGraph::get` rejects a null owner with `ICG_TYPE_OWNER` before alias resolution,
 dependency callbacks, or interning; the diagnostic has no fabricated source.
