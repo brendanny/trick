@@ -19,24 +19,24 @@
 #include "llvm/Support/VirtualFileSystem.h"
 #endif
 
+#include "CommentSaver.hh"
+#include "FindTrickICG.hh"
+#include "HeaderSearchDirs.hh"
+#include "ICGASTConsumer.hh"
+#include "ICGDiagnosticConsumer.hh"
+#include "PrintAttributes.hh"
+#include "TranslationUnitVisitor.hh"
+#include "Utilities.hh"
+
 #include "clang/Basic/Builtins.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Basic/TargetOptions.h"
-#include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/TargetOptions.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Parse/ParseAST.h"
-
-#include "ICGDiagnosticConsumer.hh"
-#include "ICGASTConsumer.hh"
-#include "HeaderSearchDirs.hh"
-#include "CommentSaver.hh"
-#include "TranslationUnitVisitor.hh"
-#include "PrintAttributes.hh"
-#include "Utilities.hh"
-#include "FindTrickICG.hh"
 
 #ifdef TRICK_ICG_CMAKE_CONFIG
 #include "TrickICGConfig.hh"
