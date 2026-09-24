@@ -27,6 +27,10 @@ endif()
 option(TRICK_BUILD_CORE_METADATA "Generate and compile core ICG metadata" OFF)
 option(TRICK_BUILD_CORE "Build native core runtime services" OFF)
 option(TRICK_BUILD_PYTHON "Build the embedded Python input processor and SWIG modules" OFF)
+option(TRICK_BUILD_SDK "Build a simulation SDK using the existing Trick simulation tools" OFF)
+if(TRICK_BUILD_SDK)
+    set(TRICK_BUILD_PYTHON ON)
+endif()
 if(TRICK_BUILD_PYTHON)
     set(TRICK_BUILD_CORE ON)
 endif()
@@ -62,13 +66,16 @@ endif()
 if(TRICK_BUILD_MEMORY_MANAGER)
     add_subdirectory(trick_source/sim_services)
 endif()
+if(TRICK_BUILD_SDK)
+    include(cmake/TrickSDK.cmake)
+endif()
 if(BUILD_TESTING)
     add_subdirectory(cmake/tests)
 endif()
 
-message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (B6)")
+message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (C1)")
 message(WARNING
-    "This preview builds native runtime components but cannot install a Trick SDK yet. "
+    "TRICK_BUILD_SDK enables a build-tree simulation SDK; installation follows in C2. "
     "Use the documented Autoconf/Make route for a usable installation. "
     "See docs/development/build-system/python-input.md.")
 

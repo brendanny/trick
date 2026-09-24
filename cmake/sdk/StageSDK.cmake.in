@@ -1,0 +1,26 @@
+cmake_minimum_required(VERSION 3.26)
+set(sdk "@TRICK_SDK_ROOT@")
+file(MAKE_DIRECTORY "${sdk}/@CMAKE_INSTALL_LIBDIR@" "${sdk}/share/trick/xml")
+# Copy scripts rather than link them: their RealBin must identify this SDK.
+file(COPY "@PROJECT_SOURCE_DIR@/bin" "@PROJECT_SOURCE_DIR@/libexec" "@PROJECT_SOURCE_DIR@/share"
+    DESTINATION "${sdk}" PATTERN "__pycache__" EXCLUDE PATTERN ".venv" EXCLUDE
+    PATTERN "config_user.mk" EXCLUDE)
+file(COPY "@PROJECT_SOURCE_DIR@/include" DESTINATION "${sdk}")
+file(COPY "@PROJECT_SOURCE_DIR@/trick_source" DESTINATION "${sdk}"
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hh" PATTERN "*.hpp" PATTERN "*.ipp")
+file(COPY_FILE "@PROJECT_BINARY_DIR@/sdk-config/$<CONFIG>/config_user.mk"
+    "${sdk}/share/trick/makefiles/config_user.mk" ONLY_IF_DIFFERENT)
+file(COPY_FILE "@PROJECT_BINARY_DIR@/sdk-config/$<CONFIG>/cmake-sdk.mk"
+    "${sdk}/share/trick/makefiles/cmake-sdk.mk" ONLY_IF_DIFFERENT)
+file(COPY_FILE "@PROJECT_BINARY_DIR@/sdk-model-predefines.txt"
+    "${sdk}/share/trick/model-predefines.txt" ONLY_IF_DIFFERENT)
+file(WRITE "${sdk}/share/trick/sdk.env"
+    "TRICK_CC=@CMAKE_C_COMPILER@\nTRICK_CXX=@CMAKE_CXX_COMPILER@\nTRICK_LIB_DIR=@SDK_ROOT@/@CMAKE_INSTALL_LIBDIR@\nTRICK_CMAKE_SDK=1\nUSE_ER7_UTILS=@TRICK_USE_ER7_UTILS@\n")
+@sdk_stage_libraries@
+file(COPY_FILE "$<TARGET_FILE:trick-ICG>" "${sdk}/bin/trick-ICG" ONLY_IF_DIFFERENT)
+file(COPY_FILE "@PROJECT_BINARY_DIR@/trick_source/sim_services/metadata/$<CONFIG>/classes.resource"
+    "${sdk}/share/trick/xml/sim_services_classes.resource" ONLY_IF_DIFFERENT)
+foreach(module IN ITEMS sim_services swig_double swig_int swig_ref)
+    file(COPY_FILE "@PROJECT_BINARY_DIR@/python/${module}.py"
+        "${sdk}/share/trick/swig/${module}.py" ONLY_IF_DIFFERENT)
+endforeach()

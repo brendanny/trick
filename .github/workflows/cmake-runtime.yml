@@ -34,10 +34,13 @@ jobs:
           dnf install -y epel-release dnf-plugins-core
           dnf config-manager --enable powertools
           dnf module enable -y swig:${{ matrix.swig }}.0
-          dnf install -y git gcc gcc-c++ make llvm-devel llvm-static clang clang-devel \
+          # Mirrors can briefly advertise newer AppStream packages before
+          # matching BaseOS dependencies arrive. Require a complete solvable
+          # transaction; exact GCC/SWIG floor checks below remain mandatory.
+          dnf install -y --nobest git gcc gcc-c++ make llvm-devel llvm-static clang clang-devel \
             udunits2-devel bison flex swig gtest-devel python2-devel python3-devel \
             libffi-devel zlib-devel libxml2-devel libzstd-devel \
-            python39 python39-pip which diffutils
+            python39 python39-pip which diffutils perl perl-Text-Balanced perl-Digest-MD5 zip
           python3.9 -m venv /opt/cmake-tools
           /opt/cmake-tools/bin/pip install cmake==3.26.0 ninja==1.11.1.1
           echo /opt/cmake-tools/bin >> "$GITHUB_PATH"
@@ -61,7 +64,7 @@ jobs:
             legacy_options+=(-DTRICK_PYTHON_MAJOR=2)
           fi
           cmake -S . -B "$RUNNER_TEMP/trick-runtime" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_PYTHON=ON \
+            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_SDK=ON \
             -DTRICK_BUILD_RUNTIME_TESTS=ON -DTRICK_BUILD_UTILITY_TESTS=ON \
             "${legacy_options[@]}" -DSWIG_EXECUTABLE=/usr/bin/swig \
             -DCMAKE_WARN_DEPRECATED=OFF \
@@ -139,7 +142,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y llvm-14-dev libclang-14-dev clang-14 libudunits2-dev bison flex swig libgtest-dev
+          sudo apt-get install -y llvm-14-dev libclang-14-dev clang-14 libudunits2-dev bison flex swig libgtest-dev perl libtext-balanced-perl zip
           echo "LLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm" >> "$GITHUB_ENV"
       - name: macOS dependencies
         if: runner.os == 'macOS'
@@ -152,7 +155,7 @@ jobs:
       - name: Configure
         run: |
           cmake -S . -B "$RUNNER_TEMP/trick-runtime" -G '${{ matrix.generator }}' \
-            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_PYTHON=ON \
+            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_SDK=ON \
             -DTRICK_BUILD_RUNTIME_TESTS=ON -DTRICK_BUILD_UTILITY_TESTS=ON \
             -DTRICK_USE_ER7_UTILS=${{ matrix.er7 }} -DLLVM_DIR="$LLVM_DIR" \
             -DPython3_EXECUTABLE="$(command -v python)"

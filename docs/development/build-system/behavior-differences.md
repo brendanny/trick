@@ -192,3 +192,19 @@ The CMake stack consumes that fix without owning the SWIG header changes.
 The regression test uses `a\0é🚀` and checks both the complete contents and length.
 Python 2/SWIG 3 compatibility ends in Trick 27; this does not change the separate
 Autotools timeline (deprecate in Trick 27, remove in Trick 29).
+
+## C1 pilot simulation SDK
+
+BD-16/BD-19: CMake supplies copied build-tree headers/scripts and generated
+configuration views; source-only `TRICK_HOME` is unsupported. Simulation
+compiler substitutions and multilib requests are diagnosed. BD-18: the legacy
+simulation Make adapter retains the native archives once with GNU whole-archive
+or macOS per-archive force-load; native CMake consumers use target interfaces.
+BD-05: the SDK passes a model-compiler predefine inventory and rejects differing
+compiler-macro uses in user models, instead of silently emitting mismatched
+metadata. This is a conservative pilot restriction, not general frontend parity.
+
+Local C1 tuple: Ubuntu 24.04.3 x86_64, GCC 13.3.0, LLVM 14.0.6, glibc 2.39,
+CMake 3.26.0/Ninja 1.11.1, SWIG 4.2.0, Python 3.12.14, UDUNITS 2.2.28.
+CI qualification covers separately recorded Linux/macOS and Rocky 8 tuples;
+adding a lane is not evidence that it has passed.

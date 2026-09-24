@@ -1,0 +1,8 @@
+/* PURPOSE: (Small installed SDK acceptance simulation.) */
+#include "sim_objects/default_trick_sys.sm"
+##include "Model.hh"
+class SDKSimObject : public Trick::SimObject {
+public:
+    SDKModel model;
+};
+SDKSimObject sdk_test;

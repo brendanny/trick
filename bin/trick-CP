@@ -208,17 +208,17 @@ build/Makefile_S_define: S_source.hh
 # Automatic and manual ICG rules
 ICG:
 	$(PRINT_ICG)
-	$(call ECHO_AND_LOG,${TRICK_HOME}/bin/trick-ICG -m ${TRICK_ICGFLAGS} ${TRICK_CXXFLAGS} ${TRICK_SYSTEM_CXXFLAGS} S_source.hh)
+	$(call ECHO_AND_LOG,${TRICK_HOME}/bin/trick-ICG -m ${TRICK_ICGFLAGS} ${TRICK_CXXFLAGS} ${TRICK_SYSTEM_CXXFLAGS} ${TRICK_SDK_ICGFLAGS} S_source.hh)
 
 
 force_ICG:
 	$(PRINT_ICG)
-	$(call ECHO_AND_LOG,${TRICK_HOME}/bin/trick-ICG -force -m ${TRICK_ICGFLAGS} ${TRICK_CXXFLAGS} ${TRICK_SYSTEM_CXXFLAGS} S_source.hh)
+	$(call ECHO_AND_LOG,${TRICK_HOME}/bin/trick-ICG -force -m ${TRICK_ICGFLAGS} ${TRICK_CXXFLAGS} ${TRICK_SYSTEM_CXXFLAGS} ${TRICK_SDK_ICGFLAGS} S_source.hh)
 
 # Create makefile for IO code
 build/Makefile_io_src: S_source.hh | build
 	$(PRINT_ICG)
-	$(call ECHO_AND_LOG,${TRICK_HOME}/bin/trick-ICG -m ${TRICK_ICGFLAGS} ${TRICK_CXXFLAGS} ${TRICK_SYSTEM_CXXFLAGS} $<)
+	$(call ECHO_AND_LOG,${TRICK_HOME}/bin/trick-ICG -m ${TRICK_ICGFLAGS} ${TRICK_CXXFLAGS} ${TRICK_SYSTEM_CXXFLAGS} ${TRICK_SDK_ICGFLAGS} $<)
 
 # Create makefile for source code
 build/Makefile_src: build/Makefile_src_deps build/Makefile_io_src S_source.hh
@@ -277,6 +277,7 @@ endif
 -include S_overrides.mk
 -include trickify.mk
 -include S_post.mk
+$(eval $(TRICK_SDK_VALIDATE))
 
 ifndef MAKE_RESTARTS
 REMOVE_MAKE_OUT := $(shell rm -f $(MAKE_OUT))

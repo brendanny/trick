@@ -24,6 +24,7 @@
 #include "HeaderSearchDirs.hh"
 #include "ICGASTConsumer.hh"
 #include "ICGDiagnosticConsumer.hh"
+#include "ModelCompilerGuard.hh"
 #include "PrintAttributes.hh"
 #include "TranslationUnitVisitor.hh"
 #include "Utilities.hh"
@@ -63,6 +64,8 @@ llvm::cl::opt<std::string>
                      llvm::cl::desc("Newline-delimited complete header output inventory (requires --output-root)"));
 llvm::cl::opt<std::string> output_root("output-root",
                                        llvm::cl::desc("Explicit output root with manifest, depfile and success stamp"));
+llvm::cl::opt<std::string>
+    model_predefines("model-predefines", llvm::cl::desc("Validate model compiler predefined macros in user headers"));
 llvm::cl::opt<std::string> output_dir("o", llvm::cl::desc("Output directory"));
 llvm::cl::list<std::string> input_file_names(llvm::cl::Positional, llvm::cl::desc("<input_file>"), llvm::cl::ZeroOrMore);
 llvm::cl::list<std::string> sink(llvm::cl::Sink, llvm::cl::ZeroOrMore);
@@ -254,6 +257,18 @@ int runICG(int argc, char* argv[])
 
     auto ftg = std::make_unique<FindTrickICG>(ci, hsd, print_trick_icg != BOU_FALSE_VAL);
     pp.addPPCallbacks(std::move(ftg));
+    if (!model_predefines.empty())
+    {
+        try
+        {
+            pp.addPPCallbacks(std::make_unique<ModelCompilerGuard>(pp, hsd, model_predefines));
+        }
+        catch (const std::exception& error)
+        {
+            std::cerr << error.what() << std::endl;
+            return 1;
+        }
+    }
 
     pp.getBuiltinInfo().initializeBuiltins(pp.getIdentifierTable(), pp.getLangOpts());
     // Add all of the #define from the command line to the default predefines

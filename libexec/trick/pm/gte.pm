@@ -21,6 +21,26 @@ sub gte (@) {
     my $trick_bin  = dirname( abs_path($0) );
     my $trick_home = dirname($trick_bin);
 
+    my %sdk_defaults;
+
+    # CMake SDK defaults are generated from the same configuration as Make's
+    # compatibility view. Resolve SDK-relative values at invocation time.
+    if ( open( my $sdk, '<', "$trick_home/share/trick/sdk.env" ) ) {
+        while ( my $line = <$sdk> ) {
+            chomp $line;
+            next unless $line =~ /^([A-Z0-9_]+)=(.*)$/;
+            my ( $key, $value ) = ( $1, $2 );
+            $value =~ s/\@SDK_ROOT\@/$trick_home/g;
+            $sdk_defaults{$key} = $value;
+        }
+        close $sdk;
+    }
+
+    if ( %sdk_defaults && $trick_home =~ /[\s#\$]/ ) {
+        die "SDK paths must not contain whitespace, hash or dollar characters\n";
+    }
+    my $model_cc = $ENV{TRICK_CC} // $sdk_defaults{TRICK_CC};
+
     $ret = `uname -s -r`;
     chomp($ret);
 
@@ -41,12 +61,12 @@ sub gte (@) {
         $ret                    = "";
 
         # need to append the gcc version as different gcc's are not compatible
-        if ( exists $ENV{"TRICK_CC"} ) {
-            if ( $ENV{"TRICK_CC"} =~ /ccintppc/ ) {
+        if ( defined $model_cc ) {
+            if ( $model_cc =~ /ccintppc/ ) {
                 $ret = "0.0";
             }
-            elsif ( $ENV{"TRICK_CC"} =~ /^\// ) {
-                my ($temp) = $ENV{"TRICK_CC"};
+            elsif ( $model_cc =~ /^\// ) {
+                my ($temp) = $model_cc;
 
                 # remove possible ccache from TRICK_CC
                 $temp =~ s/.*?ccache\s+//;
@@ -60,7 +80,7 @@ sub gte (@) {
             }
             else {
                 # remove possible ccache from TRICK_CC
-                my ($temp) = $ENV{TRICK_CC};
+                my ($temp) = $model_cc;
                 $temp =~ s/.*?ccache\s+//;
                 $ret = `$temp -dumpfullversion -dumpversion`;
             }
@@ -76,8 +96,8 @@ sub gte (@) {
             if (
                 (
                        !exists $ENV{"TRICK_FORCE_32BIT"}
-                    or $ENV{"TRICK_FORCE_32BIT"} == 0
-                    or $ENV{"TRICK_FORCE_32BIT"} == "OFF"
+                    or $ENV{"TRICK_FORCE_32BIT"} eq "0"
+                    or $ENV{"TRICK_FORCE_32BIT"} eq "OFF"
                 )
                 and $machine_hardware eq "x86_64\n"
                 )
@@ -125,6 +145,8 @@ sub gte (@) {
     $def{"TRICK_USER_PROFILE"}           = "$ENV{HOME}/.Trick_user_profile";
     $def{"TRICK_VER"}                    = "trick_dev";
     $def{"XML_CATALOG_FILES"}            = "$trick_home/trick_source/data_products/DPX/XML/catalog.xml";
+
+    @def{ keys %sdk_defaults } = values %sdk_defaults;
 
     # set gte variables... if variable in environment use it, else use default
     foreach ( keys %def ) {
