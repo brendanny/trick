@@ -9,13 +9,16 @@ LD_WHOLE_ARCHIVE :=
 LD_NO_WHOLE_ARCHIVE :=
 TRICK_CMAKE_SDK := 1
 # The generator's C++17 parsing contract is part of this SDK.
-TRICK_SDK_ICGFLAGS = --icg-std=c++17 --model-predefines=$(TRICK_HOME)/share/trick/model-predefines.txt
+TRICK_SDK_ICGFLAGS = @sdk_icg_frontend_flags@ --icg-std=c++17 --model-predefines=$(TRICK_HOME)/share/trick/model-predefines.txt
 define TRICK_SDK_VALIDATE
 ifneq ($(TRICK_CXX),@CMAKE_CXX_COMPILER@)
 $$(error This SDK was configured for @CMAKE_CXX_COMPILER@; build a separate SDK to change the model compiler)
 endif
 ifneq ($(TRICK_CC),@CMAKE_C_COMPILER@)
 $$(error This SDK was configured for @CMAKE_C_COMPILER@; build a separate SDK to change the model compiler)
+endif
+ifneq ($(shell $(TRICK_CXX) -dumpfullversion -dumpversion),@sdk_compiler_version@)
+$$(error The SDK model compiler version changed; reconfigure and rebuild the SDK)
 endif
 ifneq ($(filter ON 1,$(TRICK_FORCE_32BIT)),)
 $$(error This is a native SDK; multilib support is a separate toolchain)

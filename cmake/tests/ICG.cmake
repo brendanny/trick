@@ -12,14 +12,14 @@ struct Smoke {
 };
 ]=])
 file(SHA256 "${TEST_ROOT}/input/Smoke.hh" original)
-execute_process(COMMAND "${ICG}" --version
+execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --version
     RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
 if(NOT result EQUAL 0 OR NOT output MATCHES "${TRICK_VERSION}")
     message(FATAL_ERROR "ICG version failed: ${output}\n${error}")
 endif()
 # Empty TRICK_CXX ensures the CMake path cannot rely on the legacy compiler hook.
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=TRICK_HOME TRICK_CXX=
-    "${ICG}" --icg-std=c++17 -o "${TEST_ROOT}/output" "${TEST_ROOT}/input/Smoke.hh"
+    "${ICG}" ${FRONTEND_FLAGS} --icg-std=c++17 -o "${TEST_ROOT}/output" "${TEST_ROOT}/input/Smoke.hh"
     WORKING_DIRECTORY "${TEST_ROOT}" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
 file(WRITE "${TEST_ROOT}/icg.log" "${output}\n${error}")
 if(NOT result EQUAL 0 OR error MATCHES "Error initializing udunits")
@@ -45,7 +45,7 @@ endif()
 
 file(WRITE "${TEST_ROOT}/input/Invalid.hh" "struct Invalid { this is not valid C++; };\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=TRICK_HOME TRICK_CXX=
-    "${ICG}" -o "${TEST_ROOT}/output" "${TEST_ROOT}/input/Invalid.hh"
+    "${ICG}" ${FRONTEND_FLAGS} -o "${TEST_ROOT}/output" "${TEST_ROOT}/input/Invalid.hh"
     WORKING_DIRECTORY "${TEST_ROOT}" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
 if(result EQUAL 0)
     message(FATAL_ERROR "ICG accepted an invalid header")

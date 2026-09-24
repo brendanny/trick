@@ -26,6 +26,8 @@
 class HeaderSearchDirs {
 
     public:
+        bool setCompilerSearchDirs(const std::vector<std::string>& paths);
+
         HeaderSearchDirs(clang::HeaderSearch & in_hs ,
                          clang::HeaderSearchOptions & in_hso ,
                          clang::Preprocessor & in_pp ,
@@ -133,6 +135,8 @@ class HeaderSearchDirs {
         void addTrickICGFoundFile ( std::string file_name ) ;
 
     private:
+        std::vector<std::string> compiler_search_dirs;
+
         /** Are we ICG'ing the sim_services files? */
         bool sim_services ;
 

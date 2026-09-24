@@ -1,6 +1,7 @@
 # install(DIRECTORY) preserves links, unlike SDK staging. Fail before installing
 # an unhandled link that could depend on the producer tree after relocation.
 function(trick_check_sdk_source_links source)
+    file(REAL_PATH "${source}" source)
     foreach(tree IN ITEMS include trick_source libexec/trick share/trick cmake/examples/SIM_sdk)
         file(GLOB_RECURSE entries LIST_DIRECTORIES TRUE "${source}/${tree}/*")
         foreach(path IN LISTS entries)

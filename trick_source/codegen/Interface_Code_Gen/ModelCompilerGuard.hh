@@ -118,7 +118,7 @@ class ModelCompilerGuard final : public clang::PPCallbacks
             auto text = clang::Lexer::getSourceText(clang::CharSourceRange::getTokenRange(range), pp.getSourceManager(),
                                                     pp.getLangOpts())
                             .str();
-            const std::regex identifier("\\b__[A-Za-z0-9_]+\\b");
+            static const std::regex identifier("\\b__[A-Za-z0-9_]+\\b");
             for (std::sregex_iterator it(text.begin(), text.end(), identifier), end; it != end; ++it)
             {
                 // Defined/Ifdef and MacroExpands handle defined identifiers,
@@ -164,6 +164,10 @@ class ModelCompilerGuard final : public clang::PPCallbacks
                 }
             }
             auto expected = model.find(name);
+            if (feature == features.end() && presence_only && (expected != model.end()) == (info != nullptr))
+            {
+                return;
+            }
             if (feature == features.end() && expected != model.end() && info && !info->isFunctionLike()
                 && compact(value) == expected->second)
             {

@@ -1,21 +1,19 @@
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include <stdio.h>
-#include <errno.h>
-#include <limits.h>
-#include <stdlib.h>
-#include <libgen.h>
+#include "HeaderSearchDirs.hh"
+
+#include "Utilities.hh"
 
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/Utils.h"
 
-#include "HeaderSearchDirs.hh"
-#include "Utilities.hh"
-
-#ifdef TRICK_ICG_CMAKE_CONFIG
-#include "TrickICGConfig.hh"
-#endif
+#include <errno.h>
+#include <fstream>
+#include <iostream>
+#include <libgen.h>
+#include <limits.h>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 HeaderSearchDirs::HeaderSearchDirs(clang::HeaderSearch & in_hs ,
  clang::HeaderSearchOptions & in_hso ,
@@ -26,13 +24,33 @@ HeaderSearchDirs::HeaderSearchDirs(clang::HeaderSearch & in_hs ,
   pp(in_pp) ,
   sim_services(in_sim_services) {} ;
 
-void HeaderSearchDirs::AddCompilerBuiltInSearchDirs () {
-#ifdef TRICK_ICG_CMAKE_CONFIG
-    for (const char* path : TrickICGConfig::system_includes)
+bool HeaderSearchDirs::setCompilerSearchDirs(const std::vector<std::string>& paths)
+{
+    for (const auto& path : paths)
     {
-        hso.AddPath(path, clang::frontend::System, false, false);
+        struct stat status;
+        if (stat(path.c_str(), &status) != 0 || !S_ISDIR(status.st_mode))
+        {
+            std::cerr << "ICG compiler include directory is missing: " << path
+                      << "; rebuild the SDK with the current toolchain" << std::endl;
+            return false;
+        }
+        char* resolved = realpath(path.c_str(), nullptr);
+        if (!resolved)
+            return false;
+        compiler_search_dirs.emplace_back(resolved);
+        free(resolved);
     }
-#else
+    return true;
+}
+
+void HeaderSearchDirs::AddCompilerBuiltInSearchDirs () {
+    if (!compiler_search_dirs.empty())
+    {
+        for (const auto& path : compiler_search_dirs)
+            hso.AddPath(path, clang::frontend::System, false, false);
+        return;
+    }
 
     FILE * fp ;
     char * lineptr = NULL ;
@@ -102,8 +120,7 @@ void HeaderSearchDirs::AddCompilerBuiltInSearchDirs () {
     hso.AddPath("/usr/local/Cellar" , clang::frontend::System, IsFramework, IsSysRootRelative);
 
     // Fink on Macs puts everything in /sw.
-    hso.AddPath("/sw" , clang::frontend::System, IsFramework, IsSysRootRelative);
-#endif
+    hso.AddPath("/sw", clang::frontend::System, IsFramework, IsSysRootRelative);
 }
 
 void HeaderSearchDirs::AddUserSearchDirs ( std::vector<std::string> & include_dirs ) {
@@ -127,12 +144,12 @@ void HeaderSearchDirs::AddSystemSearchDirs ( std::vector<std::string> & isystem_
     for  ( ii = 0 ; ii < isystem_dirs.size() ; ii++ ) {
         //std::cout << "isystem dirs " << isystem_dirs[ii] << std::endl ;
         char * resolved_path = almostRealPath(isystem_dirs[ii].c_str()) ;
-        if ( resolved_path != NULL ) {
-#ifdef TRICK_ICG_CMAKE_CONFIG
+        if (resolved_path != NULL)
+        {
             // Keep compiler directories in their native order. Moving a C
             // include directory ahead of the C++ wrappers breaks include_next.
             bool compiler_path = false;
-            for (const char* path : TrickICGConfig::system_includes)
+            for (const auto& path : compiler_search_dirs)
             {
                 compiler_path = compiler_path || std::string(resolved_path) == path;
             }
@@ -141,7 +158,6 @@ void HeaderSearchDirs::AddSystemSearchDirs ( std::vector<std::string> & isystem_
                 free(resolved_path);
                 continue;
             }
-#endif
             //std::cout << "adding resolved_path = " << resolved_path << std::endl ;
             hso.AddPath(resolved_path , clang::frontend::System, false, true);
         }

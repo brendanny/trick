@@ -18,10 +18,10 @@ foreach(case IN LISTS cases)
         file(APPEND "${TEST_ROOT}/mismatch.txt" "#define __SDK_TEST_COMPILER__ 1\n")
     endif()
     file(WRITE "${TEST_ROOT}/${case}.hh" "struct GuardModel {\n${body}\n};\n")
-    execute_process(COMMAND "${ICG}" --output-root "${TEST_ROOT}/${case}"
+    execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --output-root "${TEST_ROOT}/${case}"
         --model-predefines "${TEST_ROOT}/mismatch.txt" "${TEST_ROOT}/${case}.hh"
         RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
-    if(case STREQUAL plain)
+    if(case STREQUAL plain OR case STREQUAL defined)
         if(NOT status EQUAL 0 OR NOT EXISTS "${TEST_ROOT}/${case}/generation.stamp")
             message(FATAL_ERROR "Plain model failed: ${out}${err}")
         endif()
@@ -40,7 +40,7 @@ struct FeatureModel { int value; };
 #endif
 ]=])
 file(APPEND "${TEST_ROOT}/mismatch.txt" "#define __has_include(STR) 1\n")
-execute_process(COMMAND "${ICG}" --output-root "${TEST_ROOT}/features"
+execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --output-root "${TEST_ROOT}/features"
     --model-predefines "${TEST_ROOT}/mismatch.txt" "${TEST_ROOT}/features.hh"
     RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
 if(NOT status EQUAL 0 OR NOT EXISTS "${TEST_ROOT}/features/generation.stamp")
@@ -56,7 +56,7 @@ foreach(mode IN ITEMS excluded system)
         set(args "-isystem${TEST_ROOT}/vendor")
         set(environment "TRICK_ICG_EXCLUDE=")
     endif()
-    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "${environment}" "${ICG}"
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "${environment}" "${ICG}" ${FRONTEND_FLAGS}
         --output-root "${TEST_ROOT}/${mode}" --model-predefines "${TEST_ROOT}/mismatch.txt"
         ${args} "${TEST_ROOT}/external.hh" RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
     if(NOT status EQUAL 0 OR NOT EXISTS "${TEST_ROOT}/${mode}/generation.stamp")
@@ -91,7 +91,7 @@ foreach(operator IN ITEMS __has_builtin __has_attribute __has_feature __has_cpp_
         file(WRITE "${header}" "#${directive}\nstruct FeatureChoice { int value; };\n#else\nstruct FeatureChoice { double value; };\n#endif\n")
         foreach(profile_name IN ITEMS matched gcc8)
             set(output "${TEST_ROOT}/${operator}-${form}-${profile_name}")
-            execute_process(COMMAND "${ICG}" --output-root "${output}"
+            execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --output-root "${output}"
                 --model-predefines "${TEST_ROOT}/${profile_name}.txt" "${header}"
                 RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
             if(form STREQUAL call OR (profile_name STREQUAL gcc8 AND operator MATCHES "^__has_(builtin|feature)$"))
@@ -109,7 +109,7 @@ endforeach()
 # A same-sized profile with a missing expected name must fail closed.
 string(REGEX REPLACE "#trick_feature __has_cpp_attribute [01]" "#trick_feature __unexpected_operator 1" incomplete "${profile}")
 file(WRITE "${TEST_ROOT}/incomplete.txt" "${incomplete}")
-execute_process(COMMAND "${ICG}" --output-root "${TEST_ROOT}/incomplete"
+execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --output-root "${TEST_ROOT}/incomplete"
     --model-predefines "${TEST_ROOT}/incomplete.txt" "${TEST_ROOT}/plain.hh"
     RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
 if(status EQUAL 0 OR NOT err MATCHES "Invalid C[+][+] model compiler predefines" OR

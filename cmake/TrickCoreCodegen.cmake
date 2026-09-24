@@ -22,7 +22,7 @@ add_custom_command(
     BYPRODUCTS "${core_metadata_root}/dependencies.d"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${core_metadata_root}"
     COMMAND "${CMAKE_COMMAND}" -E rm -f "${core_stamp}" "${core_manifest}"
-    COMMAND Trick::ICG --output-root "${core_metadata_root}"
+    COMMAND Trick::ICG ${TRICK_ICG_FRONTEND_FLAGS} --output-root "${core_metadata_root}"
         --output-inventory "${CMAKE_CURRENT_BINARY_DIR}/core-headers.txt"
         -sim_services --icg-std=c++17 ${core_definitions}
         "-I${PROJECT_SOURCE_DIR}/include" "-I${PROJECT_SOURCE_DIR}/trick_source"
@@ -47,7 +47,7 @@ if(BUILD_TESTING)
         "-DROOT=${core_metadata_root}" -P "${PROJECT_SOURCE_DIR}/cmake/tests/CoreManifest.cmake")
     set_tests_properties(icg.core_manifest PROPERTIES LABELS "icg;runtime")
     add_test(NAME icg.core_output_parity COMMAND "${CMAKE_COMMAND}"
-        "-DICG=$<TARGET_FILE:trick-ICG>" "-DMANIFEST=${core_manifest}"
+        "-DICG=$<TARGET_FILE:trick-ICG>" "-DFRONTEND_FLAGS=${TRICK_ICG_FRONTEND_FLAGS}" "-DMANIFEST=${core_manifest}"
         "-DTRICK_SOURCE=${PROJECT_SOURCE_DIR}" "-DDEFINITIONS=${core_definitions}"
         "-DUDUNITS_INCLUDE=${UDUNITS2_INCLUDE_DIR}"
         "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/output-parity/$<CONFIG>"

@@ -35,6 +35,7 @@ if(NOT LLVM_ENABLE_RTTI)
     target_compile_options(trick-ICG PRIVATE "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-fno-rtti>")
 endif()
 target_compile_definitions(trick-ICG PRIVATE
+    LLVM_HOME="${LLVM_INSTALL_PREFIX}"
     TRICK_ICG_CMAKE_CONFIG
     LIBCLANG_MAJOR=${LLVM_VERSION_MAJOR}
     LIBCLANG_MINOR=${LLVM_VERSION_MINOR}
@@ -89,12 +90,11 @@ endforeach()
 file(REAL_PATH "${TRICK_ICG_RESOURCE_DIR}/include" icg_resource_include)
 set(icg_system_includes ${icg_cxx_includes} "${icg_resource_include}" ${icg_other_includes})
 list(REMOVE_DUPLICATES icg_system_includes)
-set(TRICK_ICG_SYSTEM_INCLUDES "")
+set(TRICK_ICG_FRONTEND_FLAGS --icg-gnu-version=4.2.1 --icg-strict-errors)
 foreach(path IN LISTS icg_system_includes)
-    string(REPLACE "\\" "\\\\" path "${path}")
-    string(REPLACE "\"" "\\\"" path "${path}")
-    string(APPEND TRICK_ICG_SYSTEM_INCLUDES "    \"${path}\",\n")
+    list(APPEND TRICK_ICG_FRONTEND_FLAGS "--icg-system-dir=${path}")
 endforeach()
+set(TRICK_ICG_FRONTEND_FLAGS "${TRICK_ICG_FRONTEND_FLAGS}" PARENT_SCOPE)
 set(icg_source_dir "${PROJECT_SOURCE_DIR}")
 string(REPLACE "\\" "\\\\" icg_source_dir "${icg_source_dir}")
 string(REPLACE "\"" "\\\"" icg_source_dir "${icg_source_dir}")
@@ -104,11 +104,11 @@ file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/TrickICGConfig.hh"
 file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/icg-executable-$<CONFIG>.txt"
     CONTENT "$<TARGET_FILE:trick-ICG>\n")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ICGConfiguration.txt"
-    "LLVM: ${LLVM_PACKAGE_VERSION}\nClang tool: ${TRICK_ICG_CLANG_EXECUTABLE}\nResource directory: ${TRICK_ICG_RESOURCE_DIR}\nModel system includes: ${icg_system_includes}\nRTTI: ${LLVM_ENABLE_RTTI}\nFrontend policy: native for all output layouts\nGNU compatibility macros: 4.2.1 (Clang default, not the model compiler version)\nSystem-header errors: fatal\n")
+    "LLVM: ${LLVM_PACKAGE_VERSION}\nClang tool: ${TRICK_ICG_CLANG_EXECUTABLE}\nResource directory: ${TRICK_ICG_RESOURCE_DIR}\nModel system includes: ${icg_system_includes}\nRTTI: ${LLVM_ENABLE_RTTI}\nFrontend policy: selected by runtime options\nCMake invocation GNU compatibility: 4.2.1 (not the model compiler version)\nCMake invocation system-header errors: fatal\n")
 
 if(BUILD_TESTING)
     add_test(NAME icg.smoke COMMAND "${CMAKE_COMMAND}"
-        "-DICG=$<TARGET_FILE:trick-ICG>"
+        "-DICG=$<TARGET_FILE:trick-ICG>" "-DFRONTEND_FLAGS=${TRICK_ICG_FRONTEND_FLAGS}"
         "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/smoke"
         "-DTRICK_SOURCE=${PROJECT_SOURCE_DIR}"
         "-DTRICK_VERSION=${TRICK_VERSION}"
@@ -118,15 +118,22 @@ endif()
 
 if(BUILD_TESTING)
     add_test(NAME icg.outputs COMMAND "${CMAKE_COMMAND}"
-        "-DICG=$<TARGET_FILE:trick-ICG>"
+        "-DICG=$<TARGET_FILE:trick-ICG>" "-DFRONTEND_FLAGS=${TRICK_ICG_FRONTEND_FLAGS}"
         "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/output-contract"
         "-DSYSTEM_INCLUDES=${icg_system_includes}"
         -P "${PROJECT_SOURCE_DIR}/cmake/tests/ICGOutputs.cmake")
     set_tests_properties(icg.outputs PROPERTIES LABELS icg TIMEOUT 120)
     add_test(NAME icg.system_errors COMMAND "${CMAKE_COMMAND}"
-        "-DICG=$<TARGET_FILE:trick-ICG>"
+        "-DICG=$<TARGET_FILE:trick-ICG>" "-DFRONTEND_FLAGS=${TRICK_ICG_FRONTEND_FLAGS}"
         "-DTRICK_SOURCE=${PROJECT_SOURCE_DIR}"
         "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/system-errors"
         -P "${PROJECT_SOURCE_DIR}/cmake/tests/ICGSystemErrors.cmake")
     set_tests_properties(icg.system_errors PROPERTIES LABELS icg TIMEOUT 120)
+endif()
+
+if(BUILD_TESTING)
+    add_test(NAME icg.frontend_options COMMAND "${CMAKE_COMMAND}"
+        "-DICG=$<TARGET_FILE:trick-ICG>" "-DTRICK_SOURCE=${PROJECT_SOURCE_DIR}"
+        "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/frontend-options"
+        -P "${PROJECT_SOURCE_DIR}/cmake/tests/ICGFrontend.cmake")
 endif()

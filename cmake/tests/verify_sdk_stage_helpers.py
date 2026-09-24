@@ -74,6 +74,39 @@ def validate(cmake):
             check_links(False)
             unexpected.unlink()
         check_links(True)
+        # Canonicalize roots too (macOS /var -> /private/var, or a worktree alias).
+        alias = root / "source-alias"
+        alias.symlink_to(source, target_is_directory=True)
+        check_script.write_text(
+            check_script.read_text().replace(str(source), str(alias))
+        )
+        check_links(True)
+
+        # An in-place compiler upgrade must invalidate the SDK even when its
+        # executable path is unchanged.
+        compiler = root / "compiler"
+        compiler.write_text("#!/bin/sh\necho 8.5.0\n")
+        compiler.chmod(0o755)
+        make_text = (template.parent / "cmake-sdk.mk.in").read_text()
+        for old, new in {
+            "@CMAKE_CXX_COMPILER@": str(compiler),
+            "@CMAKE_C_COMPILER@": str(compiler),
+            "@sdk_compiler_version@": "8.5.0",
+        }.items():
+            make_text = make_text.replace(old, new)
+        makefile = root / "Makefile"
+        makefile.write_text(
+            f"TRICK_CXX := {compiler}\nTRICK_CC := {compiler}\n"
+            + make_text
+            + "\nall:; @true\n"
+        )
+        subprocess.run(["make", "-f", str(makefile)], check=True, capture_output=True)
+        compiler.write_text("#!/bin/sh\necho 9.1.0\n")
+        result = subprocess.run(
+            ["make", "-f", str(makefile)], check=False, capture_output=True, text=True
+        )
+        if result.returncode == 0 or "compiler version changed" not in result.stderr:
+            raise RuntimeError("SDK accepted an in-place compiler upgrade")
         special = source / "include/obsolete/nested/@NAME@.hh"
         write(special)
         retained = source / "include/retained/nested/header.hh"

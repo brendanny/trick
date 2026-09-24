@@ -14,7 +14,7 @@ include(cmake/TrickVersion.cmake)
 trick_read_version("${CMAKE_CURRENT_SOURCE_DIR}/share/trick/trick_ver.txt")
 project(Trick VERSION "${TRICK_VERSION_NUMBER}" LANGUAGES C CXX)
 
-option(TRICK_BUILD_ICG "Build the existing native interface code generator" OFF)
+include(CMakeDependentOption)
 
 option(TRICK_BUILD_MEMORY_MANAGER "Build the native memory manager and parsers" OFF)
 
@@ -40,10 +40,16 @@ if(TRICK_BUILD_CORE)
 endif()
 if(TRICK_BUILD_CORE_METADATA)
     set(TRICK_BUILD_INTEGRATORS ON)
-    set(TRICK_BUILD_ICG ON)
+
 endif()
 if(TRICK_BUILD_INTEGRATORS)
     set(TRICK_BUILD_MEMORY_MANAGER ON)
+endif()
+
+cmake_dependent_option(TRICK_BUILD_ICG "Build the existing native interface code generator"
+    OFF "NOT TRICK_BUILD_CORE_METADATA" ON)
+if(TRICK_BUILD_CORE_METADATA)
+    message(STATUS "TRICK_BUILD_ICG is required by TRICK_BUILD_CORE_METADATA; enabling ICG")
 endif()
 
 include(cmake/TrickCompilers.cmake)

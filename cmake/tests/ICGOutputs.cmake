@@ -10,7 +10,7 @@ file(WRITE "${TEST_ROOT}/input/All.hh" "#include \"a/State.hh\"\n#include \"b/St
 set(root "${TEST_ROOT}/output with spaces")
 function(generate expected)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=TRICK_HOME TRICK_CXX=
-        "${ICG}" --output-root "${root}" ${inventory_args} ${system_args} "${TEST_ROOT}/input/All.hh"
+        "${ICG}" ${FRONTEND_FLAGS} --output-root "${root}" ${inventory_args} ${system_args} "${TEST_ROOT}/input/All.hh"
         WORKING_DIRECTORY "${TEST_ROOT}/work" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
     if(expected AND NOT result EQUAL 0)
         message(FATAL_ERROR "ICG failed: ${output}\n${error}")
@@ -99,7 +99,7 @@ generate(TRUE)
 file(WRITE "${TEST_ROOT}/input/All.hh" "struct CompilerGate {\n#if __GNUC__ >= 8\nint newer_gnu;\n#else\ndouble clang_compat;\n#endif\n};\n")
 generate(TRUE)
 file(MAKE_DIRECTORY "${TEST_ROOT}/legacy")
-execute_process(COMMAND "${ICG}" -force -o "${TEST_ROOT}/legacy" "${TEST_ROOT}/input/All.hh"
+execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} -force -o "${TEST_ROOT}/legacy" "${TEST_ROOT}/input/All.hh"
     WORKING_DIRECTORY "${TEST_ROOT}/work" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
 if(NOT result EQUAL 0)
     message(FATAL_ERROR "Legacy-layout compiler-gate fixture failed: ${error}")

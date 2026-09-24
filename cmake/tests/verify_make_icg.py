@@ -49,7 +49,7 @@ def main():
         target = work / directory
         target.mkdir(parents=True)
         for path in (source / directory).iterdir():
-            if path.suffix in (".cpp", ".hh", ".h") or path.name == "makefile":
+            if path.suffix in (".cpp", ".hh", ".h", ".def") or path.name == "makefile":
                 shutil.copyfile(path, target / path.name)
     udunits = args.udunits_library.resolve()
     (makefiles / "config_Linux.mk").write_text(
@@ -84,6 +84,17 @@ def main():
             f"-DTEST_ROOT={work / 'system-errors'}",
             "-P",
             str(source / "cmake/tests/ICGSystemErrors.cmake"),
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            args.cmake,
+            f"-DICG={icg}",
+            f"-DTRICK_SOURCE={source}",
+            f"-DTEST_ROOT={work / 'frontend-options'}",
+            "-P",
+            str(source / "cmake/tests/ICGFrontend.cmake"),
         ],
         check=True,
     )

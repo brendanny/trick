@@ -89,6 +89,8 @@ if(NOT APPLE)
     string(APPEND sdk_external_libraries " -lm -lrt")
     string(APPEND sdk_link_options " -Wl,--export-dynamic")
 endif()
+execute_process(COMMAND "${CMAKE_CXX_COMPILER}" -dumpfullversion -dumpversion
+    OUTPUT_VARIABLE sdk_compiler_version OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 separate_arguments(sdk_compiler_flags NATIVE_COMMAND "${CMAKE_CXX_FLAGS}")
 execute_process(COMMAND "${CMAKE_CXX_COMPILER}" ${sdk_compiler_flags} ${sdk_platform_flags} -std=c++17 -dM -E -x c++ /dev/null
     OUTPUT_VARIABLE sdk_predefines COMMAND_ERROR_IS_FATAL ANY)
@@ -112,6 +114,7 @@ file(WRITE "${PROJECT_BINARY_DIR}/sdk-model-predefines.txt" "${sdk_predefines}")
 configure_file("${CMAKE_CURRENT_LIST_DIR}/sdk/sdk.env.in" "sdk-env.in" @ONLY)
 file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/sdk-config/$<CONFIG>/sdk.env" INPUT "${PROJECT_BINARY_DIR}/sdk-env.in")
 configure_file("${CMAKE_CURRENT_LIST_DIR}/sdk/config_user.mk.in" "sdk-config-user.in" @ONLY)
+string(JOIN " " sdk_icg_frontend_flags ${TRICK_ICG_FRONTEND_FLAGS})
 configure_file("${CMAKE_CURRENT_LIST_DIR}/sdk/cmake-sdk.mk.in" "sdk-config.in" @ONLY)
 configure_file("${CMAKE_CURRENT_LIST_DIR}/sdk/StageSDK.cmake.in" "sdk-stage.in" @ONLY)
 file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/sdk-config/$<CONFIG>/config_user.mk"
@@ -134,7 +137,7 @@ if(BUILD_TESTING)
     set_tests_properties(sdk.simulation PROPERTIES LABELS sdk TIMEOUT 240)
 
     add_test(NAME sdk.compiler_guard COMMAND "${CMAKE_COMMAND}"
-        "-DICG=$<TARGET_FILE:trick-ICG>" "-DPROFILE=${PROJECT_BINARY_DIR}/sdk-model-predefines.txt"
+        "-DICG=$<TARGET_FILE:trick-ICG>" "-DFRONTEND_FLAGS=${TRICK_ICG_FRONTEND_FLAGS}" "-DPROFILE=${PROJECT_BINARY_DIR}/sdk-model-predefines.txt"
         "-DTEST_ROOT=${PROJECT_BINARY_DIR}/sdk-tests/$<CONFIG>/compiler-guard"
         -P "${PROJECT_SOURCE_DIR}/cmake/tests/ModelCompilerGuard.cmake")
     set_tests_properties(sdk.compiler_guard PROPERTIES LABELS sdk TIMEOUT 120)

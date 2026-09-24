@@ -6,7 +6,7 @@ file(WRITE "${TEST_ROOT}/Input.hh" "#include <broken.hh>\nstruct SystemHeaderFix
 
 function(generate)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env "TRICK_HOME=${TRICK_SOURCE}" TRICK_CXX=/usr/bin/c++
-        "${ICG}" --output-root "${TEST_ROOT}/output" "-isystem${TEST_ROOT}/system" "${TEST_ROOT}/Input.hh"
+        "${ICG}" ${FRONTEND_FLAGS} --output-root "${TEST_ROOT}/output" "-isystem${TEST_ROOT}/system" "${TEST_ROOT}/Input.hh"
         WORKING_DIRECTORY "${TEST_ROOT}/work" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
     set(result "${result}" PARENT_SCOPE)
     set(log "${output}\n${error}" PARENT_SCOPE)

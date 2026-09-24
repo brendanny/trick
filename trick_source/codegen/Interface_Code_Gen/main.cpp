@@ -44,10 +44,14 @@
 
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-constexpr bool native_frontend = true;
-#else
-constexpr bool native_frontend = false;
 #endif
+
+llvm::cl::opt<std::string> gnu_version("icg-gnu-version",
+                                       llvm::cl::desc("GNU compatibility version (default: build compiler version)"));
+llvm::cl::opt<bool> strict_errors("icg-strict-errors", llvm::cl::desc("Report and fail on system-header errors"));
+llvm::cl::list<std::string>
+    compiler_dirs("icg-system-dir",
+                  llvm::cl::desc("Ordered compiler system include directory; replaces runtime discovery (repeatable)"));
 
 /* Command line arguments.  These work better as globals, as suggested in llvm/CommandLine documentation */
 llvm::cl::list<std::string> include_dirs("I", llvm::cl::Prefix, llvm::cl::desc("Include directory"), llvm::cl::value_desc("directory"));
@@ -105,7 +109,8 @@ void set_lang_opts(clang::CompilerInstance & ci) {
     // Clang's driver advertises GNU compatibility 4.2.1 by default. Advertising
     // the host GCC version enables glibc syntax that older libclang cannot parse.
     // The output layout must never select a different preprocessor dialect.
-    ci.getLangOpts().GNUCVersion = native_frontend ? 40201 : gccVersionToIntOrDefault(gcc_version, 80500);
+    ci.getLangOpts().GNUCVersion
+        = gccVersionToIntOrDefault(gnu_version.empty() ? gcc_version : gnu_version.c_str(), 80500);
     ci.getLangOpts().CPlusPlus17 = true ;
 
     // Check if standard_version was specified and if it's a version that is supported by this libclang
@@ -265,6 +270,8 @@ int runICG(int argc, char* argv[])
 
     // Add all of the include directories to the preprocessor
     HeaderSearchDirs hsd(ci.getPreprocessor().getHeaderSearchInfo(), ci.getHeaderSearchOpts(), pp, sim_services_flag);
+    if (!hsd.setCompilerSearchDirs(compiler_dirs))
+        return 1;
     hsd.addSearchDirs(include_dirs, isystem_dirs);
 
     // Add a preprocessor callback to search for TRICK_ICG
@@ -342,7 +349,7 @@ int runICG(int argc, char* argv[])
         ci.getSourceManager().createFileID(fileEntryRef, clang::SourceLocation(), clang::SrcMgr::C_User));
 #endif
     ICGDiagnosticConsumer* icgDiagConsumer = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd,
-                                                                       native_frontend || !output_root.empty());
+                                                                       strict_errors || !output_root.empty());
     ci.getDiagnostics().setClient(icgDiagConsumer);
     ci.getDiagnosticClient().BeginSourceFile(ci.getLangOpts(), &ci.getPreprocessor());
     clang::ParseAST(ci.getSema());
@@ -359,7 +366,7 @@ int runICG(int argc, char* argv[])
     printAttributes.printICGNoFiles();
 
     if (icgDiagConsumer->error_in_user_code
-        || ((native_frontend || !output_root.empty()) && ci.getDiagnostics().hasErrorOccurred()))
+        || ((strict_errors || !output_root.empty()) && ci.getDiagnostics().hasErrorOccurred()))
     {
         std::cerr << color(ERROR, "ICG failed due to parsing errors; see diagnostics above.") << std::endl;
         exit(-1);

@@ -9,7 +9,7 @@ file(MAKE_DIRECTORY "${legacy}/io" "${maps}" "${home}/share/trick/xml/include")
 file(CREATE_LINK "${TRICK_SOURCE}/include" "${home}/include" SYMBOLIC)
 file(CREATE_LINK "${TRICK_SOURCE}/trick_source" "${home}/trick_source" SYMBOLIC)
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env "TRICK_HOME=${home}"
-    "${ICG}" -sim_services -m -force --icg-std=c++17 ${DEFINITIONS}
+    "${ICG}" ${FRONTEND_FLAGS} -sim_services -m -force --icg-std=c++17 ${DEFINITIONS}
     "-I${TRICK_SOURCE}/include" "-I${TRICK_SOURCE}/trick_source"
     "-I${TRICK_SOURCE}/include/trick/compat" "-isystem${UDUNITS_INCLUDE}"
     -o "${legacy}/io" "${TRICK_SOURCE}/include/trick/files_to_ICG.hh"

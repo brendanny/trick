@@ -35,8 +35,7 @@ ICGDiagnosticConsumer::~ICGDiagnosticConsumer() {
 void ICGDiagnosticConsumer::HandleDiagnostic(clang::DiagnosticsEngine::Level DiagLevel, const clang::Diagnostic &Info) {
     // Use TextDiagnosticPrinter to handle diagnostic if the code is user code.
     // Otherwise use base DiagnosticConsumer to handle diagnostic for system code.
-    if (isInUserCode(ci, Info.getLocation(), hsd)
-        || (diagnose_all_errors && DiagLevel >= clang::DiagnosticsEngine::Error))
+    if (isInUserCode(ci, Info.getLocation(), hsd) || diagnose_all_errors)
     {
         // Parent class implementation for handling diagnostic
         clang::TextDiagnosticPrinter::HandleDiagnostic(DiagLevel, Info);
