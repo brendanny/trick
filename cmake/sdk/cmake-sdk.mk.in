@@ -1,0 +1,30 @@
+# gte.pm validates SDK paths before Make expands variables and include paths.
+# CMake-owned configuration; never edited by configure or simulation Make.
+TRICK_LIB_DIR := $(TRICK_HOME)/@CMAKE_INSTALL_LIBDIR@
+TRICK_STATIC_LIB := $(TRICK_LIB_DIR)/$<TARGET_FILE_NAME:trick_core>
+TRICK_LIBS := @sdk_link_libraries@
+TRICK_EXEC_LINK_LIBS := @sdk_external_libraries@
+TRICK_SYSTEM_LDFLAGS += @sdk_link_options@
+LD_WHOLE_ARCHIVE :=
+LD_NO_WHOLE_ARCHIVE :=
+TRICK_CMAKE_SDK := 1
+# The generator's C++17 parsing contract is part of this SDK.
+TRICK_SDK_ICGFLAGS = @sdk_icg_frontend_flags@ --icg-std=c++17 --model-predefines=$(TRICK_HOME)/share/trick/model-predefines.txt
+define TRICK_SDK_VALIDATE
+ifneq ($(TRICK_CXX),@CMAKE_CXX_COMPILER@)
+$$(error This SDK was configured for @CMAKE_CXX_COMPILER@; build a separate SDK to change the model compiler)
+endif
+ifneq ($(TRICK_CC),@CMAKE_C_COMPILER@)
+$$(error This SDK was configured for @CMAKE_C_COMPILER@; build a separate SDK to change the model compiler)
+endif
+ifneq ($(shell $(TRICK_CXX) -dumpfullversion -dumpversion),@sdk_compiler_version@)
+$$(error The SDK model compiler version changed; reconfigure and rebuild the SDK)
+endif
+ifneq ($(filter ON 1,$(TRICK_FORCE_32BIT)),)
+$$(error This is a native SDK; multilib support is a separate toolchain)
+endif
+endef
+$(eval $(TRICK_SDK_VALIDATE))
+# Legacy SWIG dependency scanning flattens -isystem into -I. Keep selected
+# external dependency headers out of generated user bindings.
+export TRICK_SWIG_EXCLUDE := $(TRICK_SWIG_EXCLUDE):@UDUNITS2_INCLUDE_DIR@

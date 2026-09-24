@@ -1,0 +1,27 @@
+include_guard(GLOBAL)
+
+function(trick_check_compiler language id version)
+    if(id STREQUAL "GNU" AND version VERSION_LESS 8.5)
+        message(FATAL_ERROR "Trick requires GCC >=8.5 for ${language}; selected ${version}. Set CMAKE_${language}_COMPILER in a fresh build directory.")
+    endif()
+endfunction()
+
+foreach(language IN ITEMS C CXX)
+    trick_check_compiler("${language}" "${CMAKE_${language}_COMPILER_ID}" "${CMAKE_${language}_COMPILER_VERSION}")
+    message(STATUS "Trick ${language}: ${CMAKE_${language}_COMPILER} (${CMAKE_${language}_COMPILER_ID} ${CMAKE_${language}_COMPILER_VERSION})")
+endforeach()
+
+if(CMAKE_CXX_COMPILER_LOADED)
+    # Keep the language requirement local to this probe, not a global flag override.
+    function(trick_check_cxx17)
+        include(CheckCXXSourceCompiles)
+        set(CMAKE_CXX_STANDARD 17)
+        set(CMAKE_CXX_STANDARD_REQUIRED ON)
+        set(CMAKE_CXX_EXTENSIONS OFF)
+        check_cxx_source_compiles("#include <optional>\nint main() { std::optional<int> value{17}; if constexpr (sizeof(int) > 0) return *value - 17; }" TRICK_CXX17_WORKS)
+        if(NOT TRICK_CXX17_WORKS)
+            message(FATAL_ERROR "Trick requires a working C++17 compiler and standard library. See CMakeFiles/CMakeConfigureLog.yaml.")
+        endif()
+    endfunction()
+    trick_check_cxx17()
+endif()

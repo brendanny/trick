@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 3.26)
+file(REMOVE_RECURSE "${TEST_ROOT}")
+file(MAKE_DIRECTORY "${TEST_ROOT}/system" "${TEST_ROOT}/work")
+file(WRITE "${TEST_ROOT}/system/broken.hh" "// initially valid\n")
+file(WRITE "${TEST_ROOT}/Input.hh" "#include <broken.hh>\nstruct SystemHeaderFixture { int value; };\n")
+
+function(generate)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "TRICK_HOME=${TRICK_SOURCE}" TRICK_CXX=/usr/bin/c++
+        "${ICG}" ${FRONTEND_FLAGS} --output-root "${TEST_ROOT}/output" "-isystem${TEST_ROOT}/system" "${TEST_ROOT}/Input.hh"
+        WORKING_DIRECTORY "${TEST_ROOT}/work" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+    set(result "${result}" PARENT_SCOPE)
+    set(log "${output}\n${error}" PARENT_SCOPE)
+    set(error "${error}" PARENT_SCOPE)
+endfunction()
+
+generate()
+if(NOT result EQUAL 0 OR NOT EXISTS "${TEST_ROOT}/output/generation.stamp")
+    message(FATAL_ERROR "Valid system header failed: ${log}")
+endif()
+file(WRITE "${TEST_ROOT}/system/broken.hh" "#error TRICK_ICG_SYSTEM_HEADER_FAILURE\n")
+generate()
+if(result EQUAL 0 OR EXISTS "${TEST_ROOT}/output/generation.stamp" OR EXISTS "${TEST_ROOT}/output/manifest.json")
+    message(FATAL_ERROR "System-header failure retained a success record: ${log}")
+endif()
+if(NOT error MATCHES "TRICK_ICG_SYSTEM_HEADER_FAILURE" OR NOT error MATCHES "ICG failed due to parsing errors")
+    message(FATAL_ERROR "ICG did not report the system-header failure on stderr: ${log}")
+endif()

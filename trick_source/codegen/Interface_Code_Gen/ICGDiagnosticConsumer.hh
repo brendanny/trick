@@ -21,13 +21,15 @@ class HeaderSearchDirs;
 
 class ICGDiagnosticConsumer : public clang::TextDiagnosticPrinter {
 public:
-    ICGDiagnosticConsumer(llvm::raw_ostream &os, clang::DiagnosticOptions *diags, clang::CompilerInstance &in_ci, HeaderSearchDirs &in_hsd);
+    ICGDiagnosticConsumer(llvm::raw_ostream& os, clang::DiagnosticOptions* diags, clang::CompilerInstance& in_ci,
+                          HeaderSearchDirs& in_hsd, bool all_errors = false);
     ~ICGDiagnosticConsumer() override;
 
     void HandleDiagnostic(clang::DiagnosticsEngine::Level DiagLevel,
                           const clang::Diagnostic &Info) override;
 
     /** Flag for if any error found in user code. */
+    bool diagnose_all_errors;
     bool error_in_user_code;
 
 protected:

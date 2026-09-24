@@ -1,26 +1,30 @@
-
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <libgen.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <limits.h>
-
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Basic/FileManager.h"
-
 #include "PrintAttributes.hh"
-#include "PrintFileContentsBase.hh"
-#include "PrintFileContents10.hh"
+
+#include "ClassValues.hh"
+#include "CommentSaver.hh"
+#include "EnumValues.hh"
 #include "FieldDescription.hh"
 #include "HeaderSearchDirs.hh"
-#include "CommentSaver.hh"
-#include "ClassValues.hh"
-#include "EnumValues.hh"
+#include "PrintFileContents10.hh"
+#include "PrintFileContentsBase.hh"
 #include "Utilities.hh"
+
+#include "clang/Basic/FileManager.h"
+#include "clang/Frontend/CompilerInstance.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/JSON.h"
+#include "llvm/Support/Path.h"
+
+#include <fstream>
+#include <iostream>
+#include <libgen.h>
+#include <limits.h>
+#include <sstream>
+#include <stdexcept>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 PrintAttributes::PrintAttributes(int in_attr_version , HeaderSearchDirs & in_hsd ,
   CommentSaver & in_cs , clang::CompilerInstance & in_ci, bool in_force , bool in_sim_services_flag ,
@@ -67,6 +71,10 @@ instance is created for that file name.
  */
 
 bool PrintAttributes::isIOFileOutOfDate(std::string header_file_name, std::string io_file_name) {
+    if (!output_root.empty())
+    {
+        return true;
+    }
     struct stat header_stat ;
     struct stat io_stat ;
     int ret ;
@@ -141,7 +149,15 @@ bool PrintAttributes::openIOFile(const std::string& header_file_name) {
 
     // make the parent directories
     char* name = strdup(io_file_name.c_str());
-    _mkdir(dirname(name));
+    if (output_root.empty())
+    {
+        _mkdir(dirname(name));
+    }
+    else if (auto error = llvm::sys::fs::create_directories(dirname(name)))
+    {
+        free(name);
+        throw std::runtime_error("Cannot create ICG output directory: " + error.message());
+    }
     free(name);
 
     // no further processing is required if it's not out of date
@@ -168,6 +184,19 @@ bool PrintAttributes::openIOFile(const std::string& header_file_name) {
 
 /** Determines the io_file_name based on the given header file name */
 std::string PrintAttributes::createIOFileName(std::string header_file_name) {
+    if (!output_root.empty())
+    {
+        // Preserve the complete canonical path, including the extension. This
+        // distinguishes duplicate ER7 basenames and .h/.hh pairs without hashes.
+        char* canonical = realpath(header_file_name.c_str(), nullptr);
+        if (!canonical)
+        {
+            throw std::runtime_error("Cannot resolve header: " + header_file_name);
+        }
+        std::string result = output_root + "/io" + canonical + ".cpp";
+        free(canonical);
+        return result;
+    }
     std::string dir_name ;
     std::string base_name ;
     std::string io_file_name ;
@@ -275,17 +304,13 @@ void PrintAttributes::printEnum(EnumValues* ev) {
 
 
 void PrintAttributes::printSieClass( ClassValues * cv ) {
-    std::string xmlFileName;
-    if(sim_services_flag) {
-    #ifdef EXTERNAL_BUILD
-        xmlFileName = output_dir + "/sim_services_classes.resource";
-    #else
-        xmlFileName = std::string(getenv("TRICK_HOME")) + "/share/trick/xml/sim_services_classes.resource";
-    #endif
-    } else {
-        xmlFileName = "build/classes.resource";
+    std::string xmlFileName = sieFileName();
+    std::ofstream ostream;
+    if (!output_root.empty())
+    {
+        ostream.exceptions(std::ios::failbit | std::ios::badbit);
     }
-    std::ofstream ostream(xmlFileName, std::ofstream::app);
+    ostream.open(xmlFileName, std::ofstream::app);
     ostream << "  <class name=\"" << sanitize(cv->getFullyQualifiedMangledTypeName("__")) << "\">\n";
     for (FieldDescription* fdes : printer->getPrintableFields(*cv)) {
         std::string type = fdes->getFullyQualifiedMangledTypeName("__");
@@ -316,18 +341,13 @@ void PrintAttributes::printSieClass( ClassValues * cv ) {
 }
 
 void PrintAttributes::printSieEnum( EnumValues * ev ) {
-    std::string xmlFileName;
-    if(sim_services_flag) {
-    #ifdef EXTERNAL_BUILD
-        xmlFileName = output_dir + "/sim_services_classes.resource";
-    #else
-        xmlFileName = std::string(getenv("TRICK_HOME")) + "/share/trick/xml/include/sim_services_classes.resource";
-    #endif
-
-    } else {
-        xmlFileName = "build/classes.resource";
+    std::string xmlFileName = sieFileName(true);
+    std::ofstream ostream;
+    if (!output_root.empty())
+    {
+        ostream.exceptions(std::ios::failbit | std::ios::badbit);
     }
-    std::ofstream ostream(xmlFileName, std::ofstream::app);
+    ostream.open(xmlFileName, std::ofstream::app);
     ostream << "  <enumeration name=\"" << sanitize(ev->getFullyQualifiedTypeName("__")) << "\">\n";
     for(EnumValues::NameValuePair nvp : ev->getFullyQualifiedPairs()) {
         ostream << "    <pair label =\"" << nvp.first << "\" value=\"" << nvp.second << "\"/>\n";
@@ -341,20 +361,23 @@ void PrintAttributes::createMapFiles() {
     std::string class_map_function_name ;
     std::string enum_map_function_name ;
 
-    if ( sim_services_flag ) {
-#ifdef EXTERNAL_BUILD
-        map_dir = output_dir ;
-#else
-        map_dir = "trick_source/sim_services/include/io_src" ;
-#endif
+    if (sim_services_flag)
+    {
+        map_dir                 = "trick_source/sim_services/include/io_src";
         class_map_function_name = "populate_sim_services_class_map" ;
         enum_map_function_name = "populate_sim_services_enum_map" ;
-    } else {
+    }
+    else
+    {
         map_dir = "build" ;
         class_map_function_name = "populate_class_map" ;
         enum_map_function_name = "populate_enum_map" ;
     }
 
+    if (!output_root.empty())
+    {
+        map_dir = output_root;
+    }
     if ( stat( map_dir.c_str() , &buf ) != 0 ) {
         if ( mkdir( map_dir.c_str() , 0755 ) != 0 ) {
             // dir does not exist and cannot make the directory.
@@ -382,14 +405,32 @@ void PrintAttributes::closeMapFiles() {
     enum_map_outfile.close() ;
 
     // If we wrote any new io_src files, move the temporary class and enum map files to new location
-    if ( out_of_date_io_files.size() > 0 ) {
-        std::rename(std::string(map_dir + "/.extern_init_attr.h").c_str(),
-                    std::string(map_dir + "/extern_init_attr.h").c_str());
+    if (!output_root.empty() || out_of_date_io_files.size() > 0)
+    {
+        if (std::rename(std::string(map_dir + "/.extern_init_attr.h").c_str(),
+                        std::string(map_dir + "/extern_init_attr.h").c_str())
+            && !output_root.empty())
+        {
+            throw std::runtime_error("Cannot publish extern_init_attr.h");
+        }
         std::ifstream class_map(std::string(map_dir + "/.class_map.cpp").c_str()) ;
         std::ifstream enum_map(std::string(map_dir + "/.enum_map.cpp").c_str()) ;
-        std::ofstream combined_map(std::string(map_dir + "/class_map.cpp").c_str()) ;
-        combined_map << class_map.rdbuf() << enum_map.rdbuf() ;
-    } else {
+        std::ofstream combined_map;
+        if (!output_root.empty())
+        {
+            combined_map.exceptions(std::ios::failbit | std::ios::badbit);
+        }
+        combined_map.open(map_dir + "/class_map.cpp");
+        combined_map << class_map.rdbuf() << enum_map.rdbuf();
+        combined_map.close();
+        if (!output_root.empty())
+        {
+            remove((map_dir + "/.class_map.cpp").c_str());
+            remove((map_dir + "/.enum_map.cpp").c_str());
+        }
+    }
+    else
+    {
         remove(std::string(map_dir + "/.extern_init_attr.h").c_str());
         remove( std::string(map_dir + "/.class_map.cpp").c_str() ) ;
         remove( std::string(map_dir + "/.enum_map.cpp").c_str() ) ;
@@ -428,6 +469,10 @@ std::set<std::string> PrintAttributes::getEmptyFiles() {
 
 //TODO: Move this into PrintFileContents10.
 void PrintAttributes::printIOMakefile() {
+    if (!output_root.empty())
+    {
+        return;
+    }
     std::ofstream makefile_io_src ;
     std::ofstream makefile_ICG ;
     std::ofstream io_link_list ;
@@ -526,6 +571,10 @@ void PrintAttributes::printIOMakefile() {
 }
 
 void PrintAttributes::printICGNoFiles() {
+    if (!output_root.empty())
+    {
+        return;
+    }
     if ( ! sim_services_flag ) {
         std::vector< std::string >::iterator it ;
         std::ofstream icg_no_outfile("build/ICG_no_found") ;
@@ -656,4 +705,209 @@ bool PrintAttributes::isHeaderExcluded(const std::string& header, bool exclude_e
 
 void PrintAttributes::markHeaderAsVisited(const std::string& header) {
     visited_files.insert(header);
+}
+
+// Escape GCC-style depfile paths, including paths with spaces and Make syntax.
+static std::string depfilePath(const std::string& path)
+{
+    std::string escaped;
+    for (char c : path)
+    {
+        if (c == '$')
+        {
+            escaped += '$';
+        }
+        else if (c == ' ' || c == '#' || c == ':' || c == '\\')
+        {
+            escaped += '\\';
+        }
+        if (c == '\n' || c == '\r')
+        {
+            throw std::runtime_error("Newlines in ICG paths are unsupported");
+        }
+        escaped += c;
+    }
+    return escaped;
+}
+
+void PrintAttributes::setOutputRoot(const std::string& root)
+{
+    if (root.empty())
+    {
+        return;
+    }
+    if (!output_dir.empty())
+    {
+        throw std::runtime_error("--output-root and -o are mutually exclusive");
+    }
+    if (auto error = llvm::sys::fs::create_directories(root))
+    {
+        throw std::runtime_error("Cannot create ICG output root: " + error.message());
+    }
+    char* canonical = realpath(root.c_str(), nullptr);
+    if (!canonical)
+    {
+        throw std::runtime_error("Cannot resolve ICG output root");
+    }
+    output_root = canonical;
+    free(canonical);
+    for (const auto* name : { "generation.stamp", "manifest.json" })
+    {
+        if (auto error = llvm::sys::fs::remove(output_root + "/" + name))
+        {
+            throw std::runtime_error("Cannot invalidate ICG output: " + error.message());
+        }
+    }
+    for (auto* stream : { &outfile, &extern_init_attr_outfile, &class_map_outfile, &enum_map_outfile })
+    {
+        stream->exceptions(std::ios::failbit | std::ios::badbit);
+    }
+    std::ofstream sie;
+    sie.exceptions(std::ios::failbit | std::ios::badbit);
+    sie.open(sieFileName());
+    sie.close();
+}
+
+std::string PrintAttributes::sieFileName(bool enumeration) const
+{
+    if (!output_root.empty())
+    {
+        return output_root + "/classes.resource";
+    }
+    if (sim_services_flag)
+    {
+        return std::string(getenv("TRICK_HOME")) + "/share/trick/xml/" + (enumeration ? "include/" : "")
+            + "sim_services_classes.resource";
+    }
+    return "build/classes.resource";
+}
+
+void PrintAttributes::finishOutputContract(const std::string& inventory)
+{
+    if (output_root.empty())
+    {
+        return;
+    }
+    if (!inventory.empty())
+    {
+        std::ifstream input(inventory);
+        if (!input)
+        {
+            throw std::runtime_error("Cannot open output inventory: " + inventory);
+        }
+        std::set<std::string> expected;
+        std::string header;
+        while (std::getline(input, header))
+        {
+            if (header.empty())
+            {
+                continue;
+            }
+            char* canonical = realpath(header.c_str(), nullptr);
+            if (!canonical)
+            {
+                throw std::runtime_error("Cannot resolve inventory header: " + header);
+            }
+            expected.insert(canonical);
+            free(canonical);
+        }
+        if (input.bad())
+        {
+            throw std::runtime_error("Cannot read output inventory");
+        }
+        for (const auto& entry : all_io_files)
+        {
+            if (!expected.count(entry.first))
+            {
+                throw std::runtime_error("Generated header is absent from output inventory: " + entry.first);
+            }
+        }
+        for (const auto& path : expected)
+        {
+            if (!all_io_files.count(path))
+            {
+                // Empty or feature-disabled headers still have a declared output.
+                const auto output = createIOFileName(path);
+                llvm::SmallString<256> directory(output);
+                llvm::sys::path::remove_filename(directory);
+                if (auto error = llvm::sys::fs::create_directories(directory))
+                {
+                    throw std::runtime_error("Cannot create inventory output: " + error.message());
+                }
+                std::ofstream empty;
+                empty.exceptions(std::ios::failbit | std::ios::badbit);
+                empty.open(output);
+                empty << "// No metadata in this configuration.\n";
+                empty.close();
+                all_io_files[path] = output;
+            }
+        }
+    }
+    std::set<std::string> dependencies;
+    for (auto it = ci.getSourceManager().fileinfo_begin(); it != ci.getSourceManager().fileinfo_end(); ++it)
+    {
+#if (LIBCLANG_MAJOR < 18)
+        std::string name = it->first->getName().str();
+#else
+        std::string name = it->first.getName().str();
+#endif
+        char* path = realpath(name.c_str(), nullptr);
+        if (!path)
+        {
+            throw std::runtime_error("Cannot resolve ICG dependency: " + name);
+        }
+        dependencies.insert(path);
+        free(path);
+    }
+    std::ofstream depfile;
+    depfile.exceptions(std::ios::failbit | std::ios::badbit);
+    depfile.open(output_root + "/dependencies.d");
+    depfile << depfilePath(output_root + "/generation.stamp") << ':';
+    llvm::json::Array inputs;
+    for (const auto& path : dependencies)
+    {
+        depfile << " \\" << '\n' << "  " << depfilePath(path);
+        inputs.push_back(path);
+    }
+    depfile << '\n';
+    depfile.close();
+    llvm::json::Array outputs;
+    llvm::json::Array mappings;
+    for (const auto& entry : all_io_files)
+    {
+        outputs.push_back(entry.second);
+        mappings.push_back(llvm::json::Object {
+            { "header", entry.first  },
+            { "output", entry.second }
+        });
+    }
+    for (const auto* name : { "class_map.cpp", "extern_init_attr.h", "classes.resource", "dependencies.d" })
+    {
+        outputs.push_back(output_root + "/" + name);
+    }
+    llvm::json::Object manifest {
+        { "version",      1                   },
+        { "outputs",      std::move(outputs)  },
+        { "headers",      std::move(mappings) },
+        { "dependencies", std::move(inputs)   }
+    };
+    std::ofstream json;
+    json.exceptions(std::ios::failbit | std::ios::badbit);
+    json.open(output_root + "/manifest.json.tmp");
+    std::string content;
+    llvm::raw_string_ostream stream(content);
+    stream << llvm::formatv("{0:2}", llvm::json::Value(std::move(manifest)));
+    stream.flush();
+    json << content << '\n';
+    json.close();
+    if (std::rename((output_root + "/manifest.json.tmp").c_str(), (output_root + "/manifest.json").c_str()))
+    {
+        throw std::runtime_error("Cannot publish ICG manifest");
+    }
+    // Publish success last. Consumers must never infer success from partial files.
+    std::ofstream stamp;
+    stamp.exceptions(std::ios::failbit | std::ios::badbit);
+    stamp.open(output_root + "/generation.stamp");
+    stamp << "ICG output contract 1\n";
+    stamp.close();
 }

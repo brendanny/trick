@@ -1,0 +1,7 @@
+// Shared model-compiler profile schema. Keep one operator per line.
+TRICK_MODEL_FEATURE(__has_include)
+TRICK_MODEL_FEATURE(__has_include_next)
+TRICK_MODEL_FEATURE(__has_cpp_attribute)
+TRICK_MODEL_FEATURE(__has_builtin)
+TRICK_MODEL_FEATURE(__has_attribute)
+TRICK_MODEL_FEATURE(__has_feature)

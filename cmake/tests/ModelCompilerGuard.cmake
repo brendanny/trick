@@ -1,0 +1,118 @@
+cmake_minimum_required(VERSION 3.26)
+file(REMOVE_RECURSE "${TEST_ROOT}")
+file(MAKE_DIRECTORY "${TEST_ROOT}")
+file(READ "${PROFILE}" profile)
+string(REGEX REPLACE "#define __GNUC__ [0-9]+" "#define __GNUC__ 999" profile "${profile}")
+file(WRITE "${TEST_ROOT}/mismatch.txt" "${profile}")
+set(cases plain direct indirect defined missing)
+foreach(case IN LISTS cases)
+    set(body "int value;")
+    if(case STREQUAL direct)
+        set(body "#if __GNUC__ >= 8\nint value;\n#else\ndouble value;\n#endif")
+    elseif(case STREQUAL indirect)
+        set(body "#define MODEL_VERSION __GNUC__\n#if MODEL_VERSION >= 8\nint value;\n#endif")
+    elseif(case STREQUAL defined)
+        set(body "#ifdef __GNUC__\nint value;\n#endif")
+    elseif(case STREQUAL missing)
+        set(body "#if __SDK_TEST_COMPILER__\nint value;\n#endif")
+        file(APPEND "${TEST_ROOT}/mismatch.txt" "#define __SDK_TEST_COMPILER__ 1\n")
+    endif()
+    file(WRITE "${TEST_ROOT}/${case}.hh" "struct GuardModel {\n${body}\n};\n")
+    execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --output-root "${TEST_ROOT}/${case}"
+        --model-predefines "${TEST_ROOT}/mismatch.txt" "${TEST_ROOT}/${case}.hh"
+        RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
+    if(case STREQUAL plain OR case STREQUAL defined)
+        if(NOT status EQUAL 0 OR NOT EXISTS "${TEST_ROOT}/${case}/generation.stamp")
+            message(FATAL_ERROR "Plain model failed: ${out}${err}")
+        endif()
+    elseif(status EQUAL 0 OR NOT err MATCHES "model compiler and ICG disagree" OR
+           EXISTS "${TEST_ROOT}/${case}/generation.stamp")
+        message(FATAL_ERROR "Guard did not reject ${case}: ${status}: ${out}${err}")
+    endif()
+endforeach()
+
+# Builtin query operators are not object macros; similarly named user macros
+# must not be mistaken for compiler predefines inside a conditional.
+file(WRITE "${TEST_ROOT}/features.hh" [=[
+#define MY__GNUC__ 1
+#if MY__GNUC__ && __has_include(<stddef.h>)
+struct FeatureModel { int value; };
+#endif
+]=])
+file(APPEND "${TEST_ROOT}/mismatch.txt" "#define __has_include(STR) 1\n")
+execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --output-root "${TEST_ROOT}/features"
+    --model-predefines "${TEST_ROOT}/mismatch.txt" "${TEST_ROOT}/features.hh"
+    RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
+if(NOT status EQUAL 0 OR NOT EXISTS "${TEST_ROOT}/features/generation.stamp")
+    message(FATAL_ERROR "Feature queries failed: ${out}${err}")
+endif()
+file(MAKE_DIRECTORY "${TEST_ROOT}/vendor")
+file(WRITE "${TEST_ROOT}/vendor/third_party.hh" "#if __GNUC__\nstruct Vendor { int value; };\n#endif\n")
+file(WRITE "${TEST_ROOT}/external.hh" "#include <third_party.hh>\nstruct OwnModel { int value; };\n")
+foreach(mode IN ITEMS excluded system)
+    set(args "-I${TEST_ROOT}/vendor")
+    set(environment "TRICK_ICG_EXCLUDE=${TEST_ROOT}/vendor")
+    if(mode STREQUAL system)
+        set(args "-isystem${TEST_ROOT}/vendor")
+        set(environment "TRICK_ICG_EXCLUDE=")
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "${environment}" "${ICG}" ${FRONTEND_FLAGS}
+        --output-root "${TEST_ROOT}/${mode}" --model-predefines "${TEST_ROOT}/mismatch.txt"
+        ${args} "${TEST_ROOT}/external.hh" RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
+    if(NOT status EQUAL 0 OR NOT EXISTS "${TEST_ROOT}/${mode}/generation.stamp")
+        message(FATAL_ERROR "Third-party ${mode} failed: ${out}${err}")
+    endif()
+endforeach()
+
+# Reproduce the EL8 compiler's missing operators independently of the host.
+file(WRITE "${TEST_ROOT}/gcc8.txt" "${profile}\n#trick_feature __has_builtin 0\n#trick_feature __has_feature 0\n")
+file(WRITE "${TEST_ROOT}/matched.txt" "${profile}\n#trick_feature __has_builtin 1\n#trick_feature __has_attribute 1\n#trick_feature __has_cpp_attribute 1\n#trick_feature __has_feature 1\n")
+foreach(operator IN ITEMS __has_builtin __has_attribute __has_feature __has_cpp_attribute)
+    foreach(form IN ITEMS defined ifdef ifndef call)
+        set(expression "defined(${operator})")
+        set(directive "if ${expression}")
+        if(form STREQUAL ifdef OR form STREQUAL ifndef)
+            set(directive "${form} ${operator}")
+        elseif(form STREQUAL call)
+            set(argument unused)
+            if(operator STREQUAL __has_builtin)
+                set(argument __builtin_expect)
+            elseif(operator STREQUAL __has_cpp_attribute)
+                set(argument nodiscard)
+            elseif(operator STREQUAL __has_feature)
+                set(argument cxx_constexpr)
+            endif()
+            set(directive "if ${operator}(${argument})")
+            if(operator STREQUAL __has_cpp_attribute)
+                string(APPEND directive " >= 201907L")
+            endif()
+        endif()
+        set(header "${TEST_ROOT}/${operator}-${form}.hh")
+        file(WRITE "${header}" "#${directive}\nstruct FeatureChoice { int value; };\n#else\nstruct FeatureChoice { double value; };\n#endif\n")
+        foreach(profile_name IN ITEMS matched gcc8)
+            set(output "${TEST_ROOT}/${operator}-${form}-${profile_name}")
+            execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --output-root "${output}"
+                --model-predefines "${TEST_ROOT}/${profile_name}.txt" "${header}"
+                RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
+            if(form STREQUAL call OR (profile_name STREQUAL gcc8 AND operator MATCHES "^__has_(builtin|feature)$"))
+                if(status EQUAL 0 OR NOT err MATCHES "disagree on predefined macro|cannot verify model compiler result" OR
+                   EXISTS "${output}/generation.stamp")
+                    message(FATAL_ERROR "Guard accepted ${operator}/${form}/${profile_name}: ${out}${err}")
+                endif()
+            elseif(NOT status EQUAL 0)
+                message(FATAL_ERROR "Matching availability rejected: ${out}${err}")
+            endif()
+        endforeach()
+    endforeach()
+endforeach()
+
+# A same-sized profile with a missing expected name must fail closed.
+string(REGEX REPLACE "#trick_feature __has_cpp_attribute [01]" "#trick_feature __unexpected_operator 1" incomplete "${profile}")
+file(WRITE "${TEST_ROOT}/incomplete.txt" "${incomplete}")
+execute_process(COMMAND "${ICG}" ${FRONTEND_FLAGS} --output-root "${TEST_ROOT}/incomplete"
+    --model-predefines "${TEST_ROOT}/incomplete.txt" "${TEST_ROOT}/plain.hh"
+    RESULT_VARIABLE status OUTPUT_VARIABLE out ERROR_VARIABLE err)
+if(status EQUAL 0 OR NOT err MATCHES "Invalid C[+][+] model compiler predefines" OR
+   EXISTS "${TEST_ROOT}/incomplete/generation.stamp")
+    message(FATAL_ERROR "Incomplete feature schema accepted: ${out}${err}")
+endif()

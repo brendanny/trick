@@ -1,0 +1,25 @@
+# install(DIRECTORY) preserves links, unlike SDK staging. Fail before installing
+# an unhandled link that could depend on the producer tree after relocation.
+function(trick_check_sdk_source_links source)
+    file(REAL_PATH "${source}" source)
+    foreach(tree IN ITEMS include trick_source libexec/trick share/trick cmake/examples/SIM_sdk)
+        file(GLOB_RECURSE entries LIST_DIRECTORIES TRUE "${source}/${tree}/*")
+        foreach(path IN LISTS entries)
+            if(NOT IS_SYMLINK "${path}")
+                continue()
+            endif()
+            file(RELATIVE_PATH relative "${source}" "${path}")
+            if(relative STREQUAL "share/trick/trickops/README.md")
+                file(REAL_PATH "${path}" target)
+                if(target STREQUAL "${source}/docs/documentation/miscellaneous_trick_tools/TrickOps.md")
+                    continue()
+                endif()
+            elseif(tree STREQUAL "trick_source" AND NOT IS_DIRECTORY "${path}" AND
+                   NOT path MATCHES "[.](h|hh|hpp|ipp)$")
+                # Only headers from trick_source are installed.
+                continue()
+            endif()
+            message(FATAL_ERROR "Unhandled SDK source symlink: ${relative}. Add an explicit relocatable install rule before including this link in the SDK.")
+        endforeach()
+    endforeach()
+endfunction()

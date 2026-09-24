@@ -206,3 +206,7 @@ TRICK_DEFINES  = $(shell $(PERL) -e '@defines = "${TRICK_CFLAGS}" =~ /-D\s*(\S+)
 
 DEPFILE = $(PWD)/Makefile_deps
 DEPTEMPFILE = $(PWD)/Makefile_temp_depends
+
+# Present only in a CMake SDK. Apply its resolved archive/dependency view after
+# the legacy defaults; ordinary Autotools installations do not contain it.
+-include $(TRICK_HOME)/share/trick/makefiles/cmake-sdk.mk

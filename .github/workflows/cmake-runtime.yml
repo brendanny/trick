@@ -1,0 +1,214 @@
+name: CMake runtime
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cmake-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  legacy-runtime:
+    name: Rocky 8 GCC 8.5 SWIG ${{ matrix.swig }} Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    container: rockylinux/rockylinux:8
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {swig: '3', python: '2'}
+          - {swig: '3', python: '3'}
+          - {swig: '4', python: '2'}
+          - {swig: '4', python: '3'}
+    steps:
+      - name: Install compatibility toolchain
+        run: |
+          echo "TRICK_COMPAT_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          dnf install -y epel-release dnf-plugins-core
+          dnf config-manager --enable powertools
+          dnf module enable -y swig:${{ matrix.swig }}.0
+          # Mirrors can briefly advertise newer AppStream packages before
+          # matching BaseOS dependencies arrive. Require a complete solvable
+          # transaction; exact GCC/SWIG floor checks below remain mandatory.
+          dnf install -y --nobest git gcc gcc-c++ make llvm-devel llvm-static clang clang-devel \
+            udunits2-devel bison flex swig gtest-devel python2-devel python3-devel \
+            libffi-devel zlib-devel libxml2-devel libzstd-devel \
+            python39 python39-pip which diffutils perl perl-Text-Balanced perl-Digest-MD5 zip
+          python3.9 -m venv /opt/cmake-tools
+          /opt/cmake-tools/bin/pip install cmake==3.26.0 ninja==1.11.1.1
+          echo /opt/cmake-tools/bin >> "$GITHUB_PATH"
+      - uses: actions/checkout@v7
+      - name: Trust this container checkout for source cleanliness checks
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse --show-toplevel
+      - name: Configure and verify compatibility selection
+        shell: bash
+        run: |
+          set -o pipefail
+          test "$(gcc -dumpfullversion)" = 8.5.0
+          swig -version | grep 'SWIG Version ${{ matrix.swig }}\.'
+          /usr/bin/python${{ matrix.python }} --version
+          legacy_options=()
+          if [ '${{ matrix.swig }}' = 3 ]; then
+            legacy_options+=(-DTRICK_SWIG_MAJOR=3)
+          fi
+          if [ '${{ matrix.python }}' = 2 ]; then
+            legacy_options+=(-DTRICK_PYTHON_MAJOR=2)
+          fi
+          cmake -S . -B "$RUNNER_TEMP/trick-runtime" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_SDK=ON \
+            -DTRICK_BUILD_RUNTIME_TESTS=ON -DTRICK_BUILD_UTILITY_TESTS=ON \
+            "${legacy_options[@]}" -DSWIG_EXECUTABLE=/usr/bin/swig \
+            -DCMAKE_WARN_DEPRECATED=OFF \
+            -DPython${{ matrix.python }}_EXECUTABLE=/usr/bin/python${{ matrix.python }} \
+            -DLLVM_DIR="$(llvm-config --cmakedir)" 2>&1 | tee "$RUNNER_TEMP/configure.log"
+          grep -Fx '#trick_feature __has_builtin 0' "$RUNNER_TEMP/trick-runtime/sdk-model-predefines.txt"
+          grep -Fx '#trick_feature __has_feature 0' "$RUNNER_TEMP/trick-runtime/sdk-model-predefines.txt"
+          if [ '${{ matrix.swig }}' = 3 ]; then
+            grep 'DEPRECATED: SWIG 3' "$RUNNER_TEMP/configure.log"
+          fi
+          if [ '${{ matrix.python }}' = 2 ]; then
+            grep 'DEPRECATED: Python 2' "$RUNNER_TEMP/configure.log"
+          fi
+          if [ '${{ matrix.swig }}:${{ matrix.python }}' = 4:3 ]; then
+            grep '^TRICK_SWIG_MAJOR:STRING=4$' "$RUNNER_TEMP/trick-runtime/CMakeCache.txt"
+            grep '^TRICK_PYTHON_MAJOR:STRING=3$' "$RUNNER_TEMP/trick-runtime/CMakeCache.txt"
+            if grep -E 'DEPRECATED: (SWIG|Python)' "$RUNNER_TEMP/configure.log"; then
+              exit 1
+            fi
+          fi
+      - name: Build and test the complete compatibility runtime
+        run: |
+          cmake --build "$RUNNER_TEMP/trick-runtime" --parallel 3
+          ctest --test-dir "$RUNNER_TEMP/trick-runtime" --output-on-failure --parallel 4
+      - name: Verify regeneration with Python optimization enabled
+        run: |
+          python3.9 -O cmake/tests/verify_build_graph.py --source . --build "$RUNNER_TEMP/trick-runtime"
+          cmake --build "$RUNNER_TEMP/trick-runtime" --parallel 3
+          ctest --test-dir "$RUNNER_TEMP/trick-runtime" --output-on-failure --parallel 4
+      - name: Validate installed and relocated SDK
+        run: |
+          python3.9 cmake/tests/verify_sdk_staging.py --build "$RUNNER_TEMP/trick-runtime"
+          python3.9 cmake/tests/verify_sdk_install.py --source . --build "$RUNNER_TEMP/trick-runtime" --work "$RUNNER_TEMP/sdk-install"
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - name: Record compatibility packages
+        if: always()
+        run: |
+          rpm -qa | sort > "$RUNNER_TEMP/packages.txt"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime-rocky8-swig${{ matrix.swig }}-python${{ matrix.python }}
+          path: |
+            ${{ env.TRICK_COMPAT_TEMP }}/sdk-install/**/install-validation.log
+            ${{ env.TRICK_COMPAT_TEMP }}/sdk-install/**/package-validation.log
+            ${{ env.TRICK_COMPAT_TEMP }}/configure.log
+            ${{ env.TRICK_COMPAT_TEMP }}/packages.txt
+            ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/TrickDependencies.txt
+            ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/CMakeCache.txt
+            ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/Testing/Temporary/
+  runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            generator: Ninja
+            er7: 'ON'
+            qualification: default
+          - os: ubuntu-24.04
+            generator: Unix Makefiles
+            er7: 'OFF'
+            qualification: default
+          - os: macos-26
+            generator: Ninja
+            er7: 'ON'
+            qualification: default
+          - os: macos-26
+            generator: Ninja Multi-Config
+            er7: 'OFF'
+            qualification: default
+          - os: ubuntu-24.04
+            generator: Ninja
+            er7: 'ON'
+            qualification: std-override
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Provision CMake
+        run: |
+          python -m venv "$RUNNER_TEMP/cmake-tools"
+          "$RUNNER_TEMP/cmake-tools/bin/pip" install cmake==3.26.0 ninja==1.11.1.1
+          echo "$RUNNER_TEMP/cmake-tools/bin" >> "$GITHUB_PATH"
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-14-dev libclang-14-dev clang-14 libudunits2-dev bison flex swig libgtest-dev perl libtext-balanced-perl zip
+          echo "LLVM_DIR=/usr/lib/llvm-14/lib/cmake/llvm" >> "$GITHUB_ENV"
+      - name: macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm@20 udunits bison flex swig googletest
+          echo "LLVM_DIR=$(brew --prefix llvm@20)/lib/cmake/llvm" >> "$GITHUB_ENV"
+          echo "UDUNITS2_ROOT=$(brew --prefix udunits)" >> "$GITHUB_ENV"
+          echo "$(brew --prefix bison)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin" >> "$GITHUB_PATH"
+      - name: Configure
+        run: |
+          extra=()
+          if [[ '${{ matrix.qualification }}' == std-override ]]; then
+            extra+=("-DCMAKE_CXX_FLAGS=-std=c++14" "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$RUNNER_TEMP/trick-runtime/bin")
+          fi
+          cmake -S . -B "$RUNNER_TEMP/trick-runtime" -G '${{ matrix.generator }}' \
+            -DCMAKE_BUILD_TYPE=Release -DTRICK_BUILD_SDK=ON "${extra[@]}" \
+            -DTRICK_BUILD_RUNTIME_TESTS=ON -DTRICK_BUILD_UTILITY_TESTS=ON \
+            -DTRICK_USE_ER7_UTILS=${{ matrix.er7 }} -DLLVM_DIR="$LLVM_DIR" \
+            -DPython3_EXECUTABLE="$(command -v python)"
+      - name: Build with read-only production sources and run tests
+        run: |
+          chmod -R a-w include trick_source
+          cmake --build "$RUNNER_TEMP/trick-runtime" --config Release --parallel 3
+          ctest --test-dir "$RUNNER_TEMP/trick-runtime" -C Release --output-on-failure --parallel 4
+      - name: Check native regeneration
+        run: |
+          python cmake/tests/verify_build_graph.py --source . --build "$RUNNER_TEMP/trick-runtime" --config Release
+          cmake --build "$RUNNER_TEMP/trick-runtime" --config Release --parallel 3
+          ctest --test-dir "$RUNNER_TEMP/trick-runtime" -C Release --output-on-failure --parallel 4
+      - name: Validate installed and relocated SDK
+        run: |
+          python cmake/tests/verify_sdk_staging.py --build "$RUNNER_TEMP/trick-runtime"
+          python cmake/tests/verify_sdk_install.py --source . --build "$RUNNER_TEMP/trick-runtime" --work "$RUNNER_TEMP/sdk-install"
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+      - name: Record tools
+        if: always()
+        run: |
+          { uname -a; cmake --version; c++ --version; bison --version; flex --version; swig -version; python --version; } > "$RUNNER_TEMP/trick-runtime/tool-versions.txt"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime-${{ matrix.os }}-${{ matrix.er7 }}-${{ matrix.qualification }}
+          path: |
+            ${{ runner.temp }}/sdk-install/**/install-validation.log
+            ${{ runner.temp }}/sdk-install/**/package-validation.log
+            ${{ runner.temp }}/trick-runtime/TrickDependencies.txt
+            ${{ runner.temp }}/trick-runtime/CMakeCache.txt
+            ${{ runner.temp }}/trick-runtime/tool-versions.txt
+            ${{ runner.temp }}/trick-runtime/CMakeFiles/CMakeConfigureLog.yaml
+            ${{ runner.temp }}/trick-runtime/Testing/Temporary/
+            ${{ runner.temp }}/trick-runtime/trick_source/codegen/Interface_Code_Gen/ICGConfiguration.txt

@@ -19,24 +19,39 @@
 #include "llvm/Support/VirtualFileSystem.h"
 #endif
 
+#include "CommentSaver.hh"
+#include "FindTrickICG.hh"
+#include "HeaderSearchDirs.hh"
+#include "ICGASTConsumer.hh"
+#include "ICGDiagnosticConsumer.hh"
+#include "ModelCompilerGuard.hh"
+#include "PrintAttributes.hh"
+#include "TranslationUnitVisitor.hh"
+#include "Utilities.hh"
+
 #include "clang/Basic/Builtins.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Basic/TargetOptions.h"
-#include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
+#include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/TargetOptions.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Parse/ParseAST.h"
 
-#include "ICGDiagnosticConsumer.hh"
-#include "ICGASTConsumer.hh"
-#include "HeaderSearchDirs.hh"
-#include "CommentSaver.hh"
-#include "TranslationUnitVisitor.hh"
-#include "PrintAttributes.hh"
-#include "Utilities.hh"
-#include "FindTrickICG.hh"
+#ifdef TRICK_ICG_CMAKE_CONFIG
+#include "TrickICGConfig.hh"
+
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
+#endif
+
+llvm::cl::opt<std::string> gnu_version("icg-gnu-version",
+                                       llvm::cl::desc("GNU compatibility version (default: build compiler version)"));
+llvm::cl::opt<bool> strict_errors("icg-strict-errors", llvm::cl::desc("Report and fail on system-header errors"));
+llvm::cl::list<std::string>
+    compiler_dirs("icg-system-dir",
+                  llvm::cl::desc("Ordered compiler system include directory; replaces runtime discovery (repeatable)"));
 
 /* Command line arguments.  These work better as globals, as suggested in llvm/CommandLine documentation */
 llvm::cl::list<std::string> include_dirs("I", llvm::cl::Prefix, llvm::cl::desc("Include directory"), llvm::cl::value_desc("directory"));
@@ -51,6 +66,13 @@ llvm::cl::opt<int> attr_version("v", llvm::cl::desc("Select version of attribute
 llvm::cl::opt<std::string> standard_version("icg-std", llvm::cl::desc("Set the C++ standard to use when parsing. c++11, c++14, c++17, and c++20 are valid. Default is c++17 or the newest supported by your LLVM version."), llvm::cl::init(""), llvm::cl::ZeroOrMore);
 llvm::cl::opt<int> debug_level("d", llvm::cl::desc("Set debug level"), llvm::cl::init(0), llvm::cl::ZeroOrMore);
 llvm::cl::opt<bool> create_map("m", llvm::cl::desc("Create map files"), llvm::cl::init(false));
+llvm::cl::opt<std::string>
+    output_inventory("output-inventory",
+                     llvm::cl::desc("Newline-delimited complete header output inventory (requires --output-root)"));
+llvm::cl::opt<std::string> output_root("output-root",
+                                       llvm::cl::desc("Explicit output root with manifest, depfile and success stamp"));
+llvm::cl::opt<std::string>
+    model_predefines("model-predefines", llvm::cl::desc("Validate model compiler predefined macros in user headers"));
 llvm::cl::opt<std::string> output_dir("o", llvm::cl::desc("Output directory"));
 llvm::cl::list<std::string> input_file_names(llvm::cl::Positional, llvm::cl::desc("<input_file>"), llvm::cl::ZeroOrMore);
 llvm::cl::list<std::string> sink(llvm::cl::Sink, llvm::cl::ZeroOrMore);
@@ -84,7 +106,11 @@ void set_lang_opts(clang::CompilerInstance & ci) {
     const char* gcc_version = "";
 #endif
 
-    ci.getLangOpts().GNUCVersion = gccVersionToIntOrDefault(gcc_version, 80500);
+    // Clang's driver advertises GNU compatibility 4.2.1 by default. Advertising
+    // the host GCC version enables glibc syntax that older libclang cannot parse.
+    // The output layout must never select a different preprocessor dialect.
+    ci.getLangOpts().GNUCVersion
+        = gccVersionToIntOrDefault(gnu_version.empty() ? gcc_version : gnu_version.c_str(), 80500);
     ci.getLangOpts().CPlusPlus17 = true ;
 
     // Check if standard_version was specified and if it's a version that is supported by this libclang
@@ -117,7 +143,8 @@ Most of the main program is pieced together from examples on the web. We are doi
 -# Telling clang to use our ICGASTConsumer as an ASTConsumer.
 -# Parsing the input file.
 */
-int main(int argc, char * argv[]) {
+int runICG(int argc, char* argv[])
+{
     llvm::cl::SetVersionPrinter([](llvm::raw_ostream& stream)
                                 { stream << "Trick Interface Code Generator (trick-ICG) " << TRICK_VERSION << '\n'; });
 
@@ -140,6 +167,33 @@ int main(int argc, char * argv[]) {
 
     if (input_file_names.empty()) {
         std::cerr << "No header file specified" << std::endl;
+        return 1;
+    }
+#ifdef TRICK_ICG_CMAKE_CONFIG
+    if (getenv("TRICK_HOME") == nullptr)
+    {
+        // Installed and staged executables discover their own SDK. Only the
+        // developer executable outside an SDK uses the explicit build fallback.
+        llvm::SmallString<256> root(llvm::sys::fs::getMainExecutable(argv[0], reinterpret_cast<void*>(&runICG)));
+        llvm::SmallString<256> executable, developer_executable;
+        const bool developer = !llvm::sys::fs::real_path(root, executable)
+            && !llvm::sys::fs::real_path(TrickICGConfig::build_executable, developer_executable)
+            && executable == developer_executable;
+        llvm::sys::path::remove_filename(root);
+        llvm::sys::path::remove_filename(root);
+        const std::string sdk_root(root.str());
+        const std::string marker = sdk_root + "/share/trick/sdk.env";
+        if (!developer && access(marker.c_str(), R_OK) != 0)
+        {
+            std::cerr << "Incomplete SDK: cannot read " << marker << std::endl;
+            return 1;
+        }
+        setenv("TRICK_HOME", developer ? TrickICGConfig::source_dir : sdk_root.c_str(), 0);
+    }
+#endif
+    if (!output_inventory.empty() && output_root.empty())
+    {
+        std::cerr << "--output-inventory requires --output-root" << std::endl;
         return 1;
     }
     clang::CompilerInstance ci;
@@ -216,6 +270,8 @@ int main(int argc, char * argv[]) {
 
     // Add all of the include directories to the preprocessor
     HeaderSearchDirs hsd(ci.getPreprocessor().getHeaderSearchInfo(), ci.getHeaderSearchOpts(), pp, sim_services_flag);
+    if (!hsd.setCompilerSearchDirs(compiler_dirs))
+        return 1;
     hsd.addSearchDirs(include_dirs, isystem_dirs);
 
     // Add a preprocessor callback to search for TRICK_ICG
@@ -227,6 +283,18 @@ int main(int argc, char * argv[]) {
 
     auto ftg = std::make_unique<FindTrickICG>(ci, hsd, print_trick_icg != BOU_FALSE_VAL);
     pp.addPPCallbacks(std::move(ftg));
+    if (!model_predefines.empty())
+    {
+        try
+        {
+            pp.addPPCallbacks(std::make_unique<ModelCompilerGuard>(pp, hsd, model_predefines));
+        }
+        catch (const std::exception& error)
+        {
+            std::cerr << error.what() << std::endl;
+            return 1;
+        }
+    }
 
     pp.getBuiltinInfo().initializeBuiltins(pp.getIdentifierTable(), pp.getLangOpts());
     // Add all of the #define from the command line to the default predefines
@@ -238,9 +306,11 @@ int main(int argc, char * argv[]) {
 
     PrintAttributes printAttributes(attr_version, hsd, cs, ci, force, sim_services_flag, output_dir);
 
+    printAttributes.setOutputRoot(output_root);
     printAttributes.addIgnoreTypes() ;
     // Create new class and enum map files
-    if (create_map) {
+    if (create_map || !output_root.empty())
+    {
         printAttributes.createMapFiles();
     }
 
@@ -278,7 +348,8 @@ int main(int argc, char * argv[]) {
     ci.getSourceManager().setMainFileID(
         ci.getSourceManager().createFileID(fileEntryRef, clang::SourceLocation(), clang::SrcMgr::C_User));
 #endif
-    ICGDiagnosticConsumer *icgDiagConsumer = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd);
+    ICGDiagnosticConsumer* icgDiagConsumer = new ICGDiagnosticConsumer(llvm::errs(), &ci.getDiagnosticOpts(), ci, hsd,
+                                                                       strict_errors || !output_root.empty());
     ci.getDiagnostics().setClient(icgDiagConsumer);
     ci.getDiagnosticClient().BeginSourceFile(ci.getLangOpts(), &ci.getPreprocessor());
     clang::ParseAST(ci.getSema());
@@ -294,10 +365,26 @@ int main(int argc, char * argv[]) {
     // Print the list of headers that have the ICG:(No) comment
     printAttributes.printICGNoFiles();
 
-    if (icgDiagConsumer->error_in_user_code) {
-        std::cout << color(ERROR, "Trick build was terminated due to error in user code!") << std::endl;
+    if (icgDiagConsumer->error_in_user_code
+        || ((strict_errors || !output_root.empty()) && ci.getDiagnostics().hasErrorOccurred()))
+    {
+        std::cerr << color(ERROR, "ICG failed due to parsing errors; see diagnostics above.") << std::endl;
         exit(-1);
     }
 
+    printAttributes.finishOutputContract(output_inventory);
     return 0;
+}
+
+int main(int argc, char* argv[])
+{
+    try
+    {
+        return runICG(argc, argv);
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "ICG failed: " << error.what() << std::endl;
+        return 1;
+    }
 }
