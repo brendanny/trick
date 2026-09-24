@@ -121,3 +121,7 @@ relative targets can lie outside the copied trees. Archive links remain explicit
 build-tree links. Stale-file cleanup prunes empty ancestor directories but keeps
 nonempty directories and user outputs. The inventory is written as literal text,
 so filenames containing `@NAME@` are not interpreted as template variables.
+
+Configure rejects unhandled source symlinks in the installed SDK trees. The
+known TrickOps README is explicitly materialized; adding another resource link
+requires an install rule that preserves its contents after relocation.

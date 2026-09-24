@@ -1,3 +1,6 @@
+include("${CMAKE_CURRENT_LIST_DIR}/TrickSDKSourceLinks.cmake")
+trick_check_sdk_source_links("${PROJECT_SOURCE_DIR}")
+
 # Explicit core SDK artifact families. Optional native/Java tools join in D.
 set_target_properties(trick-ICG PROPERTIES INSTALL_RPATH_USE_LINK_PATH ON)
 install(TARGETS ${trick_sdk_archives} trick-ICG EXPORT TrickTargets

@@ -32,6 +32,48 @@ def validate(cmake):
         link = source / "share/trick/trickops/README.md"
         link.parent.mkdir(parents=True)
         link.symlink_to("../../../external-doc.txt")
+        # Exercise the configure-time install check on the same fixture tree.
+        checker = template.parents[1] / "TrickSDKSourceLinks.cmake"
+        check_script = root / "check-links.cmake"
+        check_script.write_text(
+            "cmake_minimum_required(VERSION 3.26)\n"
+            f'include("{checker}")\n'
+            f'trick_check_sdk_source_links("{source}")\n'
+        )
+
+        def check_links(success):
+            result = subprocess.run(
+                [cmake, "-P", str(check_script)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if (result.returncode == 0) != success:
+                raise RuntimeError(
+                    "Unexpected source-link check result: " + result.stderr
+                )
+            if not success and "Unhandled SDK source symlink" not in result.stderr:
+                raise RuntimeError("Source-link check failed for another reason")
+
+        check_links(False)  # The known path with an unexpected target is unsafe.
+        link.unlink()
+        doc = source / "docs/documentation/miscellaneous_trick_tools/TrickOps.md"
+        write(doc, "external resource\n")
+        link.symlink_to(
+            "../../../docs/documentation/miscellaneous_trick_tools/TrickOps.md"
+        )
+        check_links(True)
+        for name, target in (
+            ("share/trick/new-link", "missing"),
+            ("libexec/trick/new-link", str(doc)),
+            ("include/link-dir", str(doc.parent)),
+        ):
+            unexpected = source / name
+            unexpected.parent.mkdir(parents=True, exist_ok=True)
+            unexpected.symlink_to(target)
+            check_links(False)
+            unexpected.unlink()
+        check_links(True)
         special = source / "include/obsolete/nested/@NAME@.hh"
         write(special)
         retained = source / "include/retained/nested/header.hh"
