@@ -48,7 +48,8 @@ An icg2 replacement must implement these rules and pass `icg.outputs`,
 CMake consumers must not inspect generator internals or discover outputs by glob.
 
 - Inputs: one umbrella header, `-I`/`-isystem` include paths, `-D` definitions,
-  `--icg-std`, `-sim_services`, `--output-root`, and optional `--output-inventory`.
+  `--icg-std`, `--icg-gnu-version`, `--icg-strict-errors`, repeated
+  `--icg-system-dir`, `-sim_services`, `--output-root`, and optional `--output-inventory`.
   The output root must be dedicated to one invocation/configuration. The inventory
   is UTF-8, one canonical absolute header path per line, with blank lines ignored.
 - For each inventory header, produce `io<canonical-absolute-header-path>.cpp`.

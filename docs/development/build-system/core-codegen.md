@@ -27,26 +27,22 @@ A no-op `cmake --build <build> --target trick_core_codegen` must do no work;
 touching a transitive header, deleting an output, rebuilding ICG, or changing
 `TRICK_USE_ER7_UTILS` must rerun the generator. All writes stay in the binary tree.
 
-BD-05/BD-06: **all invocations of a CMake-built ICG** report system-header errors
-as failures and advertise Clang's GNU compatibility version
-4.2.1, rather than the compiler used to build ICG. In the locally tested Ubuntu
-24.04/GCC 13.3/LLVM 14.0.6/glibc 2.39 tuple, impersonating GCC 13 selected
-unsupported `_Float32` declarations and malloc attributes in glibc. This change
-uses one build-time frontend policy (`TRICK_ICG_CMAKE_CONFIG`) for configured
-include ordering, GNU compatibility macros, and strict failure handling. Neither
-`-o` nor `--output-root` changes parsing macros or include ordering. Make-built
-ICG retains its historical parsing policy; `--output-root` also prints all
-system-header errors on stderr and refuses to stamp parse errors. This diagnostic
-visibility does not select a different parser dialect. The Linux ICG CI lane
-builds the actual legacy Makefile and runs the same system-error regression as
-the native executable.
-The old claim that all legacy callers were unchanged was too broad: a caller
-using a **CMake-built** ICG receives this native policy with either output layout.
-The native ICG also leaves explicitly requested system directories in their
-compiler-defined position when already implicit. Ubuntu 24.04/GCC 13/LLVM 14
-installs UDUNITS headers in `/usr/include`; moving that directory ahead of the
-C++ wrappers breaks `#include_next <stdlib.h>`. Nonstandard dependency prefixes
-still take the requested precedence.
+BD-05/BD-06: CMake generation commands and the SDK explicitly pass
+`--icg-gnu-version=4.2.1`, `--icg-strict-errors`, and repeated
+`--icg-system-dir=<directory>` options. Both Make-built and CMake-built ICG
+accept these runtime controls. Without them, both retain the historical
+build-compiler GNU version and runtime include discovery. The build system
+only provides executable/source identity for SDK discovery, not parsing policy.
+In Ubuntu 24.04/GCC 13.3/LLVM 14.0.6/glibc 2.39, impersonating GCC 13 selects
+unsupported `_Float32` declarations and malloc attributes in glibc; the explicit
+4.2.1 selection remains a compatibility workaround, not model-compiler parity.
+
+Explicit compiler directories replace runtime discovery and preserve their
+order; an `-isystem` duplicate does not move them ahead of C++ wrappers.
+Missing directories fail before parsing. Neither output layout selects GNU
+macros or include ordering. The `--output-root` contract always reports parse
+errors and refuses to write a success stamp; strict mode also applies that
+policy to legacy layouts. System diagnostic notes are preserved.
 
 `icg.core_output_parity` compares the core metadata C++ and both registration
 maps generated using the two output layouts of the same native executable.
@@ -65,9 +61,8 @@ the unsupported `_Float32`/malloc attributes are the original failure. Forcing
 models. The issue is independent of output placement and of the icg2 contract.
 
 The [upstream report draft](icg-frontend-issue.md) contains a separately verified
-Clang-driver reproduction and the model-layout counterexample. Filing was
-attempted on 2026-09-23 but GitHub returned HTTP 403 (integration lacks access).
-File and resolve the policy issue before C1 advertises general simulation support.
+Clang-driver reproduction and the model-layout counterexample.
+Resolve the policy issue before C1 advertises general simulation support.
 
 BD-01/BD-18: CMake output ownership and native depfiles replace timestamp checks
 and recursive Make. Metadata is a dedicated archive pending B5/B6 linkage;

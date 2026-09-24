@@ -71,6 +71,6 @@ remain B1; this layer does not claim collision-safe framework code generation.
 
 The CI workflow builds/runs against LLVM 14 on Ubuntu 24.04 and LLVM 20 on macOS 26.
 macOS also reports dynamic-library dependencies with `otool`. Exact local results
-and package provenance are in [a5-validation.json](a5-validation.json). CI must
+and package provenance are in CI qualification artifacts. CI must
 pass before the respective platform is considered qualified; configuration alone
 is not execution evidence.

@@ -45,7 +45,7 @@ Use targeted regression checks per layer and full qualification at milestones. I
 
 ## Recording evidence
 
-Copy [environment-template.json](environment-template.json) for each tested configuration. Replace null fields with observed values; mark unavailable or inapplicable tools explicitly with a reason. The template is not a test result. Store command/log references and the exit status for each configure, build, install, and simulation run. Record failed and skipped runs, not just successful ones. Do not capture unrelated environment variables or credentials.
+Write machine-readable evidence to CI artifacts for each tested configuration. Mark unavailable or inapplicable tools explicitly with a reason. Store command/log references and the exit status for each configure, build, install, and simulation run. Record failed and skipped runs, not just successful ones. Do not capture unrelated environment variables or credentials.
 
 A1 validation consists of source inventory and document consistency checks. No native Linux/macOS Trick build, installation, or simulation result is claimed by this change. Platform execution belongs to the affected implementation layers and final qualification.
 

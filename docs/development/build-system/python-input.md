@@ -95,6 +95,6 @@ The latter uses the default major selections and rejects deprecation warnings. T
 Linux/macOS lanes qualify the modern defaults. Package reports in
 each run provide exact revisions; adding a lane is not itself a passing result.
 
-See [validation](b-stack-validation.json) and the CI workflow for exact tested
+See CI qualification artifacts and the CI workflow for exact tested
 platform/tool versions and remaining qualification limits. Trick 27 deprecates
 Autotools; Trick 29 removes it, as established by the migration contract.

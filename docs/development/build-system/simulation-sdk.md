@@ -125,3 +125,18 @@ so filenames containing `@NAME@` are not interpreted as template variables.
 Configure rejects unhandled source symlinks in the installed SDK trees. The
 known TrickOps README is explicitly materialized; adding another resource link
 requires an install rule that preserves its contents after relocation.
+
+The model profile currently describes the SDK configure flags, not additional
+simulation flags from `S_overrides.mk`. Flags such as `-O2`, `-fno-exceptions`,
+`-D` and `-U` can change predefined macros without updating this profile. Models
+whose layout depends on those changes are outside this pilot's supported scope;
+the guard is not a proof of equivalence for those simulations. It also rejects
+mismatched macro expansions in function bodies (for example `__VERSION__`).
+Presence tests compare presence only, not the macro's replacement tokens.
+The SDK checks the compiler's version query as well as its path at use time;
+reconfigure and rebuild after a compiler upgrade. Explicit compiler include
+paths are checked before parsing, and missing directories are fatal.
+
+The obsolete CMake Java and `data_products` builds have been removed. Their
+replacement is deferred to phase D; this preview does not build or install them.
+The supported autotools route remains available during this temporary gap.

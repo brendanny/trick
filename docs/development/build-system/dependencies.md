@@ -90,7 +90,7 @@ library tests. Existing bootstrap and utility suites remain enabled as before.
 The Ubuntu full-profile CI provisions distribution dependencies and records exact
 package versions. Existing Linux/macOS bootstrap and utility jobs also run the
 portable dependency fixtures. Local evidence and unexecuted qualification gates
-are recorded in [a4-validation.json](a4-validation.json).
+are recorded in CI qualification artifacts.
 
 If only SWIG 3 is installed, the default configure fails with guidance to install
 SWIG 4 or explicitly select `-DTRICK_SWIG_MAJOR=3` until Trick 27.

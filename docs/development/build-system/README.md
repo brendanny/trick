@@ -29,8 +29,7 @@ the rebased tree. The separate draft CMake implementation is not a design input.
   proposed deviations and replacements for current configure options.
 - [Qualification contract](qualification.md): platform matrix and criteria for
   verified build, install, and simulation results.
-- [Environment record template](environment-template.json): machine-readable
-  provenance for each tested configuration; it is not an executed result.
+- CI qualification artifacts record provenance and results for each tested configuration.
 
 ## Agreed constraints
 

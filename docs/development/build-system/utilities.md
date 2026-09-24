@@ -77,6 +77,6 @@ has a timeout. Existing production warnings are not made fatal.
 
 The CI workflow tests CMake 3.26.0 with Unix Makefiles, Ninja, and Ninja Multi-Config
 on Ubuntu and macOS, provisioning GoogleTest 1.14.0 outside Trick's configuration.
-See [A3 evidence](a3-validation.json) for actual local results and exact versions.
+See CI qualification artifacts for actual local results and exact versions.
 CI configuration is not evidence that macOS has passed. RHEL 8/GCC 8.5, LLVM 14,
 and macOS qualification remain pending; A4/A5 add dependency/compiler gates.

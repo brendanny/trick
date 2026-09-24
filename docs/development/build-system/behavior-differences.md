@@ -7,13 +7,13 @@ BD-03/04 (native configuration/compiler selection), and BD-14 (CTest bootstrap
 checks). It also replaces the obsolete CMake entry point. Runtime code generation,
 dependency discovery, installation, and simulation behavior remain unimplemented.
 The preview rejects installation explicitly. See [bootstrap.md](bootstrap.md)
-and [A2 evidence](a2-validation.json) for tested platform/tool versions; the
+and CI qualification artifacts for tested platform/tool versions; the
 proposed end-state entries below do not become verified wholesale.
 
 ## A3 implementation status
 
 The utility portion of BD-01, BD-03/04 and BD-14 is now implemented. See
-[utility build instructions](utilities.md) and [exact local evidence](a3-validation.json).
+[utility build instructions](utilities.md) and CI qualification artifacts.
 The following observations are verified on **Linux x86_64, Ubuntu 24.04.3,
 GCC/G++ 13.3.0, GNU ld 2.42, CMake 3.26.0, GNU Make 4.3 and Ninja
 1.11.1.git.kitware.jobserver-1**, with GoogleTest 1.14.0. macOS and EL8 remain
@@ -45,7 +45,7 @@ lookup (part of BD-09). Reproduce with the profiles in [dependencies.md](depende
 The local runtime has a broken unversioned libpython symlink. A valid temporary
 symlink to the existing Python 3.12.14 library was supplied via `Python3_LIBRARY`
 for the successful local probe; no environment-specific workaround was added to
-Trick. Exact local results and remaining gates are in [a4-validation.json](a4-validation.json).
+Trick. Exact local results and remaining gates are in CI qualification artifacts.
 
 ## A5 implementation status
 
@@ -54,12 +54,12 @@ On Linux x86_64 / Ubuntu 24.04.3, CMake 3.26.0, Ninja
 1.11.1.git.kitware.jobserver-1, GCC/G++ 13.3.0, LLVM/Clang 14.0.6 and UDUNITS
 2.2.28, the executable builds, loads its libraries through CMake's build rpath,
 and processes a representative header with units annotations and C++ headers.
-Exact package revisions and environment details are in [a5-validation.json](a5-validation.json).
+Exact package revisions and environment details are in CI qualification artifacts.
 
 | Legacy source behavior | A5 CMake behavior | Scope / action |
 | --- | --- | --- |
 | ICG is compiled by Make, with llvm-config flags and platform-specific linker/rpath commands. | Config-package targets supply link dependencies and native CMake build rpaths. | Native ICG build; installed rpaths remain C2. macOS execution is a CI gate. |
-| Runtime compiler headers come from trick-gte and a shell compiler invocation; Linux Clang resources use a guessed versioned path. | Configured compiler implicit include directories plus the selected Clang's reported resource directory. | CMake-built ICG only; reconfigure after compiler/SDK changes. Per-simulation compiler selection is C1. |
+| Runtime compiler headers come from trick-gte and a shell compiler invocation; Linux Clang resources use a guessed versioned path. | Configured compiler implicit include directories plus the selected Clang's reported resource directory. | Explicit `--icg-system-dir` arguments in CMake/SDK commands, available in both builds; missing directories fail. Reconfigure after compiler/SDK changes. |
 | TRICK_HOME is supplied by the legacy invocation environment. | If unset, build-tree ICG uses its configured source checkout; existing values are preserved. | Build-tree preview only, not an installed SDK promise. |
 
 The extracted local development packages require a library search environment for
@@ -168,8 +168,8 @@ replaced by the runtime option.
 
 | IDs | Native behavior | Evidence / qualification |
 | --- | --- | --- |
-| BD-01, BD-06 | Binary-tree ICG outputs, declared metadata inventory, depfile, manifest and stamp; parser and SWIG output ownership. | Ubuntu 24.04 x86_64, CMake 3.26.0, Ninja 1.11.1, GCC 13.3, LLVM 14.0.6, Flex 2.6.4, Bison 3.8.2; exact evidence in `b-stack-validation.json`. |
-| BD-05 | All CMake-built ICG invocations use Clang's GNU compatibility version and surface system-header errors, independent of output layout. | GCC 13.3/LLVM 14.0.6/glibc 2.39 required this to parse core headers. Make-built ICG retains its old policy; CMake-built ICG applies the native policy even with legacy output. GCC-gated user-model compatibility remains a C1 gate. |
+| BD-01, BD-06 | Binary-tree ICG outputs, declared metadata inventory, depfile, manifest and stamp; parser and SWIG output ownership. | Ubuntu 24.04 x86_64, CMake 3.26.0, Ninja 1.11.1, GCC 13.3, LLVM 14.0.6, Flex 2.6.4, Bison 3.8.2; exact evidence in CI qualification artifacts. |
+| BD-05 | CMake/SDK commands explicitly select GNU compatibility 4.2.1, strict errors and ordered compiler include directories using runtime options. | GCC 13.3/LLVM 14.0.6/glibc 2.39 required this to parse core headers. Both builds expose the same runtime controls and retain historical defaults when they are omitted. GCC-gated user-model compatibility remains a C1 gate. |
 | BD-07 | Native runtime defaults to Python 3/SWIG 4; explicitly selected Python 2/SWIG 3 are deprecated, with warnings. | Local Python 3.12.14/SWIG 4.2.0; Rocky 8 CI records Python 2.7/Python 3.6 with SWIG 3.0.12 and GCC 8.5; consult completed run artifacts. |
 | BD-08 | Parser generation fails on generator errors instead of falling back to premade source. | Native Flex/Bison rules with scanner/header ordering; grammar edit validation. |
 | BD-18 | CheckPointAgent belongs to the memory-manager archive; integrators, metadata, main and SWIG wrappers have separate owners and target links. Narrow retention or whole-metadata retention protects runtime lookup. | Linux ELF GNU ld 2.42 locally. macOS Mach-O and generator combinations are covered by the runtime CI matrix; use run results rather than assuming qualification. |
