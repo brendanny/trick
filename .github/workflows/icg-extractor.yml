@@ -6,6 +6,7 @@ on:
     paths:
       - 'trick_source/codegen/TrickCodeGen/**'
       - 'tools/icg_schema/**'
+      - 'tools/icg_driver/**'
       - 'tools/icg_policy/**'
       - 'tools/icg_emit/**'
       - 'tools/icg_baseline/differential.py'
@@ -50,6 +51,7 @@ on:
     paths:
       - 'trick_source/codegen/TrickCodeGen/**'
       - 'tools/icg_schema/**'
+      - 'tools/icg_driver/**'
       - 'tools/icg_policy/**'
       - 'tools/icg_emit/**'
       - 'tools/icg_baseline/differential.py'

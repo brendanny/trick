@@ -1687,9 +1687,63 @@ def validate_templates(types: dict, declarations: dict) -> None:
             )
 
 
+def validate_parse_conditions(document: dict) -> None:
+    provenance = document["provenance"]
+    arguments = provenance["arguments"]
+    dialects = [arg[5:] for arg in arguments if arg.startswith("-std=")]
+    versions = [arg[15:] for arg in arguments if arg.startswith("-fgnuc-version=")]
+    if not dialects or dialects[-1] != provenance["language_standard"]:
+        raise ValueError("language_standard disagrees with Clang arguments")
+    compatibility = provenance["gcc_compatibility_version"]
+    if (versions and versions[-1] != compatibility) or (
+        not versions and compatibility not in (None, "4.2.1")
+    ):
+        raise ValueError("gcc_compatibility_version disagrees with Clang arguments")
+    compiler = provenance["build_compiler"]
+    if compiler is None:
+        return
+    if (
+        compiler["version"] != provenance["gcc_compatibility_version"]
+        or compiler["language_standard"] != provenance["language_standard"]
+    ):
+        raise ValueError("build compiler disagrees with Clang parse conditions")
+    if tuple(map(int, compiler["version"].split("."))) < (8, 5, 0):
+        raise ValueError("build compiler is below the GCC 8.5 floor")
+    explicit = [arg[5:] for arg in compiler["arguments"] if arg.startswith("-std=")]
+    if compiler["dialect_source"] != (
+        "explicit" if explicit else "compiler-default"
+    ) or (explicit and explicit[-1] != compiler["language_standard"]):
+        raise ValueError("build compiler dialect source is inconsistent")
+    expected = ["--target=" + compiler["target"], *compiler["arguments"]]
+    if not explicit:
+        expected.append("-std=" + compiler["language_standard"])
+    expected.append("-fgnuc-version=" + compiler["version"])
+    if (
+        compiler["normalized_arguments"] != expected
+        or arguments[-len(expected) - 1 : -1] != expected
+    ):
+        raise ValueError("build compiler argument translation is inconsistent")
+    if compiler["probe_arguments"] != [
+        ["-dumpfullversion", "-dumpversion"],
+        ["-dumpmachine"],
+        ["--version"],
+        [
+            *(arg for arg in compiler["arguments"] if arg.startswith("-std=")),
+            "-dM",
+            "-E",
+            "-x",
+            "c++",
+            "-",
+        ],
+        [*compiler["arguments"], "-dM", "-E", "-x", "c++", "-"],
+    ]:
+        raise ValueError("build compiler probe arguments are inconsistent")
+
+
 def validate(schema: dict, document: dict) -> None:
     Draft202012Validator.check_schema(schema)
     Draft202012Validator(schema).validate(document)
+    validate_parse_conditions(document)
     validate_graph(document)
     if document["provenance"]["graph_digest"] != graph_digest(document):
         raise ValueError("graph_digest does not match normalized graph facts")

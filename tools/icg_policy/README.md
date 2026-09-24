@@ -1,7 +1,7 @@
 # Bounded legacy metadata policy
 
-This development resolver consumes validated facts v12 and an explicit request.
-It emits **resolved policy v17**, not C++, and does not replace production ICG.
+This development resolver consumes validated facts v13 and an explicit request.
+It emits **resolved policy v18**, not C++, and does not replace production ICG.
 The [bounded metadata emitter](../icg_emit/README.md) consumes this policy and
 compares generated C++ with legacy/native evidence.
 
@@ -24,7 +24,7 @@ python tools/icg_policy/resolve.py facts.json --request request.json > resolved.
 python tools/icg_policy/resolve.py facts.json --request request.json --validate resolved.json
 ```
 
-A request has `policy_version: "scalar-metadata-17"`, `offset_mode: "numeric"`,
+A request has `policy_version: "scalar-metadata-18"`, `offset_mode: "numeric"`,
 `outputs: ["attributes", "enum-attributes"]`, sorted unique `file_ids`, and
 `template_field_ids: []`.
 An explicit `outputs=["lifecycle"]` or combined metadata plus lifecycle request
@@ -44,9 +44,9 @@ comment index and matching environment path entries. Field decisions reference
 the raw comment index, type ID, units/I/O rules and diagnostics, and a separate
 operation-specific access decision. Comment/friend indices refer to the input
 facts; the model must be consumed with those validated facts, not in isolation.
-Field annotations retain `description` and `mods`. Schema v17 and policy
-`scalar-metadata-17` require explicit enum metadata, field storage and UnitsMap key
-decisions. Resolve old v1–v16 inputs again rather than changing their version fields.
+Field annotations retain `description` and `mods`. Schema v18 and policy
+`scalar-metadata-18` require explicit enum metadata, field storage and UnitsMap key
+decisions. Resolve old v1–v17 inputs again rather than changing their version fields.
 Record/enum collisions in their shared size-function symbol
 namespace are rejected. Names are used for legacy ABI symbols and the legacy ignore-name rule, never for
 parent/field relationships. Sanitized output symbol collisions fail explicitly.
@@ -56,8 +56,10 @@ and policy environment; graph equality alone cannot authorize generation.
 `input_digest` hashes that fingerprint, the request, effective settings, and
 policy version. `digest` hashes every model field except itself. All use SHA-256
 of sorted-key, compact, unescaped-Unicode UTF-8 JSON. Schema, policy version, and
-facts version are separate contracts. Neither extracted-facts v12 nor its graph
-algorithm changes in this increment.
+facts version are separate contracts. Policy v18 requires facts v13, including
+parse-condition provenance. Metadata selection rules are unchanged from v17;
+resolve previous models again from new facts. The graph-digest algorithm remains
+version 1.
 
 Validation checks the independent JSON schema, validates facts and request, and
 replays policy **before** comparing the digest. Replay shares the policy parser;
@@ -272,7 +274,7 @@ retains the sorted explicit requests (empty for automatic dependencies), and
 `dependency_record_ids` identifies the included structured child tables. Each
 entry also records the concrete record, primary template, argument type IDs,
 C++ spelling, cached legacy symbol,
-initializer and field decisions. Schema v17 requires exact replay of this evidence.
+initializer and field decisions. Schema v18 requires exact replay of this evidence.
 
 Traversal starts with selected global ordinary records whose template fields
 are all in one physical file. Roots and fields follow physical source order,

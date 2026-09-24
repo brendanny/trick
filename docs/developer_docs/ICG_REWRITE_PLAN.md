@@ -192,6 +192,16 @@ Clang parsing GCC-targeted headers remains a fundamental cross-frontend risk, es
 
 Clang 16 changed default C++ mode to GNU C++17 and resource-directory naming to major-version-only paths. Always set the intended dialect and query the matching Clang resource directory. Its stricter C diagnostics also belong in the old-simulation migration tests ([Clang 16 upgrade notes](https://releases.llvm.org/16.0.0/tools/clang/docs/ReleaseNotes.html#potentially-breaking-changes)).
 
+### Implemented development adapter
+
+The [selected-GCC adapter](../../tools/icg_driver/README.md) now probes GCC 8.5+
+for the effective C++17 dialect, full version, and target. It accepts strict and
+GNU C++17, rejects unsupported defaults, passes GCC compatibility macros to
+LibTooling, and records compiler/probe/argument evidence in facts v13. Native
+regressions cover conditional tail-padding fields that layout assertions miss.
+This bounded semantic-argument interface is not yet production build integration,
+a general command normalizer, or selected-GCC standard-library discovery.
+
 ## 8. Owned semantic IR
 
 The IR is the key architectural boundary. It should be a versioned Trick document, not Clang's JSON AST dump.

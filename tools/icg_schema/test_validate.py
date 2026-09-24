@@ -162,7 +162,7 @@ class ValidateTests(unittest.TestCase):
         document["schema_version"] = 11
         with self.assertRaises(ValidationError):
             self.validate(self.schema, document)
-        document["schema_version"] = 12
+        document["schema_version"] = 13
         del document["provenance"]["selection"]
         with self.assertRaises(ValidationError):
             self.validate(self.schema, document)
@@ -170,6 +170,24 @@ class ValidateTests(unittest.TestCase):
         del document["declarations"][0]["friends"]
         with self.assertRaisesRegex(ValueError, "friend evidence"):
             self.validate(self.schema, document)
+
+    def test_v12_requires_new_parse_condition_evidence(self):
+        for key in ("build_compiler", "gcc_compatibility_version"):
+            document = copy.deepcopy(self.fixture)
+            del document["provenance"][key]
+            with self.subTest(key=key), self.assertRaises(ValidationError):
+                self.validate(self.schema, document)
+        for key, value in (
+            ("language_standard", "gnu++17"),
+            ("gcc_compatibility_version", "8.5.0"),
+        ):
+            document = copy.deepcopy(self.fixture)
+            document["provenance"][key] = value
+            with (
+                self.subTest(key=key),
+                self.assertRaisesRegex(ValueError, "disagrees with Clang arguments"),
+            ):
+                self.validate(self.schema, document)
 
     def template_document(self, argument_kind="type", pack=False):
         document = copy.deepcopy(self.fixture)
@@ -490,7 +508,7 @@ class ValidateTests(unittest.TestCase):
         )
         document["provenance"].update(
             working_directory="/other",
-            arguments=["clang++", "-DUNUSED=1"],
+            arguments=["clang++", "-std=c++17", "-DUNUSED=1"],
             path_roots={"source": "/other", "resource-dir": "/other/sdk"},
             environment={"CPATH": "/other"},
             frontend_version="other frontend",
@@ -619,7 +637,8 @@ class ValidateTests(unittest.TestCase):
             lambda value: value.update(schema_version=9),
             lambda value: value.update(schema_version=10),
             lambda value: value.update(schema_version=11),
-            lambda value: value.update(schema_version=13),
+            lambda value: value.update(schema_version=12),
+            lambda value: value.update(schema_version=14),
             lambda value: value.update(clang_ast={}),
         ):
             document = copy.deepcopy(self.fixture)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v12.schema.json",
+  "$id": "https://trick.readthedocs.io/schemas/icg/extracted-facts-v13.schema.json",
   "title": "Trick ICG extracted facts",
   "description": "Clang-derived facts before Trick selection and generation policy.",
   "type": "object",
@@ -15,7 +15,7 @@
     "diagnostics"
   ],
   "properties": {
-    "schema_version": {"const": 12},
+    "schema_version": {"const": 13},
     "document_kind": {"const": "trick.icg.extracted-facts"},
     "provenance": {"$ref": "#/$defs/provenance"},
     "files": {
@@ -36,6 +36,116 @@
     }
   },
   "$defs": {
+    "gcc_version": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]?\\.(0|[1-9][0-9]?)\\.(0|[1-9][0-9]?)$"
+    },
+    "build_compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter_version",
+        "family",
+        "executable",
+        "real_path",
+        "executable_digest",
+        "version",
+        "version_output",
+        "target",
+        "arguments",
+        "normalized_arguments",
+        "language_standard",
+        "dialect_source",
+        "macro_digest",
+        "probe_arguments",
+        "probe_stderr",
+        "environment"
+      ],
+      "properties": {
+        "adapter_version": {
+          "const": 1
+        },
+        "family": {
+          "const": "gcc"
+        },
+        "executable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "real_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executable_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "version": {
+          "$ref": "#/$defs/gcc_version"
+        },
+        "version_output": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "normalized_arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "language_standard": {
+          "enum": [
+            "c++17",
+            "gnu++17"
+          ]
+        },
+        "dialect_source": {
+          "enum": [
+            "explicit",
+            "compiler-default"
+          ]
+        },
+        "macro_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "probe_arguments": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "probe_stderr": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "string"
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "id": {
       "type": "string",
       "minLength": 1,
@@ -54,6 +164,8 @@
         "arguments",
         "target_triple",
         "language_standard",
+        "gcc_compatibility_version",
+        "build_compiler",
         "input_digest",
         "identity_version",
         "graph_digest_version",
@@ -78,7 +190,15 @@
           "items": {"type": "string"}
         },
         "target_triple": {"type": "string", "minLength": 1},
-        "language_standard": {"const": "c++17"},
+        "language_standard": {"enum": ["c++17", "gnu++17"]},
+        "gcc_compatibility_version": {
+          "description": "Effective Clang GNU compatibility version; null when disabled by the target's driver defaults.",
+          "anyOf": [{"$ref": "#/$defs/gcc_version"}, {"type": "null"}]
+        },
+        "build_compiler": {
+          "description": "Null for standalone Clang extraction. The GCC adapter supplies a probed build identity, not a claim of complete cross-frontend equivalence.",
+          "anyOf": [{"type": "null"}, {"$ref": "#/$defs/build_compiler"}]
+        },
         "input_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "identity_version": {"const": 1},
         "graph_digest_version": {"const": 1},

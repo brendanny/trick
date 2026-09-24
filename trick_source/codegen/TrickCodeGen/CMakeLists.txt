@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(trick_icg_extract VERSION 0.12.0 LANGUAGES C CXX)
+project(trick_icg_extract VERSION 0.13.0 LANGUAGES C CXX)
 
 # Deliberately standalone: the legacy ICG remains the production build path.
 find_package(LLVM REQUIRED CONFIG)
@@ -121,4 +121,14 @@ if(BUILD_TESTING)
             --extractor "$<TARGET_FILE:trick-icg-extract>"
             --llvm-major "${LLVM_VERSION_MAJOR}"
             --layout-compiler "${CMAKE_CXX_COMPILER}" ${ICG_TEST_ROOT_ARGS})
+    # GCC is the adapter's bounded build-compiler contract. Other host compilers
+    # still exercise probe validation/rejection and the low-level extractor tests.
+    set(ICG_DRIVER_TEST_ARGS "")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        list(APPEND ICG_DRIVER_TEST_ARGS --extractor "$<TARGET_FILE:trick-icg-extract>"
+            --compiler "${CMAKE_CXX_COMPILER}")
+    endif()
+    add_test(NAME icg_driver_integration
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/icg_driver/test_driver.py"
+            ${ICG_DRIVER_TEST_ARGS})
 endif()

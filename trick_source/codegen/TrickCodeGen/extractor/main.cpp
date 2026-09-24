@@ -26,6 +26,7 @@
 #include "clang/Sema/Sema.h"
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Tooling.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
@@ -1157,7 +1158,13 @@ namespace
                     { return sources.source(ctx.getSourceManager(), range, &ctx.getLangOpts()); },
                     [this, &ctx](const clang::Decl* decl, const std::string& message)
                     { unsupported(ctx, decl, message); });
-                facts.provenance["target_triple"] = ctx.getTargetInfo().getTriple().str();
+                facts.provenance["target_triple"]             = ctx.getTargetInfo().getTriple().str();
+                facts.provenance["language_standard"]         = ctx.getLangOpts().GNUMode ? "gnu++17" : "c++17";
+                const unsigned gnuc                           = ctx.getLangOpts().GNUCVersion;
+                facts.provenance["gcc_compatibility_version"] = gnuc
+                    ? Value(std::to_string(gnuc / 10000) + "." + std::to_string((gnuc / 100) % 100) + "."
+                            + std::to_string(gnuc % 100))
+                    : Value(nullptr);
                 selection.run(
                     ctx, [this](const clang::NamedDecl* decl) { return request(decl); },
                     [this, &ctx](const clang::Decl* decl, const std::string& message)
@@ -1260,9 +1267,25 @@ namespace
             }
     };
 
-    // This is an intentionally small Clang-argument interface, not the future GCC
-    // command normalizer. Reject everything not audited here; never silently strip
-    // code-generation flags or accept plugins/response files with hidden arguments.
+    bool gccVersion(llvm::StringRef value)
+    {
+        llvm::SmallVector<llvm::StringRef, 3> parts;
+        value.split(parts, '.');
+        if (parts.size() != 3)
+            return false;
+        for (size_t i = 0; i < parts.size(); ++i)
+        {
+            unsigned number = 0;
+            if (parts[i].getAsInteger(10, number) || number > 99 || (i == 0 && number == 0)
+                || parts[i] != std::to_string(number))
+                return false;
+        }
+        return true;
+    }
+
+    // This is an intentionally small Clang-argument interface, separate from the
+    // Python build-compiler adapter. Reject everything not audited here; never
+    // strip code-generation flags or accept plugins/response files with hidden arguments.
     bool checkArguments(const std::vector<std::string>& args, Facts& facts)
     {
         const std::set<std::string> paired { "-I",       "-isystem",  "-iquote",   "-D",      "-U",      "-include",
@@ -1277,7 +1300,9 @@ namespace
                 facts.diagnose("error", "ICG_ARGUMENT_VALUE", "Expected a non-flag value for " + arg.str());
                 return false;
             }
-            if (arg == "-std=c++17" || arg == "-m32" || arg == "-m64" || arg == "-fno-exceptions" || arg == "-fno-rtti"
+            if (arg == "-std=c++17" || arg == "-std=gnu++17"
+                || (arg.starts_with("-fgnuc-version=") && gccVersion(arg.drop_front(15))) || arg == "-m32"
+                || arg == "-m64" || arg == "-fno-exceptions" || arg == "-fno-rtti"
                 || (arg.starts_with("-W") && arg.size() > 2 && !arg.starts_with("-Wl,") && !arg.starts_with("-Wa,")
                     && !arg.starts_with("-Wp,"))
                 || ((arg.starts_with("-I") || arg.starts_with("-D") || arg.starts_with("-U")) && arg.size() > 2)
@@ -1454,8 +1479,10 @@ int main(int argc, const char** argv)
     facts.provenance["graph_digest_version"] = trick::icg::GraphDigestVersion;
     facts.provenance["frontend_api"]         = "libtooling";
     facts.provenance["frontend_version"]     = clang::getClangFullVersion();
-    facts.provenance["language_standard"]    = "c++17";
-    facts.provenance["working_directory"]    = cwd.str().str();
+    // A bare extractor invocation identifies only the Clang parse. The Python
+    // compiler adapter adds verified build-compiler provenance before publishing.
+    facts.provenance["build_compiler"]    = nullptr;
+    facts.provenance["working_directory"] = cwd.str().str();
     Object pathRoots;
     for (const auto& entry : roots)
         pathRoots[entry.first] = entry.second;

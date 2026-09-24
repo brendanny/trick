@@ -75,7 +75,7 @@ class ExtractTests(unittest.TestCase):
     def success(self, result):
         self.assertEqual(result.returncode, 0, result.stderr)
         document = json.loads(result.stdout)
-        self.assertEqual(document["schema_version"], 12)
+        self.assertEqual(document["schema_version"], 13)
         VALIDATOR.validate(SCHEMA, document)
         report = self.report(result)
         self.assertEqual(report["diagnostics"], document["diagnostics"])
@@ -215,6 +215,60 @@ class ExtractTests(unittest.TestCase):
         self.assertTrue(all(arg in actual for arg in args))
         self.assertIn("-fsyntax-only", actual)
         self.assertIn("-resource-dir", actual)
+
+    def test_dialect_and_gcc_version_change_conditional_fields(self):
+        self.header.write_text(
+            "struct Model { double x; unsigned char y;\n"
+            "#if __GNUC__ == 8 && __GNUC_MINOR__ == 5 && __GNUC_PATCHLEVEL__ == 7\n"
+            "unsigned char gcc_field;\n#endif\n"
+            "#ifndef __STRICT_ANSI__\nunsigned char gnu_field;\n#endif\n};\n"
+        )
+        default = self.success(self.invoke())
+        self.assertIsNone(default["provenance"]["build_compiler"])
+        self.assertEqual(default["provenance"]["gcc_compatibility_version"], "4.2.1")
+        for dialect in ("c++17", "gnu++17"):
+            document = self.success(
+                self.invoke(["-std=" + dialect, "-fgnuc-version=8.5.7"])
+            )
+            nodes = self.declarations(document)
+            self.assertIn("Model::gcc_field", nodes)
+            self.assertEqual("Model::gnu_field" in nodes, dialect == "gnu++17")
+            self.assertEqual(document["provenance"]["language_standard"], dialect)
+            self.assertEqual(
+                document["provenance"]["gcc_compatibility_version"], "8.5.7"
+            )
+            self.assertNotEqual(
+                default["provenance"]["input_digest"],
+                document["provenance"]["input_digest"],
+            )
+            # Tail padding hides the missing fields from size/alignment checks.
+            for key in ("size_bits", "alignment_bits"):
+                self.assertEqual(
+                    nodes["Model"][key], self.declarations(default)["Model"][key]
+                )
+
+    def test_gcc_version_argument_is_narrow_and_fail_closed(self):
+        for version in (
+            "",
+            "0",
+            "0.0.0",
+            "8.5",
+            "08.5.0",
+            "8.100.0",
+            "100.0.0",
+            "8.5.0,evil",
+            "-DOTHER",
+        ):
+            with self.subTest(version=version):
+                self.failure(
+                    self.invoke(["-fgnuc-version=" + version]),
+                    "ICG_UNSUPPORTED_ARGUMENT",
+                )
+
+    def test_target_without_gnu_compatibility_records_null(self):
+        document = self.success(self.invoke(["--target=x86_64-pc-windows-msvc"]))
+        self.assertIsNone(document["provenance"]["gcc_compatibility_version"])
+        self.assertIsNone(document["provenance"]["build_compiler"])
 
     def test_include_order_spaces_and_transitive_dependency_fingerprints(self):
         include = self.root / "include space"
@@ -535,7 +589,7 @@ class ExtractTests(unittest.TestCase):
             ["-o", "unwanted.o"],
             ["-c"],
             ["-std=c++20"],
-            ["-std=gnu++17"],
+            ["-std=gnu++14"],
             ["-Xclang", "-load"],
             ["@hidden.rsp"],
             ["-Wl,-rpath,/tmp"],

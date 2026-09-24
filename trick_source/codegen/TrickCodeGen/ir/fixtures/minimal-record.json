@@ -1,20 +1,27 @@
 {
-  "schema_version": 12,
+  "schema_version": 13,
   "document_kind": "trick.icg.extracted-facts",
   "provenance": {
-    "extractor_version": "0.12.0-synthetic-fixture",
+    "extractor_version": "0.13.0-synthetic-fixture",
     "frontend_api": "libtooling",
     "frontend_version": "17.0.6",
     "translation_unit": "file:fixture",
     "working_directory": "${BUILD_ROOT}",
-    "path_roots": {"source": "${SOURCE_ROOT}", "resource-dir": "${RESOURCE_DIR}"},
-    "arguments": ["clang++", "-std=c++17", "fixture.hh"],
+    "path_roots": {
+      "source": "${SOURCE_ROOT}",
+      "resource-dir": "${RESOURCE_DIR}"
+    },
+    "arguments": [
+      "clang++",
+      "-std=c++17",
+      "fixture.hh"
+    ],
     "target_triple": "x86_64-unknown-linux-gnu",
     "language_standard": "c++17",
     "input_digest": "0000000000000000000000000000000000000000000000000000000000000000",
     "identity_version": 1,
     "graph_digest_version": 1,
-    "graph_digest": "0f74df76150ebb3b78d83500c2e1bb25e880dbf548c6348a0fa4e9755b85bf94",
+    "graph_digest": "898f193034c383395aa4da341918935a7b48b5d80e2d29df3cc22184eb4285da",
     "environment": {},
     "selection": {
       "mode": "main-file",
@@ -49,7 +56,9 @@
         }
       ]
     },
-    "policy_environment": {}
+    "policy_environment": {},
+    "gcc_compatibility_version": "4.2.1",
+    "build_compiler": null
   },
   "files": [
     {
@@ -72,14 +81,22 @@
       "kind": "builtin",
       "spelling": "int",
       "canonical_id": "type:int",
-      "qualifiers": {"const": false, "volatile": false, "restrict": false}
+      "qualifiers": {
+        "const": false,
+        "volatile": false,
+        "restrict": false
+      }
     },
     {
       "id": "type:sample",
       "kind": "record",
       "spelling": "Sample",
       "canonical_id": "type:sample",
-      "qualifiers": {"const": false, "volatile": false, "restrict": false},
+      "qualifiers": {
+        "const": false,
+        "volatile": false,
+        "restrict": false
+      },
       "declaration_id": "decl:sample"
     }
   ],

@@ -10,12 +10,19 @@ incomplete-record layout, and direct type cycles. Each array node represents one
 dimension, with CVR qualification on its element. Recursive record references are
 valid; a pointer/alias graph cannot refer to itself without a record boundary.
 
-Facts schema version 12 retains validation of the normalized `graph_digest` independently of
+Facts schema version 13 retains validation of the normalized `graph_digest` independently of
 the extractor. `graph_digest_version` and `identity_version` are required and
 currently 1; older facts versions and unknown fingerprint/identity versions fail.
 The projection retains all graph facts except file `path.spelled`/`path.real`,
 sorts top-level node arrays by ID, and excludes diagnostics and other provenance.
 It is output-equivalence evidence, not a production cache key or ABI assertion.
+
+Version 13 requires effective strict/GNU C++17 dialect, GCC compatibility version,
+and nullable `build_compiler` evidence. The [GCC adapter](../icg_driver/README.md)
+records the selected executable/version/target, original and normalized arguments,
+probe evidence, and environment. Validation checks parse-condition consistency
+with the actual Clang argv. Raw extraction explicitly records a null build compiler.
+Older facts require re-extraction; missing provenance must not be inferred.
 
 Version 12 requires explicit selection provenance, observed policy environment,
 physical file comments, and record friend evidence. Validation checks selection
@@ -109,7 +116,7 @@ Named path roots, scalar `extent` (null for incomplete arrays), and exact layout
 integers retain the v3 representation. Numbers through
 `2^53-1` are numeric; larger quantities are canonical decimal strings. Path roots
 must exist in provenance, portable paths must be relative and canonical, and no
-two file nodes may represent the same root/path pair. Version 1 through 10 facts are
+two file nodes may represent the same root/path pair. Version 1 through 12 facts are
 rejected; the synthetic minimal fixture has been migrated. These checks are not
 complete semantic validation of all future schema kinds, Clang/GCC layout
 agreement, or legacy-printability policy. The independent diagnostics envelope

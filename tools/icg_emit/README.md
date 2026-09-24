@@ -1,6 +1,6 @@
 # Bounded legacy metadata and lifecycle emitter
 
-This standalone development backend consumes **facts v12, resolved policy v17,
+This standalone development backend consumes **facts v13, resolved policy v18,
 and the caller's explicit request**. It generates C++ metadata and opt-in
 lifecycle helpers against the existing Trick ABI. It is not a production
 `trick-ICG` replacement.
@@ -418,3 +418,7 @@ checks cover both levels, including nulls, shared slots and interior targets.
 Terminal `char*`/`signed char*` still restore as strings in new storage, while
 the outer pointers preserve slot identity. No general target ownership or
 allocation policy is introduced.
+
+Facts v13 / policy v18 add selected-compiler parse-condition evidence without
+changing emitter v16 metadata rules. Use the [GCC adapter](../icg_driver/README.md)
+and compile generated sources with the same compiler and semantic flags.

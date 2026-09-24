@@ -209,11 +209,14 @@ The initial audited argument surface is:
   `-isysroot`, `-target`, `--target`, each followed by a nonempty value that does
   not start with `-` (use `./-directory` for a directory beginning with a dash);
 - joined `-Ipath`, `-Dname=value`, `-Uname`, `--sysroot=path`, `--target=triple`;
-- `-std=c++17`, `-m32`, `-m64`, `-fno-exceptions`, `-fno-rtti`, and Clang `-W...`
+- `-std=c++17`, `-std=gnu++17`, `-fgnuc-version=MAJOR.MINOR.PATCH`, `-m32`, `-m64`,
+  `-fno-exceptions`, `-fno-rtti`, and Clang `-W...`
   diagnostic controls (not `-Wl,`, `-Wa,`, or `-Wp,` driver forwarding).
 
-The tool explicitly adds C++17, C++ input mode, syntax-only parsing, all-comment
-parsing, the discovered resource directory, and diagnostic formatting controls.
+The tool defaults to strict C++17 and records the effective dialect and GCC
+compatibility version from Clang language options. GCC version arguments require
+three canonical decimal components in 0–99 and a nonzero major. It adds C++ input
+mode, syntax-only parsing, all-comment parsing, the discovered resource directory, and diagnostic formatting controls.
 Unknown warning names are errors by default. Headers are still parsed as the main
 file; the tool disables only `-Wpragma-once-outside-header` to avoid that artificial
 warning. Other warnings remain visible, and supplied flags may re-enable it.
@@ -221,10 +224,14 @@ The resulting driver argv, target,
 working directory, frontend/extractor versions, and selected include/SDK environment
 variables appear in provenance. Clang's normal driver-to-cc1 translation still
 applies. No code-generation options are silently stripped: other options, response
-files, compiler plugins, alternate dialects, and extra source inputs are rejected.
-This is **not yet the GCC argument classifier** or a compilation-database reader.
+files, compiler plugins, other language dialects, and extra source inputs are rejected.
+For selected-GCC extraction, use the bounded [Python compiler adapter](../../../tools/icg_driver/README.md).
+It probes the actual GCC version and default dialect, preserves audited semantic
+flags, and records build-compiler evidence. Raw extractor calls have
+`build_compiler: null`; they do not verify a simulation compiler. Neither interface
+is a general GCC command classifier or compilation-database reader.
 
-Successful extraction writes one deterministic, schema-version-12 facts document
+Successful extraction writes one deterministic, schema-version-13 facts document
 to stdout. Parse errors, unsupported declarations, and driver failures write no
 facts and exit nonzero. Exit 2 means invalid invocation/input; exit 1 means a
 frontend or extraction failure. Warnings remain visible and do not fail extraction
@@ -408,13 +415,15 @@ Extractor 0.9.0 advances facts to schema 9 for class-template signatures and
 concrete specializations. Extractor 0.10.0 advances facts to schema 10 for
 language-linkage contexts, fail-closed annotation encoding, and written versus
 inherited callable defaults. The synthetic minimal fixture is migrated; the reader
-rejects versions 1 through 11. Extractor 0.11.0 advances facts to schema 11 to
+rejects versions 1 through 12. Extractor 0.11.0 advances facts to schema 11 to
 distinguish C++17 `pod` from the earlier TR1/layout query. Both interpretations
 were emitted as v10 before this correction; v10 documents must be re-extracted,
 not relabeled. Identity and graph-digest algorithm versions remain 1.
 Named file roots, scalar extents, and exact integer encoding introduced in v3 remain
 in force. Extractor 0.12.0 adds request, raw-comment, and friend evidence in facts v12.
-The diagnostics envelope advances to v3 because its file nodes also gain the
+Extractor 0.13.0 advances facts to v13 for strict/GNU C++17 dialect, GCC
+compatibility-version, and nullable selected-build-compiler provenance.
+The diagnostics envelope remains v3; its file nodes already have the
 required `comments` array. Older facts must be re-extracted; empty arrays would
 assert that evidence was observed absent rather than unavailable.
 

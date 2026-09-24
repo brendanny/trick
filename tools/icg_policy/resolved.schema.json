@@ -16,13 +16,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 17
+      "const": 18
     },
     "kind": {
       "const": "legacy-metadata-policy"
     },
     "policy_version": {
-      "const": "scalar-metadata-17"
+      "const": "scalar-metadata-18"
     },
     "facts": {
       "type": "object",
@@ -35,7 +35,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": 12
+          "const": 13
         },
         "document_digest": {
           "type": "string",
@@ -94,7 +94,7 @@
           "const": "numeric"
         },
         "policy_version": {
-          "const": "scalar-metadata-17"
+          "const": "scalar-metadata-18"
         },
         "template_field_ids": {
           "type": "array",
