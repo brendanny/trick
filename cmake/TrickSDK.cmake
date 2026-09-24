@@ -94,7 +94,11 @@ execute_process(COMMAND "${CMAKE_CXX_COMPILER}" ${sdk_compiler_flags} ${sdk_plat
     OUTPUT_VARIABLE sdk_predefines COMMAND_ERROR_IS_FATAL ANY)
 # Builtin operators do not necessarily appear in -dM (notably in Clang).
 set(sdk_feature_probe "")
-foreach(operator IN ITEMS __has_include __has_include_next __has_cpp_attribute __has_builtin __has_attribute __has_feature)
+set(sdk_feature_schema "${PROJECT_SOURCE_DIR}/trick_source/codegen/Interface_Code_Gen/ModelCompilerFeatures.def")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${sdk_feature_schema}")
+file(STRINGS "${sdk_feature_schema}" sdk_feature_entries REGEX "^TRICK_MODEL_FEATURE")
+foreach(entry IN LISTS sdk_feature_entries)
+    string(REGEX REPLACE "^TRICK_MODEL_FEATURE\\(([^)]+)\\)$" "\\1" operator "${entry}")
     string(APPEND sdk_feature_probe "#if defined(${operator})\nTRICK_FEATURE \"${operator}\" 1\n#else\nTRICK_FEATURE \"${operator}\" 0\n#endif\n")
 endforeach()
 file(WRITE "${PROJECT_BINARY_DIR}/sdk-feature-probe.cpp" "${sdk_feature_probe}")

@@ -35,9 +35,9 @@ compatibility. Configure probes operator availability using the selected compile
 `-dM` alone does not list every builtin operator. The profile records this
 availability explicitly. `defined`, `ifdef` and `ifndef` checks are accepted
 only when ICG and the model compiler agree. Calls to `__has_builtin`,
-`__has_attribute` and `__has_feature` are rejected even when both compilers have
+`__has_attribute`, `__has_cpp_attribute` and `__has_feature` are rejected even when both compilers have
 the operator: presence does not establish equal answers for its arguments.
-`__has_include`, `__has_include_next` and `__has_cpp_attribute` retain their
+`__has_include` and `__has_include_next` retain their
 exception when present in both frontends. Their query results can differ and
 are not an ABI equivalence guarantee.
 Third-party headers can use `-isystem` or `TRICK_ICG_EXCLUDE` to opt out of

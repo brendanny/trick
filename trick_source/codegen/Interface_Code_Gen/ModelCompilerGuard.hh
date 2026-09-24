@@ -51,7 +51,11 @@ class ModelCompilerGuard final : public clang::PPCallbacks
                 name        = name.substr(0, name.find('('));
                 model[name] = compact(value);
             }
-            if (!model.count("__cplusplus") || features.size() != 6)
+            bool complete = model.count("__cplusplus");
+#define TRICK_MODEL_FEATURE(name) complete = complete && features.count(#name);
+#include "ModelCompilerFeatures.def"
+#undef TRICK_MODEL_FEATURE
+            if (!complete)
             {
                 throw std::runtime_error("Invalid C++ model compiler predefines: " + filename);
             }
@@ -139,8 +143,7 @@ class ModelCompilerGuard final : public clang::PPCallbacks
             {
                 if (feature->second == (info != nullptr))
                 {
-                    if (presence_only || !info || name == "__has_include" || name == "__has_include_next"
-                        || name == "__has_cpp_attribute")
+                    if (presence_only || !info || name == "__has_include" || name == "__has_include_next")
                         return;
                     // Presence does not establish equal answers for arbitrary
                     // builtin, attribute or language-feature arguments.
