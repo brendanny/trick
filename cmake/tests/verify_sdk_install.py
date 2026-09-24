@@ -76,6 +76,8 @@ def validate(args):
     ):
         env.pop(name, None)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    hints = work / "package-consumer-hints.cmake"
+    hints.write_text((build / "package-consumer-hints.cmake").read_text())
     try:
         for libdir in ("lib", "lib64"):
             run(
@@ -245,6 +247,21 @@ def validate(args):
                         work,
                         env,
                     )
+                run(
+                    [
+                        cmake,
+                        f"-DPACKAGE_ROOT={moved}/{libdir}/cmake/Trick",
+                        f"-DCONSUMER={moved}/share/trick/examples/consumer",
+                        f"-DTEST_ROOT={work}/package-{libdir}",
+                        f"-DHINTS={hints}",
+                        f"-DFORBIDDEN_SOURCE={source}",
+                        f"-DFORBIDDEN_BUILD={build}",
+                        "-P",
+                        str(moved / "share/trick/tests/Package.cmake"),
+                    ],
+                    work,
+                    env,
+                )
                 # Standalone installed ICG must discover its SDK without TRICK_HOME.
                 header = work / "Standalone.hh"
                 header.write_text(

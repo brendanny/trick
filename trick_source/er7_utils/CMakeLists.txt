@@ -1,7 +1,9 @@
 trick_service(er7_utils Er7Utils)
 target_include_directories(er7_utils PUBLIC
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/trick_source>"
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/trick/compat>")
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/trick/compat>"
+    "$<INSTALL_INTERFACE:include/trick/compat>"
+    "$<INSTALL_INTERFACE:trick_source>")
 target_compile_definitions(er7_utils PUBLIC USE_ER7_UTILS_INTEGRATORS)
 target_link_libraries(er7_utils PUBLIC Trick::MemoryManager)
 target_sources(er7_utils PRIVATE

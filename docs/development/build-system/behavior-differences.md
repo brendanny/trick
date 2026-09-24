@@ -216,3 +216,11 @@ directories remain `bin/include/libexec/share`. A dedicated prefix may move on
 the same compatible machine; external dependency paths are deliberately not
 rewritten. No blanket uninstall or stale-file deletion is introduced. The C1
 local tool tuple also qualifies C2; CI records other OS/tool combinations.
+
+C3 implements BD-18: `Trick::` usage requirements and native export files replace
+hand-assembled consumer link lines. `Runtime` carries Python/UDUNITS/Threads but
+never discovers generator toolchains; `Utilities` also avoids Python discovery.
+Package versions accept the same major/minor series. Installed package files
+must not contain source/build paths. C++-only consumers are supported. Build
+exports intentionally retain producer paths. This is SDK consumption, not a
+new simulation build language; C1's Make adapter remains the simulation route.

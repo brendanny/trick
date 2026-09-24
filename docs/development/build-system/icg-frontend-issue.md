@@ -1,9 +1,7 @@
 # Upstream report draft: ICG GNU predefines can disagree with Clang and the model compiler
 
-Status: reproduced locally on 2026-09-23; upstream filing and resolution remain
-a prerequisite for C1's general simulation integration. Filing was attempted on
-2026-09-23; GitHub rejected issue creation with HTTP 403, "Resource not accessible
-by integration". Related upstream discussions: [#1095](https://github.com/nasa/trick/issues/1095)
+General compiler-dependent simulation support requires upstream resolution.
+Related upstream discussions: [#1095](https://github.com/nasa/trick/issues/1095)
 and [#1553](https://github.com/nasa/trick/issues/1553). This is a Trick frontend
 policy issue, independent of output placement and of the icg2 interface.
 

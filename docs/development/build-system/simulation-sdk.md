@@ -31,13 +31,23 @@ in user headers, including direct and indirect expansions, `defined`/`ifdef`,
 and undefined compiler identifiers in `if`/`elif`. It fails conservatively,
 even where a differing value would happen to select the same branch. It does
 not change the parser dialect to impersonate GCC, nor prove arbitrary ABI
-compatibility. Compiler feature probes that differ are rejected too. System
+compatibility. Configure probes operator availability using the selected compiler and flags;
+`-dM` alone does not list every builtin operator. The profile records this
+availability explicitly. `defined`, `ifdef` and `ifndef` checks are accepted
+only when ICG and the model compiler agree. Calls to `__has_builtin`,
+`__has_attribute` and `__has_feature` are rejected even when both compilers have
+the operator: presence does not establish equal answers for its arguments.
+`__has_include`, `__has_include_next` and `__has_cpp_attribute` retain their
+exception when present in both frontends. Their query results can differ and
+are not an ABI equivalence guarantee.
+Third-party headers can use `-isystem` or `TRICK_ICG_EXCLUDE` to opt out of
+metadata and guard checks; compiler-dependent layout exposed by those headers
+is then the consumer's responsibility. System
 and SDK headers retain the separately tested native policy. This restriction
 is part of the pilot SDK, not a resolution of the upstream frontend problem.
 
 The upstream report remains in [icg-frontend-issue.md](icg-frontend-issue.md);
-issue creation was denied by GitHub integration permissions. General support
-for compiler-dependent model declarations remains gated on upstream resolution.
+general support for compiler-dependent model declarations remains gated on upstream resolution.
 The guarded pilot SDK supports ordinary, compiler-independent model headers.
 
 `sdk.simulation` copies the example, builds it using `trick-CP`, runs a Python
@@ -77,8 +87,8 @@ external shared libraries.
 
 The standalone `cmake/tests/verify_sdk_install.py` runs after build-tree tests.
 It installs both library layouts to nondefault prefixes and through DESTDIR,
-moves the staged prefixes, hides the source and build trees with guaranteed
-restoration, then builds/runs copied simulations and trickifies a header. It
+moves the staged prefixes, hides the source and build trees with restoration on ordinary exceptions and
+SIGTERM (not SIGKILL), then builds/runs copied simulations and trickifies a header. It
 checks an invalid install destination and, when running unprivileged, a genuinely
 unwritable prefix. Root/container runs explicitly cannot qualify filesystem
 permission denial. Run this script in a disposable checkout/build pair, not
@@ -92,3 +102,22 @@ cmake -DSDK="$HOME/trick-sdk" \
   -DTEST_ROOT=/tmp/trick-sdk-smoke \
   -P "$HOME/trick-sdk/share/trick/tests/SDK.cmake"
 ```
+
+SDK staging copies changed content directly into the persistent SDK and removes
+obsolete files using its ownership manifest. Unchanged files and archive links
+retain their mtimes, so rebuilding Trick does not invalidate simulation Python
+proxies. `verify_sdk_staging.py` builds the SDK twice and checks the complete
+inventory's mtimes, then verifies stale-file removal. ER7 headers have one SDK
+location, `trick_source/er7_utils`; exported targets supply `trick_source`.
+
+Developer ICG discovery compares the executable's real path with the configured
+target path, including custom runtime output directories and multi-config builds.
+Other copies require an adjacent SDK marker. The ordinary native CI lanes use
+default compiler flags; a separate Linux lane tests a conflicting C++ standard
+flag and a developer executable under `build/bin`.
+
+Source resource symlinks are materialized as regular SDK files, since their
+relative targets can lie outside the copied trees. Archive links remain explicit
+build-tree links. Stale-file cleanup prunes empty ancestor directories but keeps
+nonempty directories and user outputs. The inventory is written as literal text,
+so filenames containing `@NAME@` are not interpreted as template variables.

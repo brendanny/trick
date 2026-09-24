@@ -109,6 +109,8 @@ jobs:
         with:
           name: runtime-rocky8-swig${{ matrix.swig }}-python${{ matrix.python }}
           path: |
+            ${{ env.TRICK_COMPAT_TEMP }}/sdk-install/**/install-validation.log
+            ${{ env.TRICK_COMPAT_TEMP }}/sdk-install/**/package-validation.log
             ${{ env.TRICK_COMPAT_TEMP }}/configure.log
             ${{ env.TRICK_COMPAT_TEMP }}/packages.txt
             ${{ env.TRICK_COMPAT_TEMP }}/trick-runtime/TrickDependencies.txt
@@ -202,6 +204,8 @@ jobs:
         with:
           name: runtime-${{ matrix.os }}-${{ matrix.er7 }}-${{ matrix.qualification }}
           path: |
+            ${{ runner.temp }}/sdk-install/**/install-validation.log
+            ${{ runner.temp }}/sdk-install/**/package-validation.log
             ${{ runner.temp }}/trick-runtime/TrickDependencies.txt
             ${{ runner.temp }}/trick-runtime/CMakeCache.txt
             ${{ runner.temp }}/trick-runtime/tool-versions.txt

@@ -3,7 +3,9 @@
 trick_service(trick_integrators Integrators)
 target_include_directories(trick_integrators PUBLIC
     "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/trick_source>"
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/trick/compat>")
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/trick/compat>"
+    "$<INSTALL_INTERFACE:include/trick/compat>"
+    "$<INSTALL_INTERFACE:trick_source>")
 target_sources(trick_integrators PRIVATE
     src/Integrator.cpp
     src/getIntegrator.cpp

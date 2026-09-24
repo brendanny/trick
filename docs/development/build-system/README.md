@@ -1,11 +1,11 @@
 # CMake migration build contract (A1)
 
-**Current implementation:** [B6 embedded Python/runtime](python-input.md), building
-on [B1 ICG outputs](icg-outputs.md), [B2 memory manager](memory-manager.md),
-[B3 integrators](integrators.md), [B4 metadata](core-codegen.md), and
-[B5 core archives](core-runtime.md). A1–B6 are consolidated on PR #1 with one
-commit per layer. The CMake route remains a developer preview; C1/C2 own a usable
-simulation SDK and installation.
+**Current implementation:** A1–C3 are consolidated on PR #1 with one commit per
+layer. [C1/C2](simulation-sdk.md) provide a guarded pilot simulation SDK and
+relocatable core installation; [C3](cmake-package.md) exports build/install CMake
+packages. The B layers supply the native runtime. Optional tools/distribution
+coverage and the end-user one-command installer remain stacks D/E; this is not
+yet a replacement for the full production Autotools distribution.
 
 This directory defines the migration from Trick's Autoconf and handwritten
 framework Make build to a replacement CMake implementation. It is the first

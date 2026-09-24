@@ -13,11 +13,11 @@ target_sources(trick_pyip PRIVATE
 target_link_libraries(trick_pyip PUBLIC Trick::Core Trick::Python PRIVATE Trick::MemorySupport)
 # Core services call the input processor. LINK_ONLY keeps Python include flags
 # off unrelated core compilation while declaring the real static link cycle.
-target_link_libraries(trick_core PRIVATE "$<LINK_ONLY:trick_pyip>")
+target_link_libraries(trick_core PRIVATE "$<LINK_ONLY:Trick::PythonInput>")
 add_subdirectory("${PROJECT_SOURCE_DIR}/trick_source/trick_swig" "${PROJECT_BINARY_DIR}/trick_source/trick_swig")
 
 # Registration is a separate entry point; simulation-generated init_swig_modules
-# remains available to legacy consumers and will be integrated by C1.
+# remains available to legacy consumers and the simulation SDK.
 add_library(trick_python_registration STATIC "${PROJECT_SOURCE_DIR}/cmake/TrickPythonRegistration.cpp")
 target_link_libraries(trick_python_registration PUBLIC Trick::PythonInput)
 foreach(module IN ITEMS sim_services swig_double swig_int swig_ref)
@@ -27,12 +27,9 @@ endforeach()
 add_library(trick_runtime INTERFACE)
 add_library(Trick::Runtime ALIAS trick_runtime)
 target_link_libraries(trick_runtime INTERFACE trick_python_registration Trick::Core Trick::MemorySupport
-    "$<LINK_LIBRARY:WHOLE_ARCHIVE,trick_core_metadata>")
+    "$<LINK_LIBRARY:WHOLE_ARCHIVE,Trick::CoreMetadata>")
 # MemoryManager's named allocators are discovered with dlsym in the executable.
-function(trick_enable_runtime target)
-    target_link_libraries(${target} PRIVATE Trick::Runtime)
-    set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
-endfunction()
+include("${PROJECT_SOURCE_DIR}/cmake/TrickRuntime.cmake")
 
 if(BUILD_TESTING)
     add_executable(trick_python_unicode "${PROJECT_SOURCE_DIR}/trick_source/trick_swig/tests/PythonUnicode.cpp")

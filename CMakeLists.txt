@@ -73,9 +73,10 @@ if(BUILD_TESTING)
     add_subdirectory(cmake/tests)
 endif()
 
-message(STATUS "Trick ${TRICK_VERSION}: CMake core SDK preview (C2)")
+message(STATUS "Trick ${TRICK_VERSION}: CMake core SDK preview (C3)")
 if(TRICK_BUILD_SDK)
     include(cmake/TrickInstall.cmake)
+    include(cmake/TrickPackage.cmake)
 else()
     # Do not turn a successful utility build into a misleading empty SDK install.
     install(CODE [[

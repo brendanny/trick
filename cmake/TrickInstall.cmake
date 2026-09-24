@@ -1,6 +1,6 @@
 # Explicit core SDK artifact families. Optional native/Java tools join in D.
 set_target_properties(trick-ICG PROPERTIES INSTALL_RPATH_USE_LINK_PATH ON)
-install(TARGETS ${trick_sdk_archives} trick-ICG
+install(TARGETS ${trick_sdk_archives} trick-ICG EXPORT TrickTargets
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     RUNTIME DESTINATION bin)
 install(PROGRAMS bin/trick-CP bin/trick-config bin/trick-gte bin/trick-ify
