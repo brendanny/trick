@@ -65,7 +65,7 @@ else()
     endforeach()
     run_configure()
     if(CASE STREQUAL "install")
-        expect_failure("cannot install an SDK"
+        expect_failure("SDK installation requires"
             "${CMAKE_COMMAND}" --install "${binary}" --prefix "${TEST_ROOT}/install")
     elseif(CASE STREQUAL "regeneration")
         # Make the input newer even on coarse-resolution filesystems.

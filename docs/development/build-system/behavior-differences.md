@@ -208,3 +208,11 @@ Local C1 tuple: Ubuntu 24.04.3 x86_64, GCC 13.3.0, LLVM 14.0.6, glibc 2.39,
 CMake 3.26.0/Ninja 1.11.1, SWIG 4.2.0, Python 3.12.14, UDUNITS 2.2.28.
 CI qualification covers separately recorded Linux/macOS and Rocky 8 tuples;
 adding a lane is not evidence that it has passed.
+
+C2 implements BD-10/11/12/17: relative GNUInstallDirs library layout, native
+`--prefix`/`DESTDIR` installation, explicit core artifact families, relative SDK
+resource discovery and native external install rpaths. Fixed legacy resource
+directories remain `bin/include/libexec/share`. A dedicated prefix may move on
+the same compatible machine; external dependency paths are deliberately not
+rewritten. No blanket uninstall or stale-file deletion is introduced. The C1
+local tool tuple also qualifies C2; CI records other OS/tool combinations.

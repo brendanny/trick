@@ -41,6 +41,9 @@
 
 #ifdef TRICK_ICG_CMAKE_CONFIG
 #include "TrickICGConfig.hh"
+
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 constexpr bool native_frontend = true;
 #else
 constexpr bool native_frontend = false;
@@ -164,7 +167,23 @@ int runICG(int argc, char* argv[])
 #ifdef TRICK_ICG_CMAKE_CONFIG
     if (getenv("TRICK_HOME") == nullptr)
     {
-        setenv("TRICK_HOME", TrickICGConfig::source_dir, 0);
+        // Installed and staged executables discover their own SDK. Only the
+        // developer executable outside an SDK uses the explicit build fallback.
+        llvm::SmallString<256> root(llvm::sys::fs::getMainExecutable(argv[0], reinterpret_cast<void*>(&runICG)));
+        llvm::SmallString<256> executable, developer_executable;
+        const bool developer = !llvm::sys::fs::real_path(root, executable)
+            && !llvm::sys::fs::real_path(TrickICGConfig::build_executable, developer_executable)
+            && executable == developer_executable;
+        llvm::sys::path::remove_filename(root);
+        llvm::sys::path::remove_filename(root);
+        const std::string sdk_root(root.str());
+        const std::string marker = sdk_root + "/share/trick/sdk.env";
+        if (!developer && access(marker.c_str(), R_OK) != 0)
+        {
+            std::cerr << "Incomplete SDK: cannot read " << marker << std::endl;
+            return 1;
+        }
+        setenv("TRICK_HOME", developer ? TrickICGConfig::source_dir : sdk_root.c_str(), 0);
     }
 #endif
     if (!output_inventory.empty() && output_root.empty())

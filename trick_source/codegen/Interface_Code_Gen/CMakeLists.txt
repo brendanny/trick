@@ -26,7 +26,7 @@ add_executable(trick-ICG
 add_executable(Trick::ICG ALIAS trick-ICG)
 target_compile_features(trick-ICG PRIVATE cxx_std_17)
 set_target_properties(trick-ICG PROPERTIES CXX_EXTENSIONS OFF)
-target_include_directories(trick-ICG PRIVATE "${PROJECT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}")
+target_include_directories(trick-ICG PRIVATE "${PROJECT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 target_include_directories(trick-ICG SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS} ${CLANG_INCLUDE_DIRS})
 string(REPLACE ";" " " llvm_definition_flags "${LLVM_DEFINITIONS}")
 separate_arguments(llvm_definition_flags NATIVE_COMMAND "${llvm_definition_flags}")
@@ -98,7 +98,11 @@ endforeach()
 set(icg_source_dir "${PROJECT_SOURCE_DIR}")
 string(REPLACE "\\" "\\\\" icg_source_dir "${icg_source_dir}")
 string(REPLACE "\"" "\\\"" icg_source_dir "${icg_source_dir}")
-configure_file(TrickICGConfig.hh.in TrickICGConfig.hh @ONLY)
+configure_file(TrickICGConfig.hh.in TrickICGConfig.hh.configured @ONLY)
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/TrickICGConfig.hh"
+    INPUT "${CMAKE_CURRENT_BINARY_DIR}/TrickICGConfig.hh.configured")
+file(GENERATE OUTPUT "${PROJECT_BINARY_DIR}/icg-executable-$<CONFIG>.txt"
+    CONTENT "$<TARGET_FILE:trick-ICG>\n")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/ICGConfiguration.txt"
     "LLVM: ${LLVM_PACKAGE_VERSION}\nClang tool: ${TRICK_ICG_CLANG_EXECUTABLE}\nResource directory: ${TRICK_ICG_RESOURCE_DIR}\nModel system includes: ${icg_system_includes}\nRTTI: ${LLVM_ENABLE_RTTI}\nFrontend policy: native for all output layouts\nGNU compatibility macros: 4.2.1 (Clang default, not the model compiler version)\nSystem-header errors: fatal\n")
 

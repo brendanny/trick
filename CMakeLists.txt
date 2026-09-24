@@ -73,13 +73,12 @@ if(BUILD_TESTING)
     add_subdirectory(cmake/tests)
 endif()
 
-message(STATUS "Trick ${TRICK_VERSION}: CMake developer preview (C1)")
-message(WARNING
-    "TRICK_BUILD_SDK enables a build-tree simulation SDK; installation follows in C2. "
-    "Use the documented Autoconf/Make route for a usable installation. "
-    "See docs/development/build-system/python-input.md.")
-
-# Avoid a successful empty installation that looks like a usable Trick SDK.
-install(CODE [[
-    message(FATAL_ERROR "Trick's CMake preview cannot install an SDK yet.")
-]])
+message(STATUS "Trick ${TRICK_VERSION}: CMake core SDK preview (C2)")
+if(TRICK_BUILD_SDK)
+    include(cmake/TrickInstall.cmake)
+else()
+    # Do not turn a successful utility build into a misleading empty SDK install.
+    install(CODE [[
+        message(FATAL_ERROR "Trick SDK installation requires -DTRICK_BUILD_SDK=ON.")
+    ]])
+endif()

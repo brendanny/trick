@@ -1,7 +1,8 @@
-// Build-tree configuration. Installed SDK discovery is introduced in C1/C2.
+// Native frontend configuration and the exact developer executable identity.
 #pragma once
 
 namespace TrickICGConfig {
+inline constexpr const char* build_executable = "$<TARGET_FILE:trick-ICG>";
 inline constexpr const char* source_dir = "@icg_source_dir@";
 inline constexpr const char* system_includes[] = {
 @TRICK_ICG_SYSTEM_INCLUDES@};

@@ -46,3 +46,49 @@ both configuration readers. `sdk.compiler_guard` checks ordinary models and
 rejects direct, indirect, defined and missing compiler macro fixtures. These
 run in the runtime CI lanes (Linux/macOS, ER7 on/off and EL8's four Python/SWIG
 combinations). No GUI/native optional tools are promised until stack D.
+
+## C2: install and relocate
+
+```sh
+cmake --install build --config Release --prefix "$HOME/trick-sdk"
+export PATH="$HOME/trick-sdk/bin:$PATH"
+# In a copied simulation directory:
+trick-CP
+```
+
+The core SDK installs native archives, ICG, simulation scripts, headers, Perl and
+Python helpers, Make templates, core class resources and the SDK example. It
+uses `GNUInstallDirs` for the library directory (`lib`, `lib64`, or a relative
+multiarch path); the established `bin`, `include`, `libexec` and `share` resource
+layout is fixed for the existing tools. `DESTDIR` stages files without baking
+the staging path into configuration. `--prefix` may select a new installation
+prefix. No SDK install is offered from a utility-only configuration.
+
+Install into a fresh prefix: CMake's manifest records installed files but does
+not remove obsolete files from an older configuration. There is no broad
+uninstall command. Use a dedicated prefix or package manager. The source and
+build directories are not runtime dependencies. Installed ICG locates its own
+SDK when `TRICK_HOME` is unset; a raw developer ICG still has an explicit source
+fallback. The SDK can move on the same compatible machine. External compiler,
+LLVM runtime/resource headers, UDUNITS, Python, SWIG, Perl and Make installations
+remain dependencies; moving Trick does not relocate those packages or promise
+cross-machine ABI compatibility. ICG uses native CMake install rpaths for its
+external shared libraries.
+
+The standalone `cmake/tests/verify_sdk_install.py` runs after build-tree tests.
+It installs both library layouts to nondefault prefixes and through DESTDIR,
+moves the staged prefixes, hides the source and build trees with guaranteed
+restoration, then builds/runs copied simulations and trickifies a header. It
+checks an invalid install destination and, when running unprivileged, a genuinely
+unwritable prefix. Root/container runs explicitly cannot qualify filesystem
+permission denial. Run this script in a disposable checkout/build pair, not
+while another process builds or uses them.
+
+To run only the installed smoke test:
+
+```sh
+cmake -DSDK="$HOME/trick-sdk" \
+  -DFIXTURE="$HOME/trick-sdk/share/trick/examples/SIM_sdk" \
+  -DTEST_ROOT=/tmp/trick-sdk-smoke \
+  -P "$HOME/trick-sdk/share/trick/tests/SDK.cmake"
+```

@@ -79,11 +79,12 @@ output.unlink()
 run("trick_core_codegen")
 require(output.exists(), "Deleted metadata was not regenerated")
 
-icg_candidates = [
-    build / "trick_source/codegen/Interface_Code_Gen" / args.config / "trick-ICG",
-    build / "trick_source/codegen/Interface_Code_Gen/trick-ICG",
+icg_profiles = [
+    build / f"icg-executable-{args.config}.txt",
+    build / "icg-executable-.txt",
 ]
-icg = next(path for path in icg_candidates if path.exists())
+icg_profile = next(path for path in icg_profiles if path.exists())
+icg = Path(icg_profile.read_text().strip())
 before = stamp.stat().st_mtime_ns
 os.utime(icg, None)
 run("trick_core_codegen")
