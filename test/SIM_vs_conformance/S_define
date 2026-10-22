@@ -1,0 +1,26 @@
+/************************TRICK HEADER*************************
+PURPOSE:
+    (Variable server conformance SIM. The suite in conformance/ connects
+     to this SIM and compares the raw reply bytes with golden files.)
+LIBRARY DEPENDENCIES:
+    (
+      (conformance/src/ConfVars.cpp)
+    )
+*************************************************************/
+
+#include "sim_objects/default_trick_sys.sm"
+
+##include "conformance/include/ConfVars.hh"
+
+class ConfSimObject : public Trick::SimObject {
+    public:
+        ConfVars vars;
+
+        ConfSimObject() {
+            ("default_data") vars.default_vars();
+            ("initialization") vars.init();
+            ("shutdown") vars.shutdown();
+        }
+};
+
+ConfSimObject conf;

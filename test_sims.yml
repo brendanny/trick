@@ -34,6 +34,9 @@ SIM_threads_simple:
   path: test/SIM_threads_simple
 SIM_trickcomm:
   path: test/SIM_trickcomm
+# Built here; the vs_conformance CI job runs its pytest suite.
+SIM_vs_conformance:
+  path: test/SIM_vs_conformance
 SIM_satellite:
   path: trick_sims/SIM_satellite
 
