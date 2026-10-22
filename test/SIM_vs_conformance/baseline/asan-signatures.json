@@ -1,0 +1,19 @@
+[
+  "ASan: dynamic-stack-buffer-overflow @ trick_source/trick_utils/connection_handlers/TCPConnection.cpp:88",
+  "ASan: heap-buffer-overflow @ trick_source/sim_services/VariableServer/VariableReference.cpp:362",
+  "ASan: heap-buffer-overflow @ trick_source/sim_services/VariableServer/VariableReference.cpp:390",
+  "ASan: heap-buffer-overflow @ trick_source/sim_services/VariableServer/VariableReference.cpp:391",
+  "ASan: heap-buffer-overflow @ trick_source/sim_services/VariableServer/VariableReference.cpp:512",
+  "ASan: heap-buffer-overflow @ trick_source/sim_services/VariableServer/VariableReference.cpp:709",
+  "ASan: heap-buffer-overflow @ trick_source/sim_services/VariableServer/VariableReference.cpp:719",
+  "ASan: heap-use-after-free @ trick_source/sim_services/VariableServer/VariableReference.cpp:362",
+  "ASan: heap-use-after-free @ trick_source/sim_services/VariableServer/VariableReference.cpp:365",
+  "UBSan: division by zero @ VariableServerSession_commands.cpp:274",
+  "UBSan: index N out of bounds for type 'char [*]' @ TCPConnection.cpp:88",
+  "UBSan: left shift of N by N places cannot be represented in type 'int' @ insert_bitfield.c:95",
+  "UBSan: load of value N, which is not a valid value for type 'bool' @ MemoryManager.cpp:39",
+  "UBSan: load of value N, which is not a valid value for type 'bool' @ VariableServer.cpp:90",
+  "UBSan: load of value N, which is not a valid value for type 'bool' @ include/trick/JobData.hh:34",
+  "UBSan: reference binding to null pointer of type 'struct __forced_unwind' @ VariableServerSessionThread_loop.cpp:133",
+  "UBSan: store to address N with insufficient space for an object of type 'char' @ TCPConnection.cpp:88"
+]
