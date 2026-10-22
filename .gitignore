@@ -71,3 +71,8 @@ share/trick/makefiles/config_user.mk
 *.log
 *.dSYM
 archive/
+
+# Variable server rewrite: tools/vs-ci.sh and sanitizer output
+/vs-ci-*/
+sanitizer_logs/
+test/SIM_vs_conformance/conformance_logs/

@@ -47,3 +47,7 @@ jobs:
   code-coverage:
     needs: [style]
     uses: ./.github/workflows/_code-coverage.yml
+
+  variable-server:
+    needs: [style]
+    uses: ./.github/workflows/_vs-rewrite.yml

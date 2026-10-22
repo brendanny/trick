@@ -39,6 +39,28 @@ connection, and stops the SIM at the end. SIM output goes to
 | `conformance/test_beacon.py` | Checks the 12-field multicast beacon on both groups. |
 | `conformance/test_known_defects.py` | Defects in the old server. Expected to fail until the rewrite fixes them. |
 | `conformance/dump_golden.py` | Prints a golden file as text or decoded binary. |
+| `models/conformance/*/FrameProbe.*`, `RUN_bench/` | 100 Hz frame-period probe and the real-time input file for the benchmark. |
+| `bench/vs_bench.py` | Benchmark: frame jitter, command round trip and throughput per copy mode and client count. |
+| `BASELINE.md` | Results for the old server: suite, sanitizers, benchmark, defects found. |
+
+## Sanitizers and CI
+
+`tools/vs-ci.sh plain|asan|tsan` builds Trick (with sanitizers for `asan`
+and `tsan`), runs the variable server unit tests, this suite and
+`SIM_test_varserv`, and writes `vs-ci-<kind>/summary.md`. The
+`variable-server` job in `.github/workflows/ci.yml` runs it in all three
+builds. See `tools/vs-sanitizer-env.sh` to use the same flags by hand.
+
+## Benchmark
+
+```bash
+python3 test/SIM_vs_conformance/bench/vs_bench.py --out bench-results.json
+```
+
+Each configuration starts the SIM in real time at 100 Hz, runs 0, 1 or 8
+streaming clients (50 doubles each at 100 Hz) and a probe client that sends
+`var_send_once` every 20 ms, and measures for 10 s. Run it on an idle
+machine; results from different machines do not compare.
 
 ## How a case is captured
 

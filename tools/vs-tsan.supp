@@ -1,0 +1,5 @@
+# ThreadSanitizer suppressions for the variable server baseline.
+#
+# CPython is not built with TSan, so TSan cannot see its locks (the GIL).
+# Reports whose whole stack is inside libpython are noise.
+called_from_lib:libpython3
