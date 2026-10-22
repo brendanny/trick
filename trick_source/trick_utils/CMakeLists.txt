@@ -5,6 +5,7 @@ add_subdirectory(math)
 add_subdirectory(optimization)
 add_subdirectory(units)
 add_subdirectory(var_binary_parser)
+add_subdirectory(var_server)
 
 # Object libraries compiled into libtrick.a
 add_subdirectory(compareFloatingPoint)

@@ -188,7 +188,8 @@ UTILS_DIRS := \
 	${TRICK_HOME}/trick_source/trick_utils/optimization \
 	${TRICK_HOME}/trick_source/trick_utils/units \
 	${TRICK_HOME}/trick_source/trick_utils/unicode \
-	${TRICK_HOME}/trick_source/trick_utils/var_binary_parser
+	${TRICK_HOME}/trick_source/trick_utils/var_binary_parser \
+	${TRICK_HOME}/trick_source/trick_utils/var_server
 
 UTILS_OBJS := $(addsuffix /object_$(TRICK_HOST_CPU)/*.o ,$(UTILS_DIRS))
 
@@ -199,6 +200,7 @@ UTILS_OBJS := $(filter-out ${TRICK_HOME}/trick_source/trick_utils/math/%, $(UTIL
 UTILS_OBJS := $(filter-out ${TRICK_HOME}/trick_source/trick_utils/optimization/%, $(UTILS_OBJS))
 UTILS_OBJS := $(filter-out ${TRICK_HOME}/trick_source/trick_utils/units/%, $(UTILS_OBJS))
 UTILS_OBJS := $(filter-out ${TRICK_HOME}/trick_source/trick_utils/var_binary_parser/%, $(UTILS_OBJS))
+UTILS_OBJS := $(filter-out ${TRICK_HOME}/trick_source/trick_utils/var_server/%, $(UTILS_OBJS))
 
 #-------------------------------------------------------------------------------
 # Specify the contents of: libtrick_pyip.a

@@ -72,6 +72,7 @@ CMAKE_ARCHIVES=(
     libtrick_optimization
     libtrick_units
     libtrick_var_binary_parser
+    libtrick_var_server
 )
 # Archive members the CMake build does not produce yet: ICG's generated io_*
 # code. Remove once the CMake build runs ICG.
