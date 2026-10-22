@@ -70,6 +70,10 @@ step "Build Trick" "$out/build-trick.log" make || {
     exit 1
 }
 
+# The rewrite's core library: no iostreams, and its unit tests.
+step "No iostreams in new VS code" "$out/no-iostreams.log" "$repo/tools/vs-check-no-iostreams.sh"
+step "VS core unit tests" "$out/unit-vs-core.log" make -C "$repo/trick_source/trick_utils/var_server/test" test
+
 # Unit tests for the current variable server (gtest).
 ut_dir="$repo/trick_source/sim_services/VariableServer/test"
 if step "Build VS unit tests" "$out/build-unit-tests.log" make -C "$ut_dir" VariableReference_test \

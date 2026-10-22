@@ -8,6 +8,10 @@
 #
 # Phase 0: the sanitizer jobs record the old server's reports and do not
 # fail on them (continue-on-error). Later phases make them gates.
+#
+# The core job builds libtrick_var_server on its own (it needs only a C++17
+# compiler and GoogleTest) on each supported floor: GCC 8.5 on Rocky 8, GCC
+# and Clang on Ubuntu, Apple Clang on macOS. These jobs must pass.
 name: Variable Server
 
 on:
@@ -17,6 +21,54 @@ permissions:
   contents: read
 
 jobs:
+  core:
+    name: vs core ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: rocky8-gcc8.5
+            runner: ubuntu-24.04
+            container: rockylinux/rockylinux:8
+            install: |
+              dnf install -y 'dnf-command(config-manager)'
+              dnf config-manager --enable powertools
+              dnf install -y gcc-c++ make cmake gtest-devel
+            cxx: g++
+          - name: ubuntu24-gcc
+            runner: ubuntu-24.04
+            container: ""
+            install: sudo apt-get update -qq && sudo apt-get install -y cmake g++ libgtest-dev
+            cxx: g++
+          - name: ubuntu24-clang
+            runner: ubuntu-24.04
+            container: ""
+            install: sudo apt-get update -qq && sudo apt-get install -y cmake clang libgtest-dev
+            cxx: clang++
+          - name: macos
+            runner: macos-26
+            container: ""
+            install: brew install googletest
+            cxx: clang++
+    steps:
+      - name: Install dependencies
+        run: ${{ matrix.install }}
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Compiler
+        run: ${{ matrix.cxx }} --version
+      - name: No iostreams
+        run: tools/vs-check-no-iostreams.sh ${{ matrix.cxx }}
+      - name: Build
+        run: |
+          cmake -S trick_source/trick_utils/var_server -B build-vs-core \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS=-Werror
+          cmake --build build-vs-core --parallel
+      - name: Test
+        run: ctest --test-dir build-vs-core --output-on-failure
+
   vs:
     name: vs ${{ matrix.kind }}
     runs-on: ubuntu-24.04
