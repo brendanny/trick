@@ -35,6 +35,12 @@ class ConfInner
         double b[2]; /* m inner array */
 };
 
+class ConfLabel
+{
+    public:
+        char text[16]; /* -- label text */
+};
+
 class ConfBits
 {
     public:
@@ -127,6 +133,7 @@ class ConfVars
         std::vector<double> vec;    /* -- vector of double */
         std::vector<int> vec_empty; /* -- empty vector */
         std::deque<int> deq;        /* -- deque of int */
+        std::vector<ConfLabel*> label_ptrs; /* -- vector of pointers to a class with a char array */
 
         /* Permissions */
         int read_only;            /**< -- trick_io(*o) not settable */

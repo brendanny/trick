@@ -4,6 +4,7 @@
 
 #include <climits>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <limits>
 
@@ -134,6 +135,12 @@ int ConfVars::init()
     inner_ptr->a    = 99;
     inner_ptr->b[0] = 9.5;
     inner_ptr->b[1] = -9.5;
+    for (int k = 0; k < 2; k++)
+    {
+        ConfLabel* label = (ConfLabel*)TMM_declare_var_1d("ConfLabel", 1);
+        std::snprintf(label->text, sizeof(label->text), "label %d", k);
+        label_ptrs.push_back(label);
+    }
     return 0;
 }
 

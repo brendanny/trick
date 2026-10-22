@@ -433,3 +433,13 @@ CASES: list[Case] = [
 
 NAMES = [c.name for c in CASES]
 assert len(NAMES) == len(set(NAMES)), "case names must be unique"
+
+# Goldens that record a defect the rewrite fixes on purpose (rewrite plan,
+# "Change on purpose"). When the new server replaces the old one, these
+# goldens change in the same commit, and the matching known-defect test
+# loses its xfail mark. Do not change them before that.
+EXPECTED_TO_CHANGE = {
+    "byteswap_strings": "string values are zeros; test_byteswap_strings",
+    "byteswap_nonames_strings": "string values are zeros; test_byteswap_strings",
+}
+assert set(EXPECTED_TO_CHANGE) <= set(NAMES)

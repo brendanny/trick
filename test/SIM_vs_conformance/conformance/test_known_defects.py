@@ -148,3 +148,36 @@ def test_list_changes_during_scheduled_copy(fresh_sim) -> None:
     # also fails if the SIM log has a sanitizer report.
     assert "ThreadSanitizer" not in fresh_sim.log_text()
     assert not fresh_sim.memory_error_reports()
+
+
+@pytest.mark.xfail(
+    reason="byteswap sends char*, std::string and wchar_t* values as zeros (VariableReference.cpp byteswap_var)"
+)
+def test_byteswap_strings(fresh_sim) -> None:
+    with RawSession(HOST, fresh_sim.port) as s:
+        reply = s.run_case(
+            "trick.var_pause()\ntrick.var_binary_nonames()\ntrick.var_byteswap(True)\n"
+            f'trick.var_add("{P}str")\ntrick.var_add("{P}wptr")\ntrick.var_send()\n'
+        )
+    assert_alive(fresh_sim)
+    text = b"std string value\0"
+    wide = struct.pack(">6I", *(ord(c) for c in "wptr!\0"))
+    body = (
+        struct.pack(">ii", 3, len(text))
+        + text
+        + struct.pack(">ii", 19, len(wide))
+        + wide
+    )
+    assert reply == struct.pack(">iii", 0, 12 + len(body) - 4, 2) + body
+
+
+@pytest.mark.xfail(
+    reason="a char array reached through std::vector<T*> comes back as its first character"
+)
+def test_vector_of_pointers_char_array(fresh_sim) -> None:
+    with RawSession(HOST, fresh_sim.port) as s:
+        reply = s.run_case(
+            f'trick.var_pause()\ntrick.var_add("{P}label_ptrs[1].text")\ntrick.var_send()\n'
+        )
+    assert_alive(fresh_sim)
+    assert reply == b"0\tlabel 1\n"
