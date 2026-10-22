@@ -5,12 +5,14 @@ PURPOSE:
 LIBRARY DEPENDENCIES:
     (
       (conformance/src/ConfVars.cpp)
+      (conformance/src/FrameProbe.cpp)
     )
 *************************************************************/
 
 #include "sim_objects/default_trick_sys.sm"
 
 ##include "conformance/include/ConfVars.hh"
+##include "conformance/include/FrameProbe.hh"
 
 class ConfSimObject : public Trick::SimObject {
     public:
@@ -24,3 +26,16 @@ class ConfSimObject : public Trick::SimObject {
 };
 
 ConfSimObject conf;
+
+// Used only by bench/vs_bench.py. In freeze, as the conformance suite runs
+// the SIM, this job does not run.
+class BenchSimObject : public Trick::SimObject {
+    public:
+        FrameProbe probe;
+
+        BenchSimObject() {
+            (0.01, "scheduled") probe.sample();
+        }
+};
+
+BenchSimObject bench;
