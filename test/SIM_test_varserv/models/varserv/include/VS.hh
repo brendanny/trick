@@ -7,8 +7,11 @@ PROGRAMMERS:                 ( (Lindsay Landry) (L3) (9-12-2013) ) ( (Jackie Dea
 #include "trick/tc.h"
 #include "trick/tc_proto.h"
 
+#include <array>
+#include <deque>
 #include <string.h>
 #include <string>
+#include <vector>
 #include <wchar.h>
 
 #ifndef VS_HH

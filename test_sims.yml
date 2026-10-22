@@ -380,20 +380,20 @@ SIM_test_output_dir:
       returns: 0
       analyze: "python3 test/SIM_test_output_dir/ref_files/check_file_endings.py test/SIM_test_output_dir/ref_files/ref_compiletime_S_sie.resource test/SIM_test_output_dir/S_sie.resource && python3 test/SIM_test_output_dir/ref_files/check_file_endings.py test/SIM_test_output_dir/ref_files/ref_runtime_S_sie.resource test/SIM_test_output_dir/sim_output/RUN_test/S_sie.resource"
 
-# The variable server client and SIM_amoeba sometimes fail to connect and need to be retried
-
-# JMP (9/23/2023): We can't have these in our regular CI test suite if they are going to
-# periodically fail due to environmental variations over which we have no control. Commenting
-# these out.
-
-# SIM_test_varserv:
-#   path: test/SIM_test_varserv
-#   build_args: "-t"
-#   binary: "T_main_{cpu}_test.exe"
-#   runs:
-#     RUN_test/unit_test.py:
-#       phase: 1
-#       returns: 0
+# JMP (9/23/2023) took SIM_test_varserv out of CI because it failed at
+# random. Two causes of random failure are now fixed in the test: the
+# multicast server read its own output when bound to the hostname, and the
+# UDP AddRemove test read one datagram where old cyclic data can come first.
+# The SIM also needed var_allow_connections() (the server is now disabled by
+# default) and an IP check bypass for UDP and multicast sessions.
+SIM_test_varserv:
+  path: test/SIM_test_varserv
+  build_args: "-t"
+  binary: "T_main_{cpu}_test.exe"
+  runs:
+    RUN_test/unit_test.py:
+      phase: 1
+      returns: 0
 #     RUN_test/err1_test.py:
 #       phase: 2
 #       returns: 10
