@@ -1,5 +1,13 @@
 # ThreadSanitizer suppressions for the variable server baseline.
 #
-# CPython is not built with TSan, so TSan cannot see its locks (the GIL).
-# Reports whose whole stack is inside libpython are noise.
+# CPython is not built with TSan, so TSan cannot see the GIL. Code that only
+# runs while a thread holds the GIL looks racy to TSan. Suppress reports
+# whose stack is all in libpython, and reports in SWIG's runtime helpers,
+# which Python calls only with the GIL held.
 called_from_lib:libpython3
+race:SwigPyObject_New
+race:SwigPyObject_dealloc
+race:SWIG_Python_NewShadowInstance
+race:SWIG_Python_NewPointerObj
+race:SWIG_Python_TypeQuery
+race:SWIG_Py_Void

@@ -26,10 +26,14 @@ from pathlib import Path
 ASAN_HEAD = re.compile(r"ERROR: AddressSanitizer: ([\w-]+)")
 TSAN_HEAD = re.compile(r"WARNING: ThreadSanitizer: ([\w-]+(?: [\w-]+)*?)(?: \(|$)")
 UBSAN_LINE = re.compile(r"(?:^|\s)([^\s:]+):(\d+):\d+: runtime error: (.*)$")
-FRAME = re.compile(r"^\s*#\d+ 0x[0-9a-f]+ in (.+?) (\S+?):(\d+)(?::\d+)?\s*$")
+# ASan: "#0 0x55d0 in func /path/file.cpp:12:3"
+# TSan: "#0 func /path/file.cpp:12 (binary+0x1234) (BuildId: ...)"
+FRAME = re.compile(
+    r"^\s*#\d+ (?:0x[0-9a-f]+ in )?(.+?) (/\S+?|[\w./-]+\.\w+):(\d+)(?::\d+)?(?: \(.*)?\s*$"
+)
 ANSI = re.compile(r"\x1b\[[0-9;]*m|\[[0-9;]*m(?=\S)")
 SKIP_PATH = re.compile(
-    r"/(usr|lib|lib64)/|sanitizer_common|/gcc/|libstdc\+\+|/include/c\+\+/"
+    r"/(usr|lib|lib64)/|sanitizer_common|libsanitizer|/gcc/|libstdc\+\+|/include/c\+\+/"
 )
 
 

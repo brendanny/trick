@@ -39,10 +39,12 @@ export TRICK_CFLAGS="${TRICK_CFLAGS:+$TRICK_CFLAGS }$_vs_flags"
 export TRICK_CXXFLAGS="${TRICK_CXXFLAGS:+$TRICK_CXXFLAGS }$_vs_flags"
 export TRICK_LDFLAGS="${TRICK_LDFLAGS:+$TRICK_LDFLAGS }$_vs_flags"
 
+# TSan exits with 66 after any report by default; exitcode=0 keeps a test's
+# exit status about the test. Reports are counted from the log files.
 # Leak reports are off: Trick allocates for the life of the process, and the
 # rewrite's leak work is checked by unit tests, not by whole-SIM runs.
 export ASAN_OPTIONS="detect_leaks=0:abort_on_error=0:halt_on_error=0:log_path=$VS_SANITIZER_LOG_DIR/asan"
 export UBSAN_OPTIONS="print_stacktrace=1:halt_on_error=0:log_path=$VS_SANITIZER_LOG_DIR/ubsan"
-export TSAN_OPTIONS="halt_on_error=0:second_deadlock_stack=1:history_size=4:log_path=$VS_SANITIZER_LOG_DIR/tsan:suppressions=$_vs_repo/tools/vs-tsan.supp"
+export TSAN_OPTIONS="halt_on_error=0:exitcode=0:second_deadlock_stack=1:history_size=4:log_path=$VS_SANITIZER_LOG_DIR/tsan:suppressions=$_vs_repo/tools/vs-tsan.supp"
 
 unset _vs_kind _vs_flags _vs_repo
