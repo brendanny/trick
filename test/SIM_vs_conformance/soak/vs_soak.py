@@ -22,8 +22,8 @@ report.
 
     python3 soak/vs_soak.py --minutes 10 [--reload-s 10] [--wrapper "..."]
 
-Set TRICK_VS_REWRITE=1 to soak the rewritten server. For the exit test, build
-Trick and the SIM with tools/vs-sanitizer-env.sh tsan first.
+For the Phase 5 exit test, build Trick and the SIM with
+tools/vs-sanitizer-env.sh tsan first.
 """
 
 from __future__ import annotations

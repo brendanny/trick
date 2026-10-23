@@ -4,10 +4,9 @@
 #   tools/vs-ci.sh plain|asan|tsan
 #
 # Run it from a configured Trick tree (./configure done). It builds Trick,
-# runs the variable server unit tests, the conformance suite and
-# SIM_test_varserv, and writes a summary to vs-ci-<kind>/summary.md. The
-# suite, SIM_test_varserv and a soak (soak/vs_soak.py) also run against the
-# rewritten server (TRICK_VS_REWRITE=1, Phase 5).
+# runs the variable server unit tests, the conformance suite, a soak
+# (soak/vs_soak.py) and SIM_test_varserv, and writes a summary to
+# vs-ci-<kind>/summary.md.
 #
 # Exit status:
 #   plain  non-zero if any test fails
@@ -78,17 +77,11 @@ step "Build Trick" "$out/build-trick.log" make || {
 step "No iostreams in new VS code" "$out/no-iostreams.log" "$repo/tools/vs-check-no-iostreams.sh"
 step "VS core unit tests" "$out/unit-vs-core.log" make -C "$repo/trick_source/trick_utils/var_server/test" test
 
-# Unit tests for the current variable server (gtest).
+# The adapter's unit tests (gtest, on a real Memory Manager).
 ut_dir="$repo/trick_source/sim_services/VariableServer/test"
-if step "Build VS unit tests" "$out/build-unit-tests.log" make -C "$ut_dir" VariableReference_test \
-        VariableReference_writeValueAscii_test VariableReference_writeValueBinary_test \
-        VariableServerSession_test VariableServerSessionThread_test VariableServerListenThread_test \
-        VariableServer_test VsAdapter_test; then
-    for t in VariableReference_test VariableReference_writeValueAscii_test VariableReference_writeValueBinary_test \
-             VariableServerSession_test VariableServerSessionThread_test VariableServerListenThread_test \
-             VariableServer_test VsAdapter_test; do
-        step "Unit: $t" "$out/unit-$t.log" bash -c "cd '$ut_dir' && ./$t --gtest_output=xml:'$repo/trick_test/$t.xml'"
-    done
+if step "Build VS adapter tests" "$out/build-unit-tests.log" make -C "$ut_dir" VsAdapter_test; then
+    step "Unit: VsAdapter_test" "$out/unit-VsAdapter_test.log" \
+        bash -c "cd '$ut_dir' && ./VsAdapter_test --gtest_output=xml:'$repo/trick_test/VsAdapter_test.xml'"
 fi
 
 # Python environment for the harness.
@@ -102,28 +95,13 @@ step "Harness venv" "$out/venv.log" bash -c "'$py' -m venv '$venv' && '$venv/bin
 # Conformance suite.
 conf="$repo/test/SIM_vs_conformance"
 if step "Build SIM_vs_conformance" "$out/build-conformance.log" bash -c "cd '$conf' && trick-CP"; then
+    # Every regression test for the old server's defects, the old-checkpoint test, and the wire cases.
     step "Conformance suite" "$out/conformance.log" \
-        "$venv/bin/python" -m pytest "$conf/conformance" -q -rs --junitxml="$repo/trick_test/SIM_vs_conformance.xml" \
-        ${wrapper:+--sim-wrapper "$wrapper"}
-    if [[ "$kind" != plain ]]; then
-        # Known defects crash or corrupt the old server. Under a sanitizer
-        # they are the expected reports; they never fail this script.
-        "$venv/bin/python" -m pytest "$conf/conformance/test_known_defects.py" -q -rxX --run-known-defects \
-            ${wrapper:+--sim-wrapper "$wrapper"} > "$out/known-defects.log" 2>&1
-        note "Known defects (informational)" "$(tail -n 1 "$out/known-defects.log")"
-    fi
-fi
-
-# The rewritten server (Phase 5), selected with TRICK_VS_REWRITE=1: the same
-# suite, every known-defect test (each must pass), the old-checkpoint test,
-# and a short soak with checkpoint reloads.
-if [[ -x "$(ls "$conf"/S_main_*.exe 2>/dev/null | head -n 1)" ]]; then
-    step "Conformance suite, rewritten server" "$out/conformance-rewrite.log" \
-        env TRICK_VS_REWRITE=1 "$venv/bin/python" -m pytest "$conf/conformance" -q -rs --run-known-defects \
-        --junitxml="$repo/trick_test/SIM_vs_conformance_rewrite.xml" ${wrapper:+--sim-wrapper "$wrapper"}
-    step "Soak, rewritten server (${VS_SOAK_MINUTES:-2} min)" "$out/soak-rewrite.log" \
-        env TRICK_VS_REWRITE=1 "$venv/bin/python" "$conf/soak/vs_soak.py" --minutes "${VS_SOAK_MINUTES:-2}" \
-        ${wrapper:+--wrapper "$wrapper"}
+        "$venv/bin/python" -m pytest "$conf/conformance" -q -rs --run-known-defects \
+        --junitxml="$repo/trick_test/SIM_vs_conformance.xml" ${wrapper:+--sim-wrapper "$wrapper"}
+    # 8 clients in every mode and a checkpoint reload every 10 s.
+    step "Soak (${VS_SOAK_MINUTES:-2} min)" "$out/soak.log" \
+        "$venv/bin/python" "$conf/soak/vs_soak.py" --minutes "${VS_SOAK_MINUTES:-2}" ${wrapper:+--wrapper "$wrapper"}
 fi
 
 # SIM_test_varserv: modes, UDP, multicast, freeze, var_set, stdio.
@@ -131,8 +109,6 @@ varserv="$repo/test/SIM_test_varserv"
 if step "Build SIM_test_varserv" "$out/build-varserv.log" bash -c "cd '$varserv' && trick-CP -t"; then
     exe="$(ls "$varserv"/T_main_*_test.exe | head -n 1)"
     step "SIM_test_varserv" "$out/varserv.log" bash -c "cd '$varserv' && timeout 600 $wrapper '$exe' RUN_test/unit_test.py"
-    step "SIM_test_varserv, rewritten server" "$out/varserv-rewrite.log" \
-        bash -c "cd '$varserv' && TRICK_VS_REWRITE=1 timeout 600 $wrapper '$exe' RUN_test/unit_test.py"
 fi
 
 # Sanitizer summary.

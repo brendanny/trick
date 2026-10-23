@@ -1,16 +1,12 @@
 /*
-PURPOSE: (The rewritten variable server behind Trick::VariableServer: VariableServer::Impl.)
+PURPOSE: (The variable server behind Trick::VariableServer: VariableServer::Impl.)
 
 Server is the plan's VariableServer::Impl. The public Trick::VariableServer
-keeps its job methods and checkpointed fields; when the rewrite is selected
-it forwards each job to its Server. Server owns the listener thread (a
+keeps its job methods and checkpointed fields and forwards each job to its
+Server. Server owns the listener thread (a
 ListenLoop), the session registry, the session runners, the Memory Manager
 resolver and the units converter, and it is the SessionHost, ListenPolicy
 and RunnerHooks of the core library.
-
-Selection (Phase 5 only): the environment variable TRICK_VS_REWRITE=1, read
-when the VariableServer is constructed, selects this server; otherwise the
-old one runs. Phase 6 removes the old server and the switch.
 
 Threads:
   * The main thread runs the jobs. It reads the executive directly
@@ -133,10 +129,7 @@ namespace Trick
                     Server(const Server&)            = delete;
                     Server& operator=(const Server&) = delete;
 
-                    /** True if TRICK_VS_REWRITE=1 selects this server. */
-                    static bool selected();
-
-                    /** The Server of the running simulation, or null (old server selected). */
+                    /** The Server of the running simulation, or null if the sim has no variable server. */
                     static Server* active() noexcept;
 
                     /** The session whose work this thread runs now, or null. */
@@ -188,6 +181,12 @@ namespace Trick
                     Expected<void> run_python(std::string_view text) override;
                     bool python_commands() const override { return _python.load(std::memory_order_relaxed); }
                     int var_set(const cmd::VarSet& command) override;
+
+                    /**
+                     * Run `write` with simulation memory locked for writing, unless this thread runs
+                     * a Python line (which holds the lock for reading already). Returns its result.
+                     */
+                    int write_memory(const std::function<int()>& write);
                     std::string sie_file(SieFile which) override;
                     void schedule_changed() override { _schedule_changed.store(true, std::memory_order_release); }
                     bool info_messages() const override { return _info_msg.load(std::memory_order_relaxed); }

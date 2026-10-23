@@ -22,7 +22,7 @@ trick.exec_set_enable_freeze(True)
 trick.exec_set_freeze_command(True)
 trick.exec_set_terminate_time(36000.0)
 
-# test_checkpoint.py: write RUN_conformance/chkpnt_post_init.
+# Write RUN_conformance/chkpnt_post_init (how data/old_server.checkpoint was made).
 if os.environ.get("VS_CONF_CHECKPOINT") == "1":
     trick.checkpoint_post_init(True)
 

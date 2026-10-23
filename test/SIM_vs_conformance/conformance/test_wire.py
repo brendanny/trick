@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 from cases import CASES, EXPECTED_TO_CHANGE, NAMES, Case
-from conftest import HOST, rewrite_selected
+from conftest import HOST
 from vsclient import RawSession
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "goldens"
@@ -63,15 +63,16 @@ def test_reply_matches_golden(sim, pytestconfig: pytest.Config, case: Case) -> N
 
     assert golden.exists(), f"no golden file {golden.name}; run with --update-goldens"
     expected = golden.read_bytes()
-    if rewrite_selected() and case.name in EXPECTED_TO_CHANGE:
+    if case.name in EXPECTED_TO_CHANGE:
         check_changed_case(case.name, actual)
         return
     assert actual == expected, describe_mismatch(expected, actual)
 
 
 # ----------------------------------------------------------------------
-# Cases that record an old defect (EXPECTED_TO_CHANGE). The rewritten server
-# fixes them, so its bytes differ on purpose; these checks are the same as
+# Cases that record an old defect (EXPECTED_TO_CHANGE). The goldens are the
+# old server's bytes (Phase 0); the rewritten server fixes these defects, so
+# its bytes differ on purpose. These checks are the same as
 # trick_utils/var_server/test/GoldenReplay.hh.
 # ----------------------------------------------------------------------
 

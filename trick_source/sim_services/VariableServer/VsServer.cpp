@@ -151,12 +151,6 @@ namespace Trick
             // Server
             // --------------------------------------------------------------
 
-            bool Server::selected()
-            {
-                const char* e = std::getenv("TRICK_VS_REWRITE");
-                return e != nullptr && std::strcmp(e, "1") == 0;
-            }
-
             Server* Server::active() noexcept { return g_active; }
 
             Session* Server::current_session() noexcept { return t_current; }
@@ -310,8 +304,6 @@ namespace Trick
                 std::lock_guard<std::recursive_mutex> guard(_listen_mutex);
                 if (_initialized)
                     return 0; // init and monte_master_init both call this
-                message_publish(MSG_INFO, "Trick VariableServer: the rewritten variable server is running "
-                                          "(TRICK_VS_REWRITE=1).\n");
                 _mirror_clock.update(_exec_clock);
                 config_changed();
 
@@ -745,15 +737,19 @@ namespace Trick
                 return {};
             }
 
+            int Server::write_memory(const std::function<int()>& write)
+            {
+                if (t_memory_held > 0) // a Python line: it holds the lock for reading
+                    return write();
+                // Otherwise take the lock for writing, so no copy reads the value while it changes.
+                std::unique_lock<std::shared_mutex> lock = lock_exclusive_releasing_gil(_resolver.memory_mutex());
+                return write();
+            }
+
             int Server::var_set(const cmd::VarSet& c)
             {
                 const char* units = c.units ? c.units->c_str() : nullptr;
-                if (t_memory_held > 0) // var_set from a Python line: it holds the lock for reading
-                    return assign_variable(c.name.c_str(), c.value, units);
-                // A typed var_set takes the lock for writing, so no copy reads the value while it
-                // changes.
-                std::unique_lock<std::shared_mutex> lock = lock_exclusive_releasing_gil(_resolver.memory_mutex());
-                return assign_variable(c.name.c_str(), c.value, units);
+                return write_memory([&] { return assign_variable(c.name.c_str(), c.value, units); });
             }
 
             std::string Server::sie_file(SieFile which)

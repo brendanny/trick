@@ -9,7 +9,7 @@ include $(dir $(lastword $(MAKEFILE_LIST)))../../../../share/trick/makefiles/Mak
 
 # Flags passed to the preprocessor.
 TRICK_CPPFLAGS += -I$(GTEST_HOME)/include -I$(TRICK_HOME)/include -g ${TRICK_SYSTEM_CXXFLAGS} ${TRICK_TEST_FLAGS}
-TRICK_LIB_NAMES = trick trick_units trick_mm trick_pyip trick_connection_handlers trick_comm
+TRICK_LIB_NAMES = trick trick_units trick_mm trick_pyip trick_comm trick_var_server
 ifeq ($(TRICK_HOST_TYPE),Linux)
     TRICK_LIBS = -L${TRICK_LIB_DIR} -Wl,--start-group $(addprefix -l,$(TRICK_LIB_NAMES)) -Wl,--end-group
 else ifeq ($(TRICK_HOST_TYPE),Darwin)

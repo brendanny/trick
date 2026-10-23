@@ -1,11 +1,10 @@
-"""Tests that show defects in the old variable server.
+"""Regression tests for the defects of the old variable server.
 
-Each test starts its own SIM, because the defect can crash it or damage its
-memory. They run only with --run-known-defects. They are expected to fail
-on the old server (xfail) and to pass after the rewrite. With
-TRICK_VS_REWRITE=1 the SIM runs the rewritten server (Phase 5), and every
-test here must pass: the xfail marks apply only to the old server. Phase 6
-removes the old server and these marks.
+Phase 0 wrote these tests to show defects in the old server; the rewrite
+fixes each one, and every test here must pass. The comment above each test
+names the old defect. Each test starts its own SIM, because the old defect
+could crash it or damage its memory. They run only with --run-known-defects
+(tools/vs-ci.sh passes it).
 
 Run them under ASan to see the memory errors that do not crash the SIM:
 see ../README.md.
@@ -17,13 +16,10 @@ import struct
 import time
 
 import pytest
-from conftest import HOST, rewrite_selected
+from conftest import HOST
 from vsclient import RawSession
 
 pytestmark = [pytest.mark.known_defect]
-
-# The marks below expect a failure only from the old server.
-OLD_SERVER = not rewrite_selected()
 
 P = "conf.vars."
 
@@ -38,10 +34,7 @@ def assert_alive(sim) -> None:
     assert not reports, "sanitizer reports:\n" + "\n".join(reports)
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="strings of 4096 bytes or more overflow the stage buffer (VariableReference.cpp stageValue)"
-)
+# Old server defect: strings of 4096 bytes or more overflow the stage buffer (VariableReference.cpp stageValue)
 def test_long_string_ascii(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -51,10 +44,7 @@ def test_long_string_ascii(fresh_sim) -> None:
     assert reply == b"0\t" + b"x" * 5000 + b"\n"
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="ASCII runs strlen past a char array with no NUL (VariableReference.cpp write_escaped_string)"
-)
+# Old server defect: ASCII runs strlen past a char array with no NUL (VariableReference.cpp write_escaped_string)
 def test_char_array_without_nul_ascii(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -66,10 +56,7 @@ def test_char_array_without_nul_ascii(fresh_sim) -> None:
     assert not fresh_sim.memory_error_reports()
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="ASCII reads every enum as a 4-byte int, past a short enum's buffer (VariableReference.cpp writeValueAscii)"
-)
+# Old server defect: ASCII reads every enum as a 4-byte int, past a short enum's buffer (VariableReference.cpp writeValueAscii)
 def test_short_enum_ascii(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -79,10 +66,7 @@ def test_short_enum_ascii(fresh_sim) -> None:
     assert reply == b"0\t-2\n"
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="byteswap swaps the declared array length for one element (VariableReference.cpp byteswap_var)"
-)
+# Old server defect: byteswap swaps the declared array length for one element (VariableReference.cpp byteswap_var)
 def test_byteswap_indexed_element(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -99,10 +83,7 @@ def test_byteswap_indexed_element(fresh_sim) -> None:
     assert reply == expected
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="var_cycle(0) then scheduled copy mode divides by zero (VariableServerSession_commands.cpp)"
-)
+# Old server defect: var_cycle(0) then scheduled copy mode divides by zero (VariableServerSession_commands.cpp)
 def test_cycle_zero_then_scheduled(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         s.send("trick.var_pause()\ntrick.var_cycle(0)\ntrick.var_set_copy_mode(1)\n")
@@ -112,10 +93,7 @@ def test_cycle_zero_then_scheduled(fresh_sim) -> None:
     assert reply == b"5\t-123456789\n"
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="a command of 200 KB or more with no newline stalls the session (TCPConnection::read)"
-)
+# Old server defect: a command of 200 KB or more with no newline stalls the session (TCPConnection::read)
 def test_long_command_without_newline(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port, timeout_s=10.0) as s:
         s.send("#" + "a" * 250_000)
@@ -125,10 +103,7 @@ def test_long_command_without_newline(fresh_sim) -> None:
     assert reply == b"5\t-123456789\n"
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="var_add and var_clear change the list while the main thread copies it"
-)
+# Old server defect: var_add and var_clear change the list while the main thread copies it
 def test_list_changes_during_scheduled_copy(fresh_sim) -> None:
     names = [
         f"{P}{n}"
@@ -162,10 +137,7 @@ def test_list_changes_during_scheduled_copy(fresh_sim) -> None:
     assert not fresh_sim.memory_error_reports()
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="byteswap sends char*, std::string and wchar_t* values as zeros (VariableReference.cpp byteswap_var)"
-)
+# Old server defect: byteswap sends char*, std::string and wchar_t* values as zeros (VariableReference.cpp byteswap_var)
 def test_byteswap_strings(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -184,10 +156,7 @@ def test_byteswap_strings(fresh_sim) -> None:
     assert reply == struct.pack(">iii", 0, 12 + len(body) - 4, 2) + body
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="byteswap counts the declared dimensions, so an element reached through a pointer is zeros"
-)
+# Old server defect: byteswap counts the declared dimensions, so an element reached through a pointer is zeros
 def test_byteswap_pointer_element(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -199,7 +168,7 @@ def test_byteswap_pointer_element(fresh_sim) -> None:
     assert reply == struct.pack(">iii", 0, 12 + len(body) - 4, 1) + body
 
 
-@pytest.mark.xfail(OLD_SERVER, reason="byteswap sends a bitfield value in host byte order")
+# Old server defect: byteswap sends a bitfield value in host byte order
 def test_byteswap_bitfield(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -211,10 +180,7 @@ def test_byteswap_bitfield(fresh_sim) -> None:
     assert reply == struct.pack(">iii", 0, 12 + len(body) - 4, 1) + body
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="an unindexed pointer stages nothing: get_size() is asked about the pointer's own address"
-)
+# Old server defect: an unindexed pointer stages nothing: get_size() is asked about the pointer's own address
 def test_unindexed_pointer(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -224,10 +190,7 @@ def test_unindexed_pointer(fresh_sim) -> None:
     assert reply == b"0\t0.5,1,1.5,2\n"
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="a char array reached through std::vector<T*> comes back as its first character"
-)
+# Old server defect: a char array reached through std::vector<T*> comes back as its first character
 def test_vector_of_pointers_char_array(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -237,10 +200,7 @@ def test_vector_of_pointers_char_array(fresh_sim) -> None:
     assert reply == b"0\tlabel 1\n"
 
 
-@pytest.mark.xfail(
-    OLD_SERVER,
-    reason="an STL element keeps its first address; after the vector moves its elements, it is read from freed memory"
-)
+# Old server defect: an STL element keeps its first address; after the vector moves its elements, it is read from freed memory
 def test_stl_element_after_the_vector_moves(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         before = s.run_case(f'trick.var_pause()\ntrick.var_add("{P}vec[0]")\ntrick.var_send()\n')

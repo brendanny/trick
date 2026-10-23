@@ -31,11 +31,6 @@ from vsclient import wait_for_server
 HOST = "127.0.0.1"
 
 
-def rewrite_selected() -> bool:
-    """True when the SIM runs the rewritten variable server (rewrite Phase 5)."""
-    return os.environ.get("TRICK_VS_REWRITE") == "1"
-
-
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("vs-conformance")
     group.addoption(

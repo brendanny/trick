@@ -1,6 +1,12 @@
 /*
     PURPOSE:
-        (VariableServerListenThread)
+        (The variable server's listen settings: source address, port, user tag and beacon.
+         The rewritten variable server (rewrite decision 5) keeps this class so that the
+         settings stay checkpointed at the same paths, for example
+         trick_vs.vs.listen_thread._requested_port. No thread runs here: the variable
+         server's listener reads these settings. It stays a SysThread so that old checkpoints,
+         which hold the thread's fields, still load, and so that var_server_cpu_set (the CPU
+         set of this object) still sets the CPUs of the variable server's threads.)
 */
 
 #ifndef VARIABLESERVERLISTENTHREAD_HH
@@ -8,15 +14,12 @@
 
 #include <string>
 #include <iostream>
-#include "trick/TCPClientListener.hh"
 #include "trick/SysThread.hh"
-#include "trick/MulticastGroup.hh"
-
 
 namespace Trick {
 
 /**
-  This class runs the variable server listen loop.
+  The variable server's listen settings.
   @author Alex Lin
   @author Jackie Deans (2023)
  */
@@ -24,76 +27,56 @@ namespace Trick {
 
         public:
             VariableServerListenThread() ;
-            VariableServerListenThread(TCPClientListener * listener);
 
             virtual ~VariableServerListenThread() ;
 
+            /** The host name or address the variable server listens on. The caller frees the copy. */
             const char * get_hostname() ;
 
+            /** The port the variable server listens on (the requested port before initialization). */
             unsigned short get_port() ;
+
+            /** Request a listen port (var_server_set_port). */
             void set_port(unsigned short in_port) ;
 
             std::string get_user_tag() ;
             const std::string& get_user_tag_ref() ;
             void set_user_tag(std::string in_tag) ;
 
+            /** Request a source address (var_server_set_source_address). "::" turns IPv6 on. */
             void set_source_address(const char * address) ;
             std::string get_source_address() ;
 
+            /** Send the multicast beacon (on by default). */
             bool get_broadcast() ;
             void set_broadcast(bool in_broadcast) ;
 
-            /** True if the input file set the port or source address (var_server_set_port, ...). */
+            /** True if the input file set the port or source address. */
             bool get_user_requested_address() ;
 
-            /** Record the address a listen socket was bound to, as init_listen_device does (rewrite Phase 5). */
+            /** Record the address the listen socket was bound to. */
             void set_bound_address(const std::string& hostname, unsigned short port) ;
 
-            virtual int init_listen_device() ;
-            virtual int check_and_move_listen_device() ;
-
+            /** No thread runs here; this returns at once. */
             virtual void * thread_body() ;
-
-            int restart() ;
-
-            // pause and restart listen thread during checkpoint reload
-            void pause_listening() ;
-            void restart_listening() ;
-
-            void set_multicast_group (MulticastGroup * group);
 
             virtual void dump( std::ostream & oss = std::cout ) ;
 
-            void shutdownConnections();
-
         protected:
-            void initializeMulticast();
-
-            /** Requested variable server source address\n */
+            /** Requested or bound source address */
             std::string _requested_source_address ;       /**<  trick_units(--) */
 
-            /** Requested variable server port number.\n */
+            /** Requested or bound port */
             unsigned short _requested_port ;       /**<  trick_units(--) */
 
-            /** User requested specific port number\n */
+            /** User requested specific port or source address */
             bool _user_requested_address ;  /**<  trick_units(--) */
 
-            /** User defined unique tag to easily identify this variable server port.\n */
+            /** User defined unique tag to easily identify this simulation. */
             std::string _user_tag;          /**<  trick_units(--) */
 
-            /** Turn on/off broadcasting of variable server port.\n */
+            /** Turn on/off broadcasting of variable server port. */
             bool _broadcast ;       /**<  trick_units(--) */
-
-            /** The listen device */
-            TCPClientListener * _listener;        /**<  trick_io(**) trick_units(--)  */
-
-            /* Multicast broadcaster */
-            MulticastGroup * _multicast;     /**<  trick_io(**) trick_units(--)  */
-
-            unsigned int pendingConnections;         /**<  trick_io(**) trick_units(--)  */
-            pthread_mutex_t connectionMutex;         /**<  trick_io(**) trick_units(--)  */
-            pthread_cond_t  noPendingConnections_cv; /**<  trick_io(**) trick_units(--)  */
-
     } ;
 
 }

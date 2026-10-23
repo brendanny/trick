@@ -1,6 +1,9 @@
 /*
     PURPOSE:
-        (VariableServer)
+        (VariableServer: the variable server object in the S_define, and the trick.var_* and
+         var_server_* functions. The server itself is the rewritten one (rewrite plan), in
+         libtrick_var_server and trick/vs/adapter; this class keeps the job methods the
+         S_define calls and the settings that are checkpointed.)
 */
 
 #ifndef VARIABLESERVER_HH
@@ -9,7 +12,6 @@
 #include "trick/JobData.hh"
 #include "trick/SysThread.hh"
 #include "trick/VariableServerListenThread.hh"
-#include "trick/VariableServerSessionThread.hh"
 #include "trick/reference.h"
 #include "trick/tc.h"
 #include "trick/variable_server_sync_types.h"
@@ -26,8 +28,7 @@
 namespace Trick {
 namespace vs {
 namespace adapter {
-// The rewritten server (rewrite Phase 5). Defined in trick/vs/adapter/Server.hh,
-// which ICG and SWIG never parse.
+// The server. Defined in trick/vs/adapter/Server.hh, which ICG and SWIG never parse.
 struct ServerHandle;
 }
 }
@@ -120,37 +121,6 @@ class VariableServer
     */
     int copy_and_write_freeze();
 
-    /**
-     @brief Adds a vst to the map.
-    */
-    void add_vst(pthread_t thread_id, VariableServerSessionThread* in_vst);
-
-    /**
-     @brief Adds a vst to the map.
-    */
-    void add_session(pthread_t thread_id, VariableServerSession* in_session);
-
-    /**
-     @brief Get a vst mapped by thread id
-     @return the VariableServerSessionThread mapped to the thread id if found, or NULL if not found.
-    */
-    Trick::VariableServerSessionThread* get_vst(pthread_t thread_id);
-
-    /**
-     @brief Get a session mapped by thread id
-     @return the VariableServerSession mapped to the thread id if found, or NULL if not found.
-    */
-    Trick::VariableServerSession* get_session(pthread_t thread_id);
-
-    /**
-     @brief Delete a vst in the map
-    */
-    void delete_vst(pthread_t thread_id);
-
-    /**
-     @brief Delete a session in the map
-    */
-    void delete_session(pthread_t thread_id);
 
     /**
      @brief @userdesc Return host name from the listen device.
@@ -371,22 +341,6 @@ received.
     /** Default listen port thread object */
     VariableServerListenThread listen_thread;
 
-    /** Pointer to automatic_last job that copies requested variable values to their output buffers in sync mode.\n */
-    Trick::JobData* copy_data_job; /**< trick_io(**) trick_units(--) */
-
-    /** Pointer to freeze_automatic job that copies requested variable values to their output buffers in sync mode.\n */
-    Trick::JobData* copy_and_write_freeze_job; /**< trick_io(**) trick_units(--) */
-
-    /** Map thread id to the VariableServerSessionThread object.\n */
-    std::map<pthread_t, VariableServerSessionThread*> var_server_threads; /**<  trick_io(**) */
-    std::map<pthread_t, VariableServerSession*> var_server_sessions;      /**<  trick_io(**) */
-
-    /** Mutex to ensure only one thread manipulates the map of var_server_threads\n */
-    pthread_mutex_t map_mutex; /**<  trick_io(**) */
-
-    /** Map of additional listen threads created by create_tcp_socket.\n */
-    std::map<pthread_t, VariableServerListenThread*> additional_listen_threads; /**<  trick_io(**) */
-
     /** List of IPs to accept connections from.\n */
     std::set<std::string> ip_allowlist;
 
@@ -397,7 +351,7 @@ received.
     bool bypass_ip_check;
 
 #ifndef SWIG
-    /** The rewritten server when TRICK_VS_REWRITE=1 selects it (rewrite Phase 5), else null.\n */
+    /** The server: listener, sessions, jobs (trick/vs/adapter/Server.hh).\n */
     Trick::vs::adapter::ServerHandle* impl; /**< trick_io(**) trick_units(--) */
 #endif
 };

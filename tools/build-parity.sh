@@ -67,7 +67,6 @@ MAKE_VARS=(
 CMAKE_ARCHIVES=(
     liber7_utils
     libtrick_comm
-    libtrick_connection_handlers
     libtrick_math
     libtrick_optimization
     libtrick_units

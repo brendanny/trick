@@ -17,8 +17,8 @@ TRICK_CXXFLAGS += -I$(GTEST_HOME)/include -I$(TRICK_HOME)/include -g ${TRICK_SYS
 MM_OBJECTS = $(TRICK_HOME)/trick_source/sim_services/MemoryManager/object_${TRICK_HOST_CPU}/extract_bitfield.o \
 				$(TRICK_HOME)/trick_source/sim_services/MemoryManager/object_${TRICK_HOST_CPU}/extract_unsigned_bitfield.o
 
-#TRICK_LIBS = -L${TRICK_LIB_DIR} -ltrick_mm -ltrick_units -ltrick -ltrick_mm -ltrick_units -ltrick -ltrick_pyip -ltrick_connection_handlers -ltrick_comm -ltrick_mm -ltrick_units -ltrick -ltrick_mm
-TRICK_LIB_NAMES = trick_mm trick_units trick trick_pyip trick_connection_handlers trick_comm
+#TRICK_LIBS = -L${TRICK_LIB_DIR} -ltrick_mm -ltrick_units -ltrick -ltrick_mm -ltrick_units -ltrick -ltrick_pyip -ltrick_comm -ltrick_mm -ltrick_units -ltrick -ltrick_mm
+TRICK_LIB_NAMES = trick_mm trick_units trick trick_pyip trick_comm trick_var_server
 ifeq ($(TRICK_HOST_TYPE),Linux)
     TRICK_LIBS = -L${TRICK_LIB_DIR} -Wl,--start-group $(addprefix -l,$(TRICK_LIB_NAMES)) -Wl,--end-group
 else ifeq ($(TRICK_HOST_TYPE),Darwin)

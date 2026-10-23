@@ -12,7 +12,7 @@ TRICK_SYSTEM_CXXFLAGS := $(subst -isystem,-I,$(TRICK_SYSTEM_CXXFLAGS)) -Wno-unus
 
 # Flags passed to the preprocessor.
 TRICK_CXXFLAGS += -I$(GTEST_HOME)/include -I$(TRICK_HOME)/include -g -Wno-sign-compare ${TRICK_SYSTEM_CXXFLAGS} ${TRICK_TEST_FLAGS}
-# TRICK_LIBS =  -L${TRICK_LIB_DIR} -ltrick_mm -ltrick_units -ltrick_comm -ltrick_pyip -ltrick -ltrick_mm -ltrick_units -ltrick_comm -ltrick_pyip -ltrick -ltrick_var_binary_parser -ltrick_connection_handlers -ltrick_comm -ltrick_mm
+# TRICK_LIBS =  -L${TRICK_LIB_DIR} -ltrick_mm -ltrick_units -ltrick_comm -ltrick_pyip -ltrick -ltrick_mm -ltrick_units -ltrick_comm -ltrick_pyip -ltrick -ltrick_var_binary_parser -ltrick_comm -ltrick_mm
 # Keeping this repteitive list of libraries to avoid circular dependency issues for reference. 
 # The repetition and ordering matters because of how the linker resolves symbols in static libraries.
 # The linker processes libraries left to right, in a single pass, so if there are circular dependencies,
@@ -24,7 +24,7 @@ TRICK_CXXFLAGS += -I$(GTEST_HOME)/include -I$(TRICK_HOME)/include -g -Wno-sign-c
 # So just list the libraries once. If we run into circular dependency issues in the future, we may need to explore
 # other options or list the libraries multiple times. 
 # For reference, neither -all_load nor -force_load is meant to resolve circular dependencies for macOS.
-TRICK_LIB_NAMES = trick_mm trick_units trick_comm trick_pyip trick trick_var_binary_parser trick_connection_handlers trick_var_server
+TRICK_LIB_NAMES = trick_mm trick_units trick_comm trick_pyip trick trick_var_binary_parser trick_var_server
 ifeq ($(TRICK_HOST_TYPE),Linux)
     TRICK_LIBS = -L${TRICK_LIB_DIR} -Wl,--start-group $(addprefix -l,$(TRICK_LIB_NAMES)) -Wl,--end-group
 else ifeq ($(TRICK_HOST_TYPE),Darwin)
@@ -37,27 +37,10 @@ endif
 
 TRICK_EXEC_LINK_LIBS += -L${GTEST_HOME}/lib64 -L${GTEST_HOME}/lib -lgtest -lgtest_main -lgmock -lpthread				  
 
-# All tests produced by this Makefile.  Remember to add new tests you
-# created to the list.
-
-VARIABLE_REFERENCE_TESTS = VariableReference_test \
-		VariableReference_writeValueAscii_test \
-		VariableReference_writeValueBinary_test
-
-VARIABLE_SESSION_TESTS = VariableServerSession_test
-
-TESTS = $(VARIABLE_REFERENCE_TESTS) $(VARIABLE_SESSION_TESTS) VariableServerSessionThread_test VariableServerListenThread_test VariableServer_test VsAdapter_test
-
-TEST_OBJS = $(addprefix $(OBJ_DIR)/, $(addsuffix .o, $(filter-out VsAdapter_test,$(TESTS))))
-
-TO_ICG = VariableReference_test
-
-ICG_OBJS = $(addprefix $(OBJ_DIR)/io_, $(addsuffix .o, $(TO_ICG)))
+# All tests produced by this Makefile.
+TESTS = VsAdapter_test
 
 OBJ_DIR = obj
-
-print:
-	echo $(ICG_OBJS)
 
 # House-keeping build targets.
 
@@ -70,28 +53,6 @@ test: $(TESTS)
 
 $(OBJ_DIR):
 	mkdir $(OBJ_DIR)
-
-$(TEST_OBJS): $(OBJ_DIR)/%.o: %.cc $(OBJ_DIR)
-	$(TRICK_CXX) $(TRICK_CXXFLAGS) -c $< -o $@ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) $(TRICK_EXEC_LINK_LIBS)
-
-$(ICG_OBJS): $(OBJ_DIR)/io_%.o : %.hh $(OBJ_DIR)
-	${TRICK_HOME}/bin/trick-ICG -sim_services -o ./io_src $(TRICK_CXXFLAGS) $<
-	$(TRICK_CXX) $(TRICK_CXXFLAGS) -c io_src/io_$*.cpp -o $@ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) $(TRICK_EXEC_LINK_LIBS)
-
-$(VARIABLE_REFERENCE_TESTS): %: $(OBJ_DIR)/%.o $(OBJ_DIR)/io_VariableReference_test.o
-	$(TRICK_CXX) $(TRICK_SYSTEM_LDFLAGS) $(TRICK_CXXFLAGS) -o $@ $^ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) $(TRICK_EXEC_LINK_LIBS)
-
-$(VARIABLE_SESSION_TESTS): %: $(OBJ_DIR)/%.o
-	$(TRICK_CXX) $(TRICK_SYSTEM_LDFLAGS) $(TRICK_CXXFLAGS) $^ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) $(TRICK_EXEC_LINK_LIBS) -o $@
-
-VariableServerSessionThread_test: %: $(OBJ_DIR)/%.o
-	$(TRICK_CXX) $(TRICK_SYSTEM_LDFLAGS) $(TRICK_CXXFLAGS) -o $@ $^ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) $(TRICK_EXEC_LINK_LIBS)
-
-VariableServerListenThread_test: %: $(OBJ_DIR)/%.o
-	$(TRICK_CXX) $(TRICK_SYSTEM_LDFLAGS) $(TRICK_CXXFLAGS) -o $@ $^ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) $(TRICK_EXEC_LINK_LIBS)
-
-VariableServer_test: %: $(OBJ_DIR)/%.o
-	$(TRICK_CXX) $(TRICK_SYSTEM_LDFLAGS) $(TRICK_CXXFLAGS) -o $@ $^ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) $(TRICK_EXEC_LINK_LIBS)
 
 # ----------------------------------------------------------------------------
 # VsAdapter_test (rewrite Phase 4): the new adapter on a Memory Manager that

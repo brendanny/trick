@@ -1,6 +1,5 @@
 # Libraries built as their own archives
 add_subdirectory(comm)
-add_subdirectory(connection_handlers)
 add_subdirectory(math)
 add_subdirectory(optimization)
 add_subdirectory(units)

@@ -38,7 +38,7 @@ Simulations depend on the following from an installed Trick:
   `share/trick/`.
 - These static archives: `libtrick`, `libtrick_pyip`, `libtrick_mm`,
   `libtrick_comm`, `libtrick_math`, `libtrick_units`,
-  `libtrick_connection_handlers`, `libtrick_optimization`,
+  `libtrick_var_server`, `libtrick_optimization`,
   `libtrick_var_binary_parser`, and optionally `liber7_utils` and
   `libtrickCivet`.
 - The variables in `share/trick/makefiles/config_user.mk`, and the values
@@ -217,7 +217,7 @@ simulations link is a `STATIC` library with the same name, and has a
 | Target | Archive | Alias |
 |---|---|---|
 | `trick_comm` | `libtrick_comm.a` | `Trick::comm` |
-| `trick_connection_handlers` | `libtrick_connection_handlers.a` | `Trick::connection_handlers` |
+| `trick_var_server` | `libtrick_var_server.a` | `Trick::var_server` |
 | `trick_math` | `libtrick_math.a` | `Trick::math` |
 | `trick_optimization` | `libtrick_optimization.a` | `Trick::optimization` |
 | `trick_units` | `libtrick_units.a` | `Trick::units` |
