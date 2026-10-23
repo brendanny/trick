@@ -66,8 +66,12 @@ def test_reply_matches_golden(sim, pytestconfig: pytest.Config, case: Case) -> N
     assert actual == expected, describe_mismatch(expected, actual)
 
 
+# Goldens that are not command cases: test_beacon.py records beacon.bin.
+OTHER_GOLDENS = {"beacon"}
+
+
 def test_no_orphan_goldens() -> None:
-    names = set(NAMES)
+    names = set(NAMES) | OTHER_GOLDENS
     orphans = sorted(p.name for p in GOLDEN_DIR.glob("*.bin") if p.stem not in names)
     assert not orphans, f"golden files with no case: {orphans}"
 
