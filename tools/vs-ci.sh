@@ -116,7 +116,9 @@ if [[ "$kind" != plain ]]; then
     # UBSan reports go to the console logs, not to VS_SANITIZER_LOG_DIR.
     "$venv/bin/python" "$repo/tools/vs-sanitizer-summary.py" "$out" "$conf/conformance_logs" \
         --repo "$repo" --out "$out/sanitizer-summary.md" > /dev/null || true
-    reports=$(grep -c '^| [AUT][a-zA-Z]*: ' "$out/sanitizer-summary.md" 2>/dev/null || echo 0)
+    # grep -c prints 0 itself when nothing matches (and exits 1).
+    reports=$(grep -c '^| [AUT][a-zA-Z]*: ' "$out/sanitizer-summary.md" 2>/dev/null)
+    reports=${reports:-0}
 fi
 
 {
