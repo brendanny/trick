@@ -249,7 +249,6 @@ namespace Trick
                     std::atomic<bool> _suspended { false };
                     std::atomic<bool> _stopping { false };
                     std::atomic<bool> _schedule_changed { false };
-                    std::atomic<bool> _listener_stopping { false };
                     std::mutex _resume_mutex;            ///< with _resume_cv: Python lines wait out a reload
                     std::condition_variable _resume_cv;
                     mutable std::mutex _filter_mutex;

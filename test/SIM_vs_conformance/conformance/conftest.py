@@ -128,13 +128,18 @@ class RunningSim:
         ]
 
     def stop(self, timeout_s: float = 15.0) -> int | None:
-        if self.alive():
-            self.proc.send_signal(signal.SIGTERM)
+        # SIGINT asks the executive to exit (exec_command = ExitCmd), so the
+        # shutdown jobs run and the variable server joins its threads.
+        # SIGTERM would _exit() at once, and TSan would report every session
+        # thread that finished but was not joined yet. SIGKILL is the last resort.
+        for sig in (signal.SIGINT, signal.SIGKILL):
+            if not self.alive():
+                break
+            self.proc.send_signal(sig)
             try:
                 self.proc.wait(timeout=timeout_s)
             except subprocess.TimeoutExpired:
-                self.proc.kill()
-                self.proc.wait(timeout=5)
+                pass
         return self.proc.returncode
 
 

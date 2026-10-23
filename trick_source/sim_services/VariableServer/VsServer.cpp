@@ -247,16 +247,9 @@ namespace Trick
             {
                 if (!_loop)
                     return;
-                {
-                    // The listener may be waiting in accepting() for a reload to end.
-                    std::lock_guard<std::mutex> guard(_resume_mutex);
-                    _listener_stopping.store(true);
-                }
-                _resume_cv.notify_all();
                 _loop->stop();
                 if (_listen_thread.joinable())
                     _listen_thread.join();
-                _listener_stopping.store(false);
                 std::vector<Listener> listeners = _loop->take_listeners();
                 _loop.reset();
                 bool first = true;
@@ -677,16 +670,12 @@ namespace Trick
 
             bool Server::accepting()
             {
-                // A client that connects during a checkpoint load waits for the load to end, as
-                // with the old server (its listen thread paused), instead of being closed.
-                if (_suspended.load())
-                {
-                    std::unique_lock<std::mutex> lock(_resume_mutex);
-                    _resume_cv.wait_for(lock, std::chrono::seconds(60), [this] {
-                        return !_suspended.load() || _stopping.load() || _listener_stopping.load();
-                    });
-                }
-                return _enabled.load() && _allow.load() && !_suspended.load() && !_stopping.load();
+                // A client that connects during a checkpoint load gets its session at once. The
+                // session's first read of memory, and its first Python line, wait until the load
+                // ends (the memory lock), as the old server's paused threads did. The listener
+                // never waits here: the restart job stops it in the middle of the load, and a
+                // client it held then would be closed.
+                return _enabled.load() && _allow.load() && !_stopping.load();
             }
 
             bool Server::allowed(const Address& client)

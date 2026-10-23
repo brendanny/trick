@@ -33,3 +33,21 @@ race:Trick::ThreadBase::execute_priority
 # * trick.stop() (and the sim control panel's Stop) sets the executive's stop
 #   time from a variable server session thread, without synchronization.
 race:Trick::Executive::stop
+
+# Phase 6 (sanitizer CI is a gate). These races are outside the variable
+# server's own state too:
+#
+# * trick.exec_freeze(), trick.exec_run() and trick.checkpoint() from a
+#   client's Python line (the sim control panel's buttons, TrickOps) set the
+#   executive's mode and command, or write a checkpoint, on the session's
+#   thread while the main thread runs. The executive and the checkpoint
+#   writer do not lock; the old server ran these lines the same way.
+race:exec_freeze
+race:exec_run
+race:Trick::Executive::checkpoint
+race:Trick::ClassicCheckPointAgent::is_nil_valued
+race:Trick::ClassicCheckPointAgent::assign_rvalue
+# * The real-time itimer's signal handler reads ITimer fields that
+#   ITimer::init writes, without synchronization, and does not save errno.
+race:Trick::ITimer::semaphore_post
+signal:it_handler

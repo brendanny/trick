@@ -18,7 +18,8 @@ trick.real_time_enable()
 trick.itimer_enable()
 trick.exec_set_software_frame(0.1)
 trick.exec_set_freeze_frame(0.1)
-trick.exec_set_enable_freeze(True)
+# SIGINT (the suite's stop) then exits through the shutdown jobs instead of toggling freeze.
+trick.exec_set_enable_freeze(False)
 trick.exec_set_freeze_command(True)
 trick.exec_set_terminate_time(36000.0)
 
