@@ -1,9 +1,10 @@
 # SIM_vs_conformance
 
 Byte-level conformance suite for the variable server. It records the exact
-bytes that the server sends for a fixed set of command scripts. The
-variable server rewrite must send the same bytes, except for the changes
-that the rewrite plan lists as intentional.
+bytes that the server sends for a fixed set of command scripts. The goldens
+were captured from the old variable server. The C++17 server must send the
+same bytes, except for the changes that the rewrite plan lists as intentional
+(`EXPECTED_TO_CHANGE` in `cases.py`).
 
 ## Run
 
@@ -37,11 +38,16 @@ connection, and stops the SIM at the end. SIM output goes to
 | `conformance/goldens/*.bin` | Reply bytes from the old server, one file per case. |
 | `conformance/test_wire.py` | Compares replies with the goldens. |
 | `conformance/test_beacon.py` | Checks the 12-field multicast beacon on both groups. |
-| `conformance/test_known_defects.py` | Defects in the old server. Expected to fail until the rewrite fixes them. |
+| `conformance/test_known_defects.py` | Regression tests for defects of the old server that the rewrite fixed. Each test starts its own SIM. |
+| `conformance/test_checkpoint.py`, `data/old_server.checkpoint` | A checkpoint that the old server wrote loads into the new server. |
+| `conformance/test_python_client.py` | The Python client, `share/trick/pymods/trick/variable_server.py`. |
+| `conformance/test_enable.py` | Disabling the server at run time closes every session. |
+| `conformance/test_java_clients.py`, `java/VsJavaCheck.java` | The command sequences of the sim control panel, Trick View, MTV and Monte Monitor, and the sniffer's beacon parsing, with the apps' own Java classes. Skipped without a JDK. |
+| `soak/vs_soak.py`, `RUN_soak/` | 8 clients in every mode while a client reloads a checkpoint every 10 s. |
 | `conformance/dump_golden.py` | Prints a golden file as text or decoded binary. |
 | `models/conformance/*/FrameProbe.*`, `RUN_bench/` | 100 Hz frame-period probe and the real-time input file for the benchmark. |
 | `bench/vs_bench.py` | Benchmark: frame jitter, command round trip and throughput per copy mode and client count. |
-| `BASELINE.md` | Results for the old server: suite, sanitizers, benchmark, defects found. |
+| `BASELINE.md` | Results for the old server (Phase 0): suite, sanitizers, benchmark, defects found. |
 
 ## Sanitizers and CI
 
@@ -77,7 +83,7 @@ machine; results from different machines do not compare.
 * No golden holds a raw address. Pointer variables in binary mode, and whole
   STL containers in either mode, send heap addresses, so cases read only
   NULL pointers, pointed-to values and indexed STL elements.
-* Cases that trigger a known memory defect are not in the goldens. They are
-  in `test_known_defects.py`.
+* Cases that triggered a memory defect in the old server are not in the
+  goldens. They are in `test_known_defects.py`.
 * Copy modes, write modes, timing, UDP and multicast sessions are not in
   this suite. `SIM_test_varserv` covers them.

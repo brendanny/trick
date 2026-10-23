@@ -243,6 +243,8 @@ TEST(TcpConnection, SendToAClosedClientIsAnError)
         3000);
     EXPECT_EQ(f.status, FlushResult::Status::Error);
     EXPECT_NE(f.note.find("send"), std::string::npos);
+    // EPIPE or ECONNRESET: the session logs it as information, not as an error.
+    EXPECT_TRUE(f.client_closed) << f.note;
 }
 
 TEST(TcpConnection, Ipv6Loopback)

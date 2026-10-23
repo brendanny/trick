@@ -96,6 +96,19 @@ command is intended to provide a covenient way to ensure the sim host IP is incl
 void var_resolve_hostname() ;
 ```
 
+The following commands turn the Python fallback on or off. By default, a client line that is not
+one of the variable server commands in this page (for example `trick.exec_freeze()`) runs in the
+Python input processor. When the fallback is off, the variable server runs only its own commands
+and does not run other lines. For each line it does not run, it writes a warning to the simulation
+output and to the session log, and sends a VS\_IP\_ERROR message if the client turned on
+`var_send_ip_errors`.
+The simulation control panel and MTV send Python lines, so they do not work with the fallback off.
+
+```c
+void var_server_set_python_commands(bool on_off) ;
+bool var_server_get_python_commands() ;
+```
+
 ### Messaging
 
 These commands are for toggling information messages from the variable server (i.e., commands received from <i>ALL</i> clients).
@@ -151,18 +164,56 @@ trick.var_server_create_udp_socket( const char * source_address, unsigned short 
 trick.var_server_create_tcp_socket( const char * source_address, unsigned short port )
 ```
 
+These functions return 0 on success and a non-zero value on failure. A message tells why the
+socket did not open.
+
+The source address selects the interface:
+
+| Source address | Binds |
+|----------------|-------|
+| `""`, `"localhost"` or the host name | Every IPv4 interface (0.0.0.0) |
+| `"127.0.0.1"` | The IPv4 loopback interface only, for TCP, UDP and multicast sockets |
+| A numeric IPv4 address | That interface |
+| `"::"` | Every IPv6 interface; IPv4 clients can also connect |
+| A numeric IPv6 address, for example `"::1"` | That IPv6 interface |
+
+To use IPv6 for the main socket, set the source address before initialization:
+
+```python
+trick.var_server_set_source_address("::")
+```
+
 
 ## Commands
 
 The variable server accepts commands in the form of strings. The variable server parses
-these commands using the Python input processor. So in theory, any Python valid syntax
-is acceptable to the variable server. This section lists the commands that are specific
+the commands in this section itself, and runs any other line with the Python input processor.
+So in theory, any Python valid syntax is acceptable to the variable server (see
+`var_server_set_python_commands` to turn this off). This section lists the commands that are specific
 for the variable server. Commands are sent over a Trick communication TCP/IP socket to
 the variable server. Multiple commands (newline separated) can be sent in the string
 over the socket. The variable server will send back information to the requesting client.
+Commands run when they arrive, not at the next `var_cycle` period.
 
 If the command contains a syntax error, Python will print an error message to the screen, 
-but nothing will be returned to the client.
+but nothing will be returned to the client, unless the client asked for errors with
+`var_send_ip_errors`.
+
+### Getting Python errors
+
+```python
+trick.var_send_ip_errors( bool on_off )
+```
+
+When on, a Python line from this client that fails sends a message to the client with the
+message indicator -1 (VS\_IP\_ERROR), in ASCII and in binary mode:
+
+```
+-1 <size>
+<text>
+```
+
+where size is the number of bytes in text, the Python error message. This is off by default.
 
 ### Adding a Variable
 
@@ -343,6 +394,17 @@ followed by a (1 byte) value of 0 or 1 to indicate the existence of the variable
 In **var_ascii** mode: the message indicator of the response will be "1" followed
 by a tab, then an ASCII "0" or "1" to indicate the existence of the variable.
 
+### Validating pointer addresses
+
+```python
+trick.var_validate_address( bool on_off )
+```
+
+When on, the variable server checks each pointer in a variable's path against the Memory
+Manager before it copies the value. A variable whose pointer is not to memory that the Memory
+Manager knows returns "BAD_REF" instead of the value, so a bad pointer does not crash the
+simulation. This is off by default.
+
 ### Changing the Return Value Cycle Rate
 
 ```python
@@ -350,7 +412,8 @@ trick.var_cycle( double cycle_rate )
 ```
 
 Changes the rate of the return messages to the client.  This rate is estimated and may not
-perfectly match the requested rate.
+perfectly match the requested rate. The cycle must be greater than 0; a value of 0 or less is
+refused, the cycle does not change, and a message goes to the simulation output.
 
 ### Pause the Variable Server
 
@@ -495,13 +558,14 @@ values of the message indicator listen in the table below.
 
 | Name              | Value | Meaning |
 |-------------------|-------|---------|
-| VS\_IP\_ERROR     | -1    | Protocol Error|
+| VS\_IP\_ERROR     | -1    | A Python error, if var\_send\_ip\_errors is on|
 | VS\_VAR\_LIST     |  0    | A list of variable values. |
 | VS\_VAR\_EXISTS   |  1    | Response to var\_exists( variable_name )|
 | VS\_SIE\_RESOURCE |  2    | Response to send_sie_resource|
 | VS\_LIST\_SIZE    |  3    | Response to var_send_list_size or send_event_data|
 | VS\_STDIO         |  4    | Values Redirected from stdio if var_set_send_stdio is enabled| 
 | VS\_SEND\_ONCE    |  5    | Response to var\_send\_once|
+| VS\_GET\_STL\_SIZE |  6    | Response to var\_get\_stl\_size|
 
 If the variable units are also specified along with the variable name in a var_add or
 var_units command, then that variable will also have its units specification returned following
@@ -519,7 +583,8 @@ multiple messages.  The client is responsible for concatenating the multiple mes
 together.  (Hint: look for the "\n" delimter)
 
 If a syntax error occurs when processing the variable server client command, Python will print
-an error message to the screen, but nothing will be returned to the client.
+an error message to the screen, but nothing will be returned to the client unless
+var_send_ip_errors is on.
 
 If a var_add command was issued for a non-existent variable, there will be a one time Trick error
 message printed to the screen, but the resulting data sent to the client is still ok. The value
@@ -559,11 +624,12 @@ everything is contained in that one message.  However if @e N < 15, then the cli
 continue reading messages until all @e N received add up to 15.
 
 If a syntax error occurs when processing the variable server client command, Python will print
-an error message to the screen, but nothing will be returned to the client.
+an error message to the screen, but nothing will be returned to the client unless
+var_send_ip_errors is on.
 
 If a var_add command was issued for a non-existent variable, there will be a one time Trick error
 message printed to the screen, but the resulting data sent to the client is still ok. The message 
-returned for the non-existent variable will have a type of 24 and it's value will be the string "BAD_REF".
+returned for the non-existent variable will have a type of 25 and it's value will be the string "BAD_REF".
 
 ## Stdio Format
 
@@ -677,5 +743,38 @@ The information sent by each variable server is a tab delimited list of strings
 8. Trick version of simulation
 9. User defined tag
 10. Port (duplicate field for backwards compatibility)
+
+## Changes in the C++17 variable server
+
+The variable server was rewritten in C++17. The commands, the reply bytes, the beacon and the
+checkpointed settings did not change, so clients and old checkpoints keep working. These
+behaviors changed on purpose:
+
+| Before | Now |
+|--------|-----|
+| Commands ran once per `var_cycle` period | Commands run when they arrive |
+| `var_validate_address` did nothing | It validates each pointer before the copy |
+| `var_cycle(0)` then a scheduled copy mode divided by zero | A cycle of 0 or less is refused |
+| A string of 4096 bytes or more overflowed a buffer | The full string is sent |
+| ASCII read a short-based enum as a 4-byte int, and read past a char array with no NUL | The enum's real size is read, and the read stops at the array length |
+| Byteswap sent strings and values through a pointer as zeros, did not swap bitfields, and could write past its buffer | Each value is swapped correctly |
+| A char array reached through `std::vector<T*>` came back as its first character | The full array is sent |
+| An unindexed pointer variable returned nothing | Its whole allocation is returned, as comma-separated values (ASCII) |
+| A command line of 200 KB or more without a newline stalled the session | The line is discarded up to its newline, with a message |
+| The first full socket buffer dropped a slow client | Replies wait in a bounded queue; only a full queue drops the client |
+| The UDP allowlist check used an uninitialized address | The check uses each datagram's sender |
+| A multicast session could run its own replies as commands | It does not read from its group |
+| `"127.0.0.1"` bound every interface for UDP and multicast sockets | It binds loopback only |
+| IPv4 only | IPv6 with a numeric IPv6 source address, such as `"::"` |
+| `var_server_create_*_socket` returned 0 on failure | They return non-zero on failure |
+| After a checkpoint load to an earlier time, scheduled clients got no data until sim time caught up | Each scheduled session starts its schedule again from the new time |
+| Python errors were never sent to the client | `var_send_ip_errors(True)` sends them |
+
+New commands: `var_send_ip_errors`, `var_server_set_python_commands` and
+`var_server_get_python_commands`.
+
+After you update Trick, rebuild each simulation from clean (`make spotless`). A simulation build
+does not notice changes to Trick headers, and the `VariableServer` class changed.
+
 
 [Continue to Status Message System](Status-Message-System)

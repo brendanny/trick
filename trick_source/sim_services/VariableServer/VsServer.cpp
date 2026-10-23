@@ -171,7 +171,9 @@ namespace Trick
 
             void Server::config_changed()
             {
-                _enabled.store(_vs.get_enabled());
+                const bool enabled = _vs.get_enabled();
+                if (_enabled.exchange(enabled) && !enabled)
+                    disconnect_all();
                 _allow.store(_vs.get_allow_connections());
                 _bypass.store(_vs.get_bypass_ip_check());
                 _info_msg.store(_vs.get_info_msg());
@@ -478,6 +480,26 @@ namespace Trick
                     _runners.push_back(runner);
                 }
                 runner->start();
+            }
+
+            void Server::disconnect_all()
+            {
+                // The enabled flag is the master switch: a disabled server serves no client,
+                // including the ones that are connected (#2133). The listener refuses new ones.
+                std::size_t count = 0;
+                {
+                    std::lock_guard<std::mutex> guard(_runners_mutex);
+                    for (auto& r : _runners)
+                    {
+                        if (!r->finished())
+                        {
+                            r->stop();
+                            ++count;
+                        }
+                    }
+                }
+                if (count > 0)
+                    message_publish(MSG_INFO, "Trick VariableServer: disabled; closing %zu client session(s).\n", count);
             }
 
             void Server::reap_runners()

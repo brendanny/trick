@@ -75,6 +75,8 @@ namespace Trick
 
                 Status status = Status::Done;
                 std::string note;
+                /** With Error: the client closed its end (EPIPE, ECONNRESET), a normal way to leave. */
+                bool client_closed = false;
         };
 
         class Connection

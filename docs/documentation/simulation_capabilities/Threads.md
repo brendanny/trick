@@ -8,12 +8,13 @@ A trick sim is a multi-threaded process, and all of the threads that are created
 | Class                       | Access                                          |
 | --------------------------- | ----------------------------------------------- |
 | Threads (user defined)      | See [[Executive-Scheduler#thread-control]]      |
-| VariableServerListenThread  | `trick_vs.vs.get_listen_thread()`               |
+| VariableServerListenThread  | `trick_vs.vs.get_listen_thread()` (1)           |
 | MessageTCDeviceListenThread | `trick_message.mdevice.get_listen_thread()`     |
 | MessageThreadedCout         | `trick_message.mtcout`                          |
 | DRDWriterThread             | `trick_data_record.drd.drd_writer_thread`       |
-| VariableServerSessionThread        | `trick_vs.vs.get_vst(pthread_t thread_id)`      |
 
+
+(1) No thread runs in VariableServerListenThread; it holds the variable server's settings. The CPU set given to it (`cpu_set`) applies to all variable server threads: the listener and one thread per client. The variable server has no per-client thread object to look up.
 
 ## ThreadBase Methods
 

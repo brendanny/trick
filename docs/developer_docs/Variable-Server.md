@@ -1,446 +1,164 @@
-# Variable Server Refactor
+# Variable Server Design
 
-The goals of this refactor were as follows:
+This page is for developers who change the variable server. For the commands
+and the reply formats, see the user documentation:
+[Variable Server](../documentation/simulation_capabilities/Variable-Server).
 
-1. Test the Trick Variable Server
-    - At the start, the variable server was completely uncovered by CI. This can be seen in the earliest builds uploaded to Coveralls (https://coveralls.io/builds/53258598)
-    - Identified a need for both unit and sim tests
-    - Significant refactoring was needed to be able to do any unit tests
-2. Create a generic representation for a session that can be used in the webserver as well
-    - Currently, the webserver implementation is completely separate from the variable server, even through they do they same thing. There is a lot of repeated functionality between the two.
-    - The current implementation of the variable server made it impossible to reuse any of its code.
-3. Clarify and document code. 
+The variable server was rewritten for C++17 (the `vs-rewrite` branch). The rewrite keeps the wire protocol, the `trick.var_*`
+API, the S_define job methods and the checkpointed fields. The old design,
+with `VariableServerSession`, `VariableReference` and `connection_handlers/`,
+is gone.
 
+## Two libraries
 
-## Class Structure
+| Library | Source | Headers | Depends on |
+| --- | --- | --- | --- |
+| `libtrick_var_server` (the core) | `trick_source/trick_utils/var_server/` | `include/trick/vs/` | Only the C++17 standard library and POSIX sockets |
+| The adapter, in `libtrick` | `trick_source/sim_services/VariableServer/` (`Vs*.cpp`, `VariableServer.cpp`, `var_server_ext.cpp`) | `include/trick/vs/adapter/` | The core, the Memory Manager, the executive, UDUNITS, Python |
 
-### VariableServer.hh
-The overarching variable server object. It is instantiated in VariableServerSimObject and is intended to be a singleton.
+The core has no Trick dependency, so its tests run without a SIM:
+`make -C trick_source/trick_utils/var_server/test test`, or the CMake test
+`trick_var_server_test`. Its README describes each part in more detail.
 
-Responsibilities:
-- Initialize a listen thread
-- Keep track of all sessions
-- Interface with the Trick scheduler through the Trick jobs, and delegate to sessions
-- Provide the API for all variable server commands to go through, and delegate to correct session
+ICG and SWIG never parse a header in `include/trick/vs/`. The headers they
+parse (`VariableServer.hh`, `VariableServerListenThread.hh`,
+`variable_server_proto.h`) keep only the public API and the checkpointed
+fields.
 
+### Rules
 
-### VariableServerListenThread.hh
-Opens a TCP port and listens for new client connections until shut down. Only 1 exists by default as a member of VariableServer,
-but additional listen threads can be created through a call to trick.var_server_create_tcp_socket()
+* C++17, limited to what the GCC 8.5 library has: no floating-point
+  `std::to_chars`, no `std::pmr`, no `<filesystem>`. Public headers stay C++14.
+* No manual memory management. Descriptors are owned by `Fd`, REF2 objects by
+  `RefPtr`, threads by `std::thread` members that are joined.
+* No iostreams in the variable server. `tools/vs-check-no-iostreams.sh`
+  checks this in CI.
+* Numbers are formatted in the C locale, whatever locale the SIM sets.
+* Wire numbers (`WireType`, `MessageType`, the modes) never change. They are
+  the protocol.
 
-Responsibilities:
-- Open a TCP port for listening
-- Continuously listen on the port
-- Broadcast the port on the multicast channel
-- When a client connection comes in, set up the connection, start a thread, and wait for the thread to start the connection
-    - Delete the thread if the connection fails
+## Parts of the core
 
-### VariableServerSessionThread.hh
-Runs asynchronous parts for the single VariableServerSession.
+| Part | Job |
+| --- | --- |
+| `CommandParser` | Parses a line into a typed `Command` (`var_add`, `var_cycle`, ...). A line that is not a known `trick.var_*` call becomes a `Fallback` that Python runs. |
+| `Session` | One client's variable list, copy and write modes, output format and schedule. It does no I/O and starts no thread. |
+| `SessionRunner` | One thread per client. It runs commands when they arrive, copies and sends on the `var_cycle` deadline, and sends what the main thread copied. |
+| `SessionRegistry` | The list of sessions that the main-thread jobs walk. |
+| `TripleBuffer` | Carries a copied frame from the main thread to a runner without a lock on the copy path. |
+| `AsciiEncoder`, `BinaryEncoder`, `Packetizer`, `FixedReply` | The reply bytes, with the old split at 8192 bytes. |
+| `ListenLoop`, `Listener`, `Connection`, `Poller`, `Beacon` | Non-blocking TCP, UDP and multicast I/O, and the multicast beacon. |
+| `Address`, `AddressFilter`, `Endpoint` | IPv4 and IPv6 addresses, the allowlist with CIDR entries, and the bind-address rules. |
+| `SystemInterface` | Every system call goes through it, so tests can make one fail. |
 
-Responsibilities:
+## Parts of the adapter
 
-- Accept the connection and pass it into the VariableServerSession
-- Delete the session and close the connection on shutdown
-- Run the parts of VariableServerSession that run asynchronously until user commands shutdown or sim shutdown, including:
-    - Tell VSSession to read from connection and execute command
-    - Tell VSSession to copy sim data (if in correct mode)
-    - Tell VSSession to write data (if in correct mode)
+| Part | Job |
+| --- | --- |
+| `Trick::VariableServer` | The object in `default_trick_sys.sm`. It keeps the job methods and the checkpointed fields, and forwards each job to its `Server`. |
+| `VariableServerListenThread` | Configuration only: the requested address, port, user tag and broadcast flag, checkpointed at the old paths. No thread runs in it. Its `ThreadBase` CPU set (`trick_vs.vs.get_listen_thread().cpu_set(n)`) applies to the server's threads. |
+| `adapter::Server` | Owns the listener thread, the registry, the runners, the resolver and the units converter. |
+| `MemoryResolver` | Resolves a name to a staging plan (REF2 and `ATTRIBUTES`), validates pointers and resolves again after a checkpoint load. |
+| `Sampler` | Copies the staged variables of a session into a `Snapshot`. |
+| `UdUnitsConverter` | `var_units` conversions through UDUNITS. |
+| `VsPythonBridge` | Runs a `Fallback` line through `ip_parse` with the GIL. |
+| `var_server_ext.cpp` | The `trick.var_*` functions that SWIG wraps. Each one makes a typed command and gives it to the current session. |
 
+## Threads
 
-### VariableServerSession.hh
-Track information and execute commands for a single client session.
+| Thread | What it does | What it reads |
+| --- | --- | --- |
+| Main (the executive) | Runs the jobs: copies for `VS_COPY_SCHEDULED` and `VS_COPY_TOP_OF_FRAME`, the checkpoint jobs, shutdown | Lists and schedules that runners publish |
+| Listener | Accepts clients, checks the allowlist, sends the beacon every 2 s | Atomics and the address filter |
+| One runner per client | Reads and runs commands, copies for `VS_COPY_ASYNC`, sends replies | Its own `Session` |
 
-Responsibilities:
-- Keep track of the list of variables
-- Track desired copy/write mode and timing
-- Overrideable behaviors:
-    - Write out to connection when commanded
-    - Read in and execute commands from connection when commanded
+A runner publishes its variable list and schedule with `std::atomic_store`
+of a `shared_ptr<const T>`. The main thread reads only those copies. A copied
+frame carries the list it came from, so a frame from an older list is never
+sent.
 
-### VariableReference.hh
-Represent a single variable in a session
+### The memory lock
 
-Responsibilities:
-- Copy sim data into internal buffer when commanded
-- Write sim data into stream when commanded 
-- Provide functions to write ASCII and binary data
-- Track what units the user has requested
-- Survive a checkpoint restart
+Runners read simulation memory under the shared side of a
+`std::shared_mutex`. The `preload_checkpoint` job takes the exclusive side
+and keeps it until `resumePostCheckpointReload`, so no runner reads memory
+while the Memory Manager replaces it. A client that connects during a load
+waits until the load ends.
 
-### TCPClientListener.hh
-Represents a listening TCP server
+* A Python line runs under the shared lock.
+* A typed `var_set` takes the exclusive lock (`Server::write_memory`).
+* A thread that holds the GIL lets it go while it waits for the lock.
+  Lock order: the memory lock first, then the GIL.
 
-Responsibilities:
-- Encapsulate network code
-- Provide an interface to start a server, listen for new connections, and create new connections
-- Create a TCPConnection when a client connects
+After a load, each runner resolves its names again, and each scheduled
+session starts its schedule again from the new sim time.
 
-### ClientConnection.hh
-
-Responsibilities
-Abstract class representing a connection to a client. Inherited classes to handle TCP, UDP, and Multicast connections
-- Encapsulate network code
-- Provide a generic interface for initializing, starting, shutting down, reading, and writing to network regardless of connection type
-
-## Threading changes
-
-### VariableServerListenThread is required to wait for VariableServerSessionThread to notify it when the connection has been accepted.
-This was present in old design, but not implemented safely.
-
-#### Old design:
-
-```
-VariableServerSessionThread
-    + wait_for_accept()
-    - bool connection_accepted = false
-```
-
-`wait_for_accept` just busy waits on `connection_accepted` with no synch constructs (John Borland would be horrified)
-VariableServerListenThread calls `VsThread.wait_for_accept()`
-
-No error handling if connection failed, which can result in hanging listen thread and extra VSThreads bc of other problems in listen thread
-
-#### New Design
+## How a command runs
 
 ```
-VariableServerSessionThread
-    + enum ConnectionStatus { CONNECTION_PENDING, CONNECTION_SUCCESS, CONNECTION_FAIL };
-    + wait_for_accept()
-
-    - ConnectionStatus _connection_status = CONNECTION_PENDING
-    - pthread_mutex_t _connection_status_mutex
-    - pthread_cond_t _connection_status_cv
-
-
-VariableServerSessionThread::thread_body
-    Try to accept connection
-    if connection fails:
-        with _connection_status_mutex:
-            set _connection_status to CONNECTION_FAIL
-            signal on _connection_status_cv
-        exit thread
-    
-    Do some other setup
-    with _connection_status_mutex:
-        set _connection_status to CONNECTION_SUCCESS
-        signal on _connection_status_cv 
-
-    Run loop
-
-
-VariableServerSessionThread::wait_for_accept
-    with _connection_status_mutex:
-        while _connection_status == CONNECTION_PENDING:
-            wait on _connection_status_cv
-
-    return _connection_status
-
-
-VariableServerListenThread::thread_body
-    When we're trying to set up a connection:
-        Create new VSThread, set up the connection, start the thread
-        status = VSThread->wait_for_accept()
-        if status is CONNECTION_FAIL:
-            make sure the thread has exited and delete it
-        
+Client sends "trick.var_add(\"ball.obj.state.output.position[0]\")\n"
+SessionRunner reads a batch of complete lines (LineReader)
+CommandParser makes cmd::VarAdd { name, units = none }
+Session::run(VarAdd) resolves the name through MemoryResolver and adds it
 ```
 
-### VariableServerSessionThread and VariableServerListenThread no longer use pthread_cancel
-New termination design: 
-```
-Additions to Threadbase
-    + test_shutdown(/* optional exit handler args */) 
-    + thread_shutdown(/* optional exit handler args */)
-
-    - bool cancellable = true
-    - pthread_mutex_t shutdown_mutex
-    - bool should_shutdown = false
-
-ThreadBase::test_shutdown:
-    with shutdown_mutex
-    if should_shutdown:
-        call thread_shutdown
-    
-ThreadBase::thread_shutdown
-    Call exit handler if one passed
-    Call pthread_exit(0)
-
-Addition to function of Threadbase::cancel_thread():
-    with shutdown_mutex: Set should_shutdown to true 
-    if cancellable == true, call pthread_cancel
-```
-
-Threads can set cancellable to false in their constructor, which VariableServerSessionThread and VariableServerListenThread do
-Instead, they call test_shutdown at points that would be appropriate to shutdown in their loops
-Careful design consideration and testing was taken so that if the threads never start, or various error cases are hit, this still goes ok
-
-
-### VariableServerSessionThread and VariableServerListenThread pause on checkpoint reload
-
-#### Old design:
+A line that is not a typed command goes to Python:
 
 ```
-VariableServerSessionThread and VariableServerListenThread
-    - pthread_mutex_t restart_pause
+Client sends "trick.exec_freeze()\n"
+CommandParser makes cmd::Fallback { line }
+VsPythonBridge runs ip_parse(line) with the GIL and the shared memory lock
+Python calls a var_* function (SWIG) -> var_server_ext.cpp
+var_* gives the typed command to Server::current_session(), a thread_local
 ```
 
-This mutex is acquired by the top of the loops while they do their main processing, and released at the bottom of the loop.
-
-The main thread acquires the mutex in preload_checkpoint jobs and releases in restart jobs.
-
-This created a few bugs:
-- a deadlock in VariableServerSessionThread due to a lock inversion with the VariableServer map mutex
-- For some reason, holding the lock while blocked on the select syscall by the VariableServerListenThread could cause some really weird bugs, so the lock was acquired after the select call and only if it returned true. Because of this, select could be run while checkpoint restart was happening, which sometimes resulted in false positives, which created extra VariableServerSessionThreads, and the connection status was never checked so they would never shut down and cause all kinds of problems.
-
-#### New design
-
-```
-Addition to SysThread
-    + void force_thread_to_pause()
-    + void unpause_thread()
-    + void test_pause()
-
-    - pthread_mutex_t _restart_pause_mutex
-    - bool _thread_should_pause                
-    - pthread_cond_t _thread_wakeup_cv          
-    - bool _thread_has_paused                   
-    - pthread_cond_t _thread_has_paused_cv      
-```
-
-This design still ensures that thread can be paused, and that the main thread will wait until the threads are paused. It uses condvars to solve the deadlock problem and doesn't cause bugs observed in the old design. 
-
-The main thread can control the SysThread by calling `thread->force_thead_to_pause()`, which will block until the SysThread has paused, and `thread->unpause_thread()`. The SysThread loops must call `test_pause()` at points that would be appropriate to pause. 
-
-SysThread uses a monitor pattern internally to implement this behavior. Pseudocode for the pause managment:
-
-```
-// Called from main thread
-SysThread::force_thread_to_pause()
-    with _restart_pause_mutex:
-        _thread_should_pause = true
-        while !_thread_has_paused:
-            wait on _thread_has_paused_cv
-
-// Called from main thread
-SysThread::unpause_thread():
-    with _restart_pause_mutex:
-        _thread_should_pause = false
-        signal on _thread_wakeup_cv
-
-// Called from SysThread
-SysThread::test_pause():
-    with _restart_pause_mutex:
-        if _thread_should_pause:
-            _thread_has_paused = true
-            signal on _thread_has_paused_cv
-
-            while _thread_should_pause
-                wait on _thread_wakeup_cv
-
-        _thread_has_paused = false
-```
-
-## VariableReference
-
-The VariableReference class existed in the old version only to hold buffers for copied values, it had no methods. 
-
-In the refactored version, the VariableReference class encapsulates all interaction with the memory manager and sim variables, including copying and formatting the values. VariableReference keeps track of the units that have been requested for this variable in this session. VariableReference provides an interface to write out the value of a variable in either Ascii or binary format.
-
-It still uses REF2 internally, but the encapsulation will make the (hopefully) impending transition to something else easier to manage.
-
-The VariableReference class is covered by unit tests.
-
-```
-VariableReference Interface
-    + VariableReference(std::string var_name)
-
-    + std::string getName()
-    + TRICK_TYPE getType()
-
-    + std::string getBaseUnits()
-    + int setRequestedUnits(std::string new_units)
-
-    + int stageValue ()
-    + int prepareForWrite ()
-    + bool isStaged ()
-    + bool isWriteReady ()
-
-    + int writeValueAscii( std::ostream& out )
-    + int writeValueBinary( std::ostream& out , bool byteswap = false)
-    + ((Other methods to write out information about the binary or ascii formats))
-```
-
-## VariableServerSession
-
-The VariableServerSession class is a new class created in this refactor. A lot of the behavior of the old VariableServerSessionThread class is now in this class.
-
-A VariableServerSession represents a single client session. It tracks the list of variables that are being sent, the copy and write mode, output format mode, cycle, pause state, exit command. 
-
-The VariableServerSession has methods that should be called from Trick job types to implement correct moding - 
-
-```
-// Called from different types of Trick jobs. 
-// Determines whether this session should be copying and/or writing, and performs those actions if so
-+ int copy_and_write_freeze(long long curr_frame);
-+ int copy_and_write_freeze_scheduled(long long curr_tics);
-+ int copy_and_write_scheduled(long long curr_tics);
-+ int copy_and_write_top(long long curr_frame);
-
-// Called from VariableServerSessionThread
-+ virtual int copy_and_write_async();
-```
-
-The VariableServerSession has a method that should be called when it is time to handle a message and act on it. This is called from the VariableServerSessionThread loop.
-```
-+ virtual int  handle_message();
-```
-
-The VariableServerSession has the entirety of the documented VariableServer API as methods as well. These are called from the single VariableServer object after looking up the session.
-
-
-The VariableServerSession class is covered by unit tests.
-
-
-## VariableServerSessionThread
-
-The VariableServerSessionThread class runs and manages the lifetime and synchronization of a VariableServerSessionThread, sets up and closes the connection for the VariableServerSession, and calls any VariableServerSession methods that are designed to be asynchronous with the main thread. This includes `handle_message` and `copy_and_write_async`. It also creates the cycle of the session. 
-
-```
-VariableServerSessionThread_loop.cpp
-    - void thread_body()
-
-VariableServerSessionThread.cpp
-    + void preload_checkpoint()
-    + void restart()
-
-    + ConnectionStatus wait_for_accept()
-```
-
-`thread_body()` runs the main loop of the VST. 
-
-`preload_checkpoint()` and `restart()` are called from their respective Trick jobs in the main thread.
-
-
-## VariableServer
-
-The VariableServer class itself has been the least changed by this refactor. 
-
-Its main job is to delegate between the Trick jobs and the various sessions and threads. The VariableServer is a singleton that is declared as part of a SimObject in `default_trick_sys.sm`
-```
-VariableServerSimObject {
-    VariableServer vs;
-
-    {TRK} ("default_data") vs.default_data() ;
-    {TRK} P0 ("initialization") trick_ret = vs.init() ;
-    {TRK} ("preload_checkpoint") vs.suspendPreCheckpointReload();
-    {TRK} ("restart") vs.restart();
-    {TRK} ("restart") vs.resumePostCheckpointReload();
-    {TRK} ("top_of_frame") vs.copy_and_write_top() ;
-    {TRK} ("automatic_last") vs.copy_and_write_scheduled() ;
-
-    {TRK} ("freeze_init") vs.freeze_init() ;
-    {TRK} ("freeze_automatic") vs.copy_and_write_freeze_scheduled() ;
-    {TRK} ("freeze") vs.copy_and_write_freeze() ;
-
-    {TRK} ("shutdown") vs.shutdown() ;
-}
-```
-
-In each job:
-- default_data: Initialize the listening socket with any port
-- initialization: If the user has requested a different port, set that up. Start the listening thead.
-- preload_checkpoint: call methods of all VariableServerListenThreads and VariableServerSessionThreads to pause in preparation for checkpoint
-- restart: recreate listening threads if necessary, and call restart methods of all VariableServerListenThreads and VariableServerSessionThreads
-- top_of_frame, automatic_last, freeze, freeze_automatic: Loop through all VariableServerSessions and call the appropriate copy_data_ variant
-- shutdown: cancel all VariableServerListenThreads and VariableServerSessionThreads
-
-The VariableServer implements part of the dataflow for commands that come in through the input processor.
-
-The VariableServer's external API is the entry point of the variable server commands that are passed though the input processor. These commands go to a C-style API, which query the static global singleton VariableServer object. Each of these commands will look up the correct session by pthread_id and call the session's command.
-
-```
-Client sends `"trick.var_add("my_variable")\n"`
-`VariableServerSessionThread::thread_body` calls `VariableServerSession::handle_mesage`
-`VariableServerSession::handle_mesage` reads from the client connection and calls `ip_parse("trick.var_add("my_variable")\n")`
-Python interpreter runs (on the variable server thread) back through the SWIG layer to invoke global method `var_add("my_variable")` in var_server_ext.cpp
-`var_add()` calls the static global variable server object to look up the current session, mapped to the current pthread_id
-`var_add()` calls `session->var_add("my_variable")`
-session will add my_variable to its list of variables
-Return from `ip_parse`, continue `thread_body` processing
-```
-
-Code snippets (some minor modifications for clarity):
-
-```
-// var_server_ext.cpp
-int var_add(std::string in_name) {
-    Trick::VariableServerSession * session = get_session();
-    
-    if (session != NULL ) {
-        session->var_add(in_name) ;
-    }
-    return(0) ;
-}
-
-Trick::VariableServerSession * get_session() {
-    return the_vs->get_session(pthread_self()) ;
-}
-
-// VariableServer.cpp
-Trick::VariableServerSession * Trick::VariableServer::get_session(pthread_t thread_id) {
-    Trick::VariableServerSession * ret = NULL ;
-    pthread_mutex_lock(&map_mutex) ;
-    auto it = var_server_sessions.find(thread_id) ;
-    if ( it != var_server_sessions.end() ) {
-        ret = (*it).second ;
-    }
-    pthread_mutex_unlock(&map_mutex) ;
-    return ret ;
-}
-
-// VariableServerSession_commands.cpp
-int Trick::VariableServerSession::var_add(std::string in_name) {
-
-    VariableReference new_var = new VariableReference(in_name);
-    _session_variables.push_back(new_var) ;
-
-    return(0) ;
-}
-```
-
-![var_add Sequence Diagram](images/var_add_sequence.png)
-
-Both var_server_ext.cpp and VariableServerSession_commands.cpp have a method for each command in the user facing variable server API. 
-
-### Special case listen threads and sessions
-
-The user can request addition TCP, UDP, or multicast servers from the input file. This is handled in the VariableServer class.
-
-```
-VariableServer {
-    + int create_tcp_socket(const char * address, unsigned short in_port )
-    + int create_udp_socket(const char * address, unsigned short in_port )
-    + int create_multicast_socket(const char * mcast_address, const char * address, unsigned short in_port )
-}
-```
-
-Calling `create_tcp_socket` will create an additional listen thread, which will operate in the same way as the default listen thread. The VariableServer will create a TCPClientListener and start the listen thread, just like it does for the default listen thread.
-
-`create_udp_socket` will open a UDP socket. Since it does not require a listener, the VariableServer creates a VariableServerSessionThread and a UDPConnection directly, and starts the thread. The output for this session is sent to whatever host a message is received from. 
-
-`create_multicast_socket` will create a UDP socket and add it to a multicast group. It will also create and start a VariableServerSessionThread and MulticastGroup object. The output for this session is broadcast on the multicast address given.
-
-## ClientConnection and TCPClientListener
-
-The purpose of these classes are to abstract away all of the network code and the differences between TCP, UDP, and multicast connections for the purpose of the VariableServerSession. 
-
-The VariableServerListenThread uses a TCPClientListener to listen for connections on an open socket, and when one comes in, the TCPClientListener will create a TCPConnection to service the connection. 
-
-In the UDP and Multicast case, the connection is created directly in the VariableServer class and passed into the VariableServerSessionThread.
-
-
-## Class Diagram
-
-![Variable Server UML](images/vs_uml.png)
-
+So `trick.var_add(...)` from Python and the typed path do the same work. A
+`var_*` call that is not on a runner thread (the input file, an event) does
+nothing and returns 0, as before.
+
+`var_server_set_python_commands(False)` turns the Python path off: only
+typed commands run. `var_send_ip_errors(True)` makes a session reply
+`-1 <length>\n<text>` when its Python line fails.
+
+## Jobs
+
+The job methods in `default_trick_sys.sm` keep their names and job classes:
+
+| Job | Method | Work |
+| --- | --- | --- |
+| `default_data` | `default_data()` | Default configuration |
+| `initialization` | `init()` | Opens the listen socket and starts the listener |
+| `preload_checkpoint` | `suspendPreCheckpointReload()` | Takes the memory lock for writing |
+| `restart` | `restart()`, `resumePostCheckpointReload()` | Applies the loaded configuration, resolves names again, lets the lock go |
+| `top_of_frame` | `copy_and_write_top()` | Copies for `VS_COPY_TOP_OF_FRAME` sessions |
+| `automatic_last` | `copy_and_write_scheduled()` | Copies for `VS_COPY_SCHEDULED` sessions |
+| `freeze_init`, `freeze_automatic`, `freeze` | `freeze_init()`, `copy_and_write_freeze_scheduled()`, `copy_and_write_freeze()` | The same in freeze mode |
+| `shutdown` | `shutdown()` | Stops the listener, asks each runner to stop and joins it. A runner that does not stop in time (it is inside a client command) is left, with a message, so shutdown can continue. |
+
+A copy job only copies into the session's `TripleBuffer` and wakes the
+runner. The main thread never sends.
+
+## Tests
+
+| Test | Where | Checks |
+| --- | --- | --- |
+| Core unit tests | `trick_source/trick_utils/var_server/test` | Parser, encoders, sockets, sessions, runners. `GoldenReplay_test` compares the bytes with the captures of the old server. |
+| `VsAdapter_test` | `trick_source/sim_services/VariableServer/test` | The golden cases on a real Memory Manager |
+| Conformance suite | `test/SIM_vs_conformance/conformance` | The wire bytes of a running SIM against the goldens, checkpoints, the fixed old-server defects (`--run-known-defects`) and the Python client |
+| Soak | `test/SIM_vs_conformance/soak/vs_soak.py` | 8 clients in every mode while a client loads a checkpoint every 10 s |
+| `SIM_test_varserv` | `test/SIM_test_varserv` | The SIM test in `test_sims.yml` |
+| Fuzzers | `trick_source/trick_utils/var_server/fuzz` | Parser, line reader and encoders (libFuzzer, Clang) |
+
+`tools/vs-ci.sh` runs them in CI, also with ASan, UBSan and TSan.
+`tools/vs-tsan.supp` lists the TSan reports outside the variable server's own
+state, each with its reason.
+
+## Things to know
+
+* SIM builds do not notice changes to Trick headers (Trick headers are
+  `-isystem`, so `-MMD` leaves them out). After you change
+  `VariableServer.hh` or another checkpointed class, rebuild the SIM from
+  clean (`make spotless`), or ICG offsets go stale.
+* The headers in `include/trick/compat/sim_services/VariableServer/` keep the
+  old include paths working. `include/trick/VariableServerSessionThread.hh` remains only as a stub, so old S_define
+  code that calls `VariableServerSessionThread::set_vs_ptr` still compiles.

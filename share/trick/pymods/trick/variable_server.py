@@ -3,8 +3,13 @@ This module contains tools for communicating with a sim's variable
 server, primarily via the Variable and VariableServer classes. See
 https://github.com/nasa/trick/wiki/Python-Variable-Server-Client for
 a tutorial and examples.
+
+It needs Python 3.11 or later.
 """
 
+from __future__ import annotations
+
+import enum
 import os
 import re
 import socket
@@ -12,27 +17,14 @@ import struct
 import threading
 import time
 from collections import namedtuple
-
-# In Python 2, basestring is the parent for both str (ASCII) and unicode.
-# In Python 3, str and unicode were unified into str, and basestring is gone.
-try:
-    basestring
-except NameError:
-    basestring = str
-
-# In Python 3, itertools.izip became zip.
-try:
-    from itertools import izip as zip
-except ImportError:
-    pass
+from dataclasses import dataclass, field
+from typing import Any, Callable, NamedTuple, TextIO
 
 
 class VariableServerError(Exception):
     """
     Variable Server communication I/O error.
     """
-
-    pass
 
 
 class UnitsConversionError(VariableServerError):
@@ -47,10 +39,8 @@ class UnitsConversionError(VariableServerError):
         The units to which the variable could not be converted.
     """
 
-    def __init__(self, name, units):
-        super(UnitsConversionError, self).__init__(
-            "[{0}] cannot be converted to [{1}]".format(name, units)
-        )
+    def __init__(self, name: str, units: str | None) -> None:
+        super().__init__(f"[{name}] cannot be converted to [{units}]")
         self.name = name
         self.units = units
 
@@ -67,11 +57,10 @@ class UnexpectedMessageError(VariableServerError):
         The actual message indicator.
     """
 
-    def __init__(self, expected_id, actual_id):
-        super(UnexpectedMessageError, self).__init__(
-            "Unexpected message received. Expected ID = {0}. Actual ID = {1}".format(
-                expected_id, actual_id
-            )
+    def __init__(self, expected_id: int, actual_id: int) -> None:
+        super().__init__(
+            f"Unexpected message received. Expected ID = {int(expected_id)}. "
+            f"Actual ID = {int(actual_id)}"
         )
         self.expected_id = expected_id
         self.actual_id = actual_id
@@ -90,19 +79,18 @@ class ValueCountError(VariableServerError):
         The actual count.
     """
 
-    def __init__(self, expected, actual):
-        super(ValueCountError, self).__init__(
-            "Number of values received ({0}) does not match expected ({1})".format(
-                actual, expected
-            )
+    def __init__(self, expected: int, actual: int) -> None:
+        super().__init__(
+            f"Number of values received ({actual}) does not match expected ({expected})"
         )
         self.expected = expected
         self.actual = actual
 
 
-def _create_enum(name, field_names, ordinal_values=True):
+def _create_enum(name: str, field_names: list[str], ordinal_values: bool = True) -> Any:
     """
-    Create a namedtuple with automatic values.
+    Create a namedtuple with automatic values. Kept for code that used
+    it; this module now uses the enum module.
 
     Parameters
     ----------
@@ -116,12 +104,31 @@ def _create_enum(name, field_names, ordinal_values=True):
         False to use the field names themselves as the values for the
         fields. This creates a string-based enum.
     """
-    return namedtuple(name, field_names)(
-        *(range(len(field_names)) if ordinal_values else field_names)
-    )
+    return namedtuple(name, field_names)(*(range(len(field_names)) if ordinal_values else field_names))
 
 
-class Message(namedtuple("Message", ["indicator", "data"])):
+class _Indicator(enum.IntEnum):
+    """
+    The message types the variable server sends. The values are
+    VS_MESSAGE_TYPE in variable_server_message_types.h.
+    """
+
+    IP_ERROR = -1  # after trick.var_send_ip_errors(True)
+    VAR_SEND = 0
+    VAR_EXISTS = 1
+    SIE_RESOURCE = 2
+    LIST_SIZE = 3
+    STDIO = 4
+    SEND_ONCE = 5
+    VAR_GET_STL_SIZE = 6
+
+
+class _MessageFields(NamedTuple):
+    indicator: int
+    data: str
+
+
+class Message(_MessageFields):
     """
     A message from the variable server.
 
@@ -133,17 +140,20 @@ class Message(namedtuple("Message", ["indicator", "data"])):
         The rest of the message.
     """
 
-    # Values must match VS_MESSAGE_TYPE in variable_server_message_types.h:
-    #   VS_VAR_LIST = 0, VS_VAR_EXISTS = 1, VS_GET_STL_SIZE = 6
-    Indicator = namedtuple("Indicator", ["VAR_SEND", "VAR_EXISTS", "VAR_GET_STL_SIZE"])(
-        0, 1, 6
-    )
+    __slots__ = ()
+
+    # Message.Indicator.VAR_SEND and so on.
+    Indicator = _Indicator
 
 
-class Variable(object):
+@dataclass(eq=False)
+class Variable:
     """
     A variable whose value and units will be updated from the sim. You
     should not directly change any part of this class.
+
+    Two Variables are equal only if they are the same object, so a
+    VariableServer can sample two Variables with the same name.
 
     Attributes
     ----------
@@ -158,51 +168,59 @@ class Variable(object):
         The value.
     """
 
-    def __init__(self, name, units=None, type_=str):
-        """
-        Create a new Variable.
-
-        Parameters
-        ----------
-        name and units are as documented in this class's Attributes
-        section.
-        type_ : callable
-            A callable that accepts one argument and is used to convert
-            the stringified value from the variable server to the
-            desired type. This can be a builtin like int or float or a
-            custom function that does anything you like!
-        """
-        self.name = name
-        self.units = units
-        self._type = type_
-        self._value = None
+    name: str
+    units: str | None = None
+    # A callable that accepts one argument and is used to convert the
+    # stringified value from the variable server to the desired type.
+    # This can be a builtin like int or float or a custom function that
+    # does anything you like!
+    type_: Callable[[Any], Any] = field(default=str, repr=False)
+    _value: Any = field(default=None, init=False, repr=False)
 
     @property
-    def value(self):
+    def value(self) -> Any:
         """
         Get the converted value.
         """
-        return self._type(self._value)
+        return self.type_(self._value)
 
     @value.setter
-    def value(self, value):
+    def value(self, value: Any) -> None:
         """
         Set the value.
         """
         self._value = value
 
-    def __str__(self):
+    @property
+    def _type(self) -> Callable[[Any], Any]:
+        # The name before Python 3.11; kept for code that read it.
+        return self.type_
+
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
-        return "{0} = {1}{2}".format(
-            self.name,
-            self.value,
-            " {0}".format(self.units) if self.units is not None else "",
-        )
+    def __repr__(self) -> str:
+        units = f" {self.units}" if self.units is not None else ""
+        return f"{self.name} = {self.value}{units}"
 
 
-class VariableServer(object):
+class _Channel(enum.StrEnum):
+    """Which of the two connections a command goes to."""
+
+    ASYNC = "ASYNC"
+    SYNC = "SYNC"
+    BOTH = "BOTH"
+
+
+class _CopyMode(enum.IntEnum):
+    """How the variable server copies values (var_set_copy_mode)."""
+
+    ASYNC = 0
+    SCHEDULED = 1
+    TOP_OF_FRAME = 2
+
+
+class VariableServer:
     """
     Send commands to and receive responses from a simulation's
     variable server.
@@ -211,10 +229,10 @@ class VariableServer(object):
     allocated during initialization.
     """
 
-    Channel = _create_enum("Channel", ["ASYNC", "SYNC", "BOTH"], False)
-    CopyMode = _create_enum("CopyMode", ["ASYNC", "SCHEDULED", "TOP_OF_FRAME"])
+    Channel = _Channel
+    CopyMode = _CopyMode
 
-    def __init__(self, hostname, port):
+    def __init__(self, hostname: str, port: int | str) -> None:
         """
         Create a connection to the simulation variable server at
         host:port.
@@ -228,93 +246,92 @@ class VariableServer(object):
             The port on which the simulation's variable server is
             listening.
         """
-        self._variables = []
-        self._callbacks = {}
-        self._error_callbacks = {}
+        self._variables: list[Variable] = []
+        self._callbacks: dict[Callable[..., Any], tuple[Any, dict[str, Any]]] = {}
+        self._error_callbacks: dict[Callable[..., Any], tuple[Any, dict[str, Any]]] = {}
         self._lock = threading.Lock()
+        self._open = False
         port = int(port)
         self._synchronous_socket = socket.create_connection((hostname, port))
         self._asynchronous_socket = socket.create_connection((hostname, port))
-        self._synchronous_file_interface = self._synchronous_socket.makefile()
-        self._asynchronous_file_interface = self._asynchronous_socket.makefile()
+        self._synchronous_file_interface: TextIO = self._synchronous_socket.makefile()
+        self._asynchronous_file_interface: TextIO = self._asynchronous_socket.makefile()
         self._open = True
         self.pause(channel=self.Channel.SYNC)
-
-        # Define a local function to be used by the sampling thread.
-        def update_variables():
-            """
-            Continuously update variables.
-            """
-            while True:
-                try:
-                    values = self._read_values(False)
-                except Exception as exception:
-                    if self._open:
-                        for function, args in self._error_callbacks.items():
-                            function(*args[0], exception=exception, **args[1])
-                    return
-                # We must lock here to ensure that variables are not
-                # removed while we are processing an update.
-                with self._lock:
-                    # If there are more values than variables, it must
-                    # be that a variable was removed after this message
-                    # was sent but before we processed it. Variables can
-                    # be removed from any place within the list, so we
-                    # don't know which "extra" values to ignore.
-                    # We therefore discard the entire message.
-                    #
-                    # If there are fewer values than variables, it must
-                    # be that a variable was added after this message
-                    # was sent but before we processed it. Variables
-                    # can only be appended to the list, so we know that
-                    # any missing values are for variables at the end of
-                    # the list. We can therefore still use all the
-                    # values to update variables at the front of the
-                    # list.
-                    #
-                    # We could still end up assigning values to the
-                    # wrong variables if someone removed AND added
-                    # variables after a message was sent but before we
-                    # processed it, but the probability of someone
-                    # doing that doesn't justify the work at this point.
-                    # Besides, it would be corrected with the next
-                    # message.
-                    if len(values) <= len(self._variables):
-                        for variable, value in zip(self._variables, values):
-                            variable.value, variable.units = _parse_value(value)
-
-                        for function, args in self._callbacks.items():
-                            function(*args[0], **args[1])
 
         # Start a thread that listens for data from the variable server,
         # updates the variables being sampled, and notifies listeners.
         # This thread can only be terminated by calling close. A Python
         # process cannot terminate while non-daemon threads are running,
-        # so make this tread a deamon in case the user fails to call
+        # so make this thread a daemon in case the user fails to call
         # close when finished with this instance.
         self._thread = threading.Thread(
-            target=update_variables, name="Asynchronous Variable Sampler"
+            target=self._update_variables, name="Asynchronous Variable Sampler", daemon=True
         )
-        self._thread.daemon = True
         self._thread.start()
 
-    def __del__(self):
+    def _update_variables(self) -> None:
+        """
+        Continuously update variables (the sampling thread).
+        """
+        while True:
+            try:
+                values = self._read_values(False)
+            except Exception as exception:
+                if self._open:
+                    for function, args in list(self._error_callbacks.items()):
+                        function(*args[0], exception=exception, **args[1])
+                return
+            # We must lock here to ensure that variables are not
+            # removed while we are processing an update.
+            with self._lock:
+                # If there are more values than variables, it must
+                # be that a variable was removed after this message
+                # was sent but before we processed it. Variables can
+                # be removed from any place within the list, so we
+                # don't know which "extra" values to ignore.
+                # We therefore discard the entire message.
+                #
+                # If there are fewer values than variables, it must
+                # be that a variable was added after this message
+                # was sent but before we processed it. Variables
+                # can only be appended to the list, so we know that
+                # any missing values are for variables at the end of
+                # the list. We can therefore still use all the
+                # values to update variables at the front of the
+                # list.
+                #
+                # We could still end up assigning values to the
+                # wrong variables if someone removed AND added
+                # variables after a message was sent but before we
+                # processed it, but the probability of someone
+                # doing that doesn't justify the work at this point.
+                # Besides, it would be corrected with the next
+                # message.
+                if len(values) <= len(self._variables):
+                    for variable, value in zip(self._variables, values):
+                        variable.value, variable.units = _parse_value(value)
+
+                    for function, args in list(self._callbacks.items()):
+                        function(*args[0], **args[1])
+
+    def __del__(self) -> None:
         """
         Call close in case the user forgot. Don't rely on this to clean
         up for you. You should really explicitly call close yourself.
         """
         try:
             self.close()
-        except:
+        except Exception:
             pass
 
-    def __enter__(self):
+    def __enter__(self) -> VariableServer:
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> None:
         self.close()
 
-    def get_value(self, name, units=None, type_=str):
+    def get_value(self, name: str, units: str | None = None, type_: Callable[[Any], Any] = str) -> Any:
         """
         Get the value of the named variable. If units are specified, the
         value is converted if possible. This function provides a simple
@@ -349,27 +366,27 @@ class VariableServer(object):
         Get value (default type is string):
         >>> from variable_server import VariableServer
         >>> with VariableServer('localhost', 7000) as vs:
-        ...     vs.get_value('ball.obj.state.input.position[0]')
+        ...     vs.get_value('ball.state.input.position[0]')
         '5'
 
         Get value as an int:
         >>> from variable_server import VariableServer
         >>> with VariableServer('localhost', 7000) as vs:
-        ...     vs.get_value('ball.obj.state.input.position[0]',
+        ...     vs.get_value('ball.state.input.position[0]',
         ...     type_=int)
         5
 
         Get value as a float in millimeters:
         >>> from variable_server import VariableServer
         >>> with VariableServer('localhost', 7000) as vs:
-        ...     vs.get_value('ball.obj.state.input.position[0]',
+        ...     vs.get_value('ball.state.input.position[0]',
         ...     units='mm', type_=float)
         5000.0
 
         Convert value with custom function:
         >>> from variable_server import VariableServer
         >>> with VariableServer('localhost', 7000) as vs:
-        ...     vs.get_value('ball.obj.state.input.position[0]',
+        ...     vs.get_value('ball.state.input.position[0]',
         ...     type_=lambda x: int(x) * 2)
         10
         """
@@ -389,7 +406,7 @@ class VariableServer(object):
 
         return type_(value)
 
-    def get_stl_size(self, name):
+    def get_stl_size(self, name: str) -> int:
         """
         Get the size of the STL container with the given name. This only
         works for STL containers for which the variable server provides
@@ -421,13 +438,13 @@ class VariableServer(object):
         """
 
         # request the size and read the response
-        self.send('trick.var_get_stl_size("{0}")'.format(name))
+        self.send(f'trick.var_get_stl_size("{name}")')
         return self._read_stl_size()
 
-    def set_value(self, name, value, units=None):
+    def set_value(self, name: str, value: Any, units: str | None = None) -> None:
         """
         Set the value of the named variable. If units are specified, the
-        value is converted if possible. If the convserion fails, the
+        value is converted if possible. If the conversion fails, the
         value is unchanged, and no error is raised.
 
         Attributes
@@ -440,15 +457,11 @@ class VariableServer(object):
         units : str
             The units.
         """
-        self.send(
-            'trick.var_set("{0}", {1}{2})'.format(
-                name,
-                '"{0}"'.format(value) if isinstance(value, basestring) else value,
-                ', "{0}"'.format(units) if units is not None else "",
-            )
-        )
+        text = f'"{value}"' if isinstance(value, str) else value
+        units_text = f', "{units}"' if units is not None else ""
+        self.send(f'trick.var_set("{name}", {text}{units_text})')
 
-    def get_values(self, *variables):
+    def get_values(self, *variables: Variable) -> list[Any]:
         """
         Get the values of variables. If units are specified, values are
         converted if possible. Each argument is also updated in place,
@@ -497,17 +510,17 @@ class VariableServer(object):
         Example
         -------
         >>> from variable_server import Variable, VariableServer
-        >>> position = Variable('ball.obj.state.input.position[0]',
+        >>> position = Variable('ball.state.input.position[0]',
         ... type_=int)
-        >>> mass = Variable('ball.obj.state.input.mass', units='g',
+        >>> mass = Variable('ball.state.input.mass', units='g',
         ... type_=float)
         >>> with VariableServer('localhost', 7000) as vs:
         ...     vs.get_values(position, mass)
         [5, 10000.0]
         >>> position
-        ball.obj.state.input.position[0] = 5 m
+        ball.state.input.position[0] = 5 m
         >>> mass
-        ball.obj.state.input.mass = 10000.0 g
+        ball.state.input.mass = 10000.0 g
         """
 
         # check for zero arguments
@@ -539,7 +552,7 @@ class VariableServer(object):
 
         return [variable.value for variable in variables]
 
-    def add_variables(self, *variables):
+    def add_variables(self, *variables: Variable) -> None:
         """
         Immediately update and begin periodically sampling the given
         variables. This class retains references to all passed-in
@@ -579,27 +592,23 @@ class VariableServer(object):
         """
 
         # remove existing variables
-        variables = [
-            variable for variable in variables if variable not in self._variables
-        ]
+        new_variables = [variable for variable in variables if variable not in self._variables]
 
         # check for type_ and units conversion errors
-        self.get_values(*variables)
+        self.get_values(*new_variables)
 
-        for variable in variables:
+        for variable in new_variables:
             # No lock is needed here because:
             # - appending to the variables list while
-            #   update_variables is executing does not invalidate
+            #   _update_variables is executing does not invalidate
             #   the length check
             # - zip is bounded by the number of values, and the
             #   length check ensures there are at least as many
             #   variables as values
             self._variables.append(variable)
-            self._var_add(
-                variable.name, variable.units if variable.units is not None else "xx"
-            )
+            self._var_add(variable.name, variable.units if variable.units is not None else "xx")
 
-    def remove_variables(self, *variables):
+    def remove_variables(self, *variables: Variable) -> None:
         """
         Stop sampling the given variables. Removing variables that are
         not being sampled has no effect.
@@ -611,14 +620,14 @@ class VariableServer(object):
         """
         for variable in variables:
             if variable in self._variables:
-                # Variables must not be removed while update_variables
+                # Variables must not be removed while _update_variables
                 # is processing an update. See its comment for an
                 # explanation.
                 with self._lock:
                     self._variables.remove(variable)
                 self._var_remove(variable.name)
 
-    def remove_all_variables(self):
+    def remove_all_variables(self) -> None:
         """
         Stop sampling all variables. To merely suspend sampling,
         see pause.
@@ -626,14 +635,14 @@ class VariableServer(object):
         self._var_clear()
         # No lock is needed here because:
         # - This assignment is atomic.
-        # - If update_variables has already called zip, the list it is
-        #   ierating over is unchanged as we're assigning a new list
+        # - If _update_variables has already called zip, the list it is
+        #   iterating over is unchanged as we're assigning a new list
         #   here instead of clearing the shared reference.
-        # - If update_variables has not yet called zip, when it does,
+        # - If _update_variables has not yet called zip, when it does,
         #   zip will return an empty generator, terminating the loop.
         self._variables = []
 
-    def set_units(self, name, units):
+    def set_units(self, name: str, units: str) -> None:
         """
         Set the units in which the named variable is sampled. This only
         applies to Variables being periodically sampled.
@@ -646,11 +655,9 @@ class VariableServer(object):
         units : str
             The units to which to convert the sampled value.
         """
-        self.send(
-            'trick.var_units("{0}", "{1}")'.format(name, units), self.Channel.ASYNC
-        )
+        self.send(f'trick.var_units("{name}", "{units}")', self.Channel.ASYNC)
 
-    def set_period(self, period):
+    def set_period(self, period: float) -> None:
         """
         Set the sampling period (in seconds).
 
@@ -660,17 +667,22 @@ class VariableServer(object):
             The inverse of the rate (in Hz) at which you want to sample
             variable values.
         """
-        self.send("trick.var_cycle({0})".format(float(period)), self.Channel.ASYNC)
+        self.send(f"trick.var_cycle({float(period)})", self.Channel.ASYNC)
 
-    def register_callback(self, function, args=None, kwargs=None):
+    def register_callback(
+        self,
+        function: Callable[..., Any],
+        args: Any = None,
+        kwargs: dict[str, Any] | None = None,
+    ) -> None:
         """
         Call function whenever new variable values are sampled.
-        Registering an aleady-registered function replaces its existing
+        Registering an already-registered function replaces its existing
         registration. The order in which functions are called is not
         specified. Functions are executed on the asynchronous sampling
         thread.
 
-        Paramaters
+        Parameters
         ----------
         function : callable
             The function to call.
@@ -679,13 +691,9 @@ class VariableServer(object):
         kwargs : dict
             The keyword arguments to be passed to the function.
         """
-        if args is None:
-            args = []
-        if kwargs is None:
-            kwargs = {}
-        self._callbacks[function] = args, kwargs
+        self._callbacks[function] = (args if args is not None else [], kwargs if kwargs is not None else {})
 
-    def deregister_callback(self, function):
+    def deregister_callback(self, function: Callable[..., Any]) -> None:
         """
         Do not call function whenever new variable values are sampled.
         Deregistering an unregistered function has no effect.
@@ -697,15 +705,20 @@ class VariableServer(object):
         """
         self._callbacks.pop(function, None)
 
-    def register_error_callback(self, function, args=None, kwargs=None):
+    def register_error_callback(
+        self,
+        function: Callable[..., Any],
+        args: Any = None,
+        kwargs: dict[str, Any] | None = None,
+    ) -> None:
         """
         Call function if an error occurs while sampling variable values.
-        Registering an aleady-registered function replaces its existing
+        Registering an already-registered function replaces its existing
         registration. The order in which functions are called is not
         specified. Functions are executed on the asynchronous sampling
         thread.
 
-        Paramaters
+        Parameters
         ----------
         function : callable
             The function to call. It must accept a keyword argument
@@ -715,13 +728,12 @@ class VariableServer(object):
         kwargs : dict
             The keyword arguments to be passed to the function.
         """
-        if args is None:
-            args = []
-        if kwargs is None:
-            kwargs = {}
-        self._error_callbacks[function] = args, kwargs
+        self._error_callbacks[function] = (
+            args if args is not None else [],
+            kwargs if kwargs is not None else {},
+        )
 
-    def deregister_error_callback(self, function):
+    def deregister_error_callback(self, function: Callable[..., Any]) -> None:
         """
         Do not call function if an error occurs while sampling variable
         values. Deregistering an unregistered function has no effect.
@@ -733,7 +745,7 @@ class VariableServer(object):
         """
         self._error_callbacks.pop(function, None)
 
-    def pause(self, pause=True, channel=Channel.ASYNC):
+    def pause(self, pause: bool = True, channel: _Channel | str = _Channel.ASYNC) -> None:
         """
         Pause or unpause sampling.
 
@@ -746,9 +758,9 @@ class VariableServer(object):
             The channel to affect. You should almost certainly leave
             this as the default.
         """
-        self.send("trick.var_{0}pause()".format("" if pause else "un"), channel)
+        self.send(f"trick.var_{'' if pause else 'un'}pause()", channel)
 
-    def set_debug(self, level, channel=Channel.BOTH):
+    def set_debug(self, level: int, channel: _Channel | str = _Channel.BOTH) -> None:
         """
         Set the debugging level. This effects how much information the
         sim's variable server outputs to the sim's standard output
@@ -762,9 +774,9 @@ class VariableServer(object):
         channel : Channel
             The channel to affect.
         """
-        self.send("trick.var_debug({0})".format(int(level)), channel)
+        self.send(f"trick.var_debug({int(level)})", channel)
 
-    def set_tag(self, tag):
+    def set_tag(self, tag: str) -> None:
         """
         Set the identifier for this variable server client. The tag is
         used in log files to associate each message with its sender.
@@ -774,12 +786,12 @@ class VariableServer(object):
         tag : str
             An identifier for this client.
         """
-        for channel in [self.Channel.SYNC, self.Channel.ASYNC]:
-            self.send(
-                'trick.var_set_client_tag("{0}_{1}")'.format(tag, channel), channel
-            )
+        for channel in (self.Channel.SYNC, self.Channel.ASYNC):
+            self.send(f'trick.var_set_client_tag("{tag}_{channel}")', channel)
 
-    def set_copy_mode(self, mode=CopyMode.ASYNC, channel=Channel.BOTH):
+    def set_copy_mode(
+        self, mode: _CopyMode | int = _CopyMode.ASYNC, channel: _Channel | str = _Channel.BOTH
+    ) -> None:
         """
         Set the method by which variable values are copied.
 
@@ -804,9 +816,9 @@ class VariableServer(object):
         channel : Channel
             The channel to affect.
         """
-        self.send("trick.var_set_copy_mode({0})".format(int(mode)), channel)
+        self.send(f"trick.var_set_copy_mode({int(mode)})", channel)
 
-    def send_on_copy(self, enable=True):
+    def send_on_copy(self, enable: bool = True) -> None:
         """
         Set the method by which variable values are sent.
 
@@ -814,17 +826,15 @@ class VariableServer(object):
         ----------
         enable : bool
             True to cause the variable server to send variable values
-            immediately after copying them, using the same thread, which
-            will impact simulation execution if the copy mode is not
-            ASYNCHRONOUS.
-            False to send values asynchronously on an independent
-            thread.
+            as soon as the sim's main thread copies them (copy modes
+            SCHEDULED and TOP_OF_FRAME). The values are sent by the
+            session's own thread; the main thread does not wait for the
+            send.
+            False to send values on the session's own cycle.
         """
-        self.send(
-            "trick.var_set_write_mode({0})".format(bool(enable)), self.Channel.ASYNC
-        )
+        self.send(f"trick.var_set_write_mode({bool(enable)})", self.Channel.ASYNC)
 
-    def validate_addresses(self, validate=True, channel=Channel.BOTH):
+    def validate_addresses(self, validate: bool = True, channel: _Channel | str = _Channel.BOTH) -> None:
         """
         Set whether or not addresses are validated.
 
@@ -842,9 +852,9 @@ class VariableServer(object):
         channel : Channel
             The channel to affect.
         """
-        self.send("trick.var_validate_address({0})".format(bool(validate)), channel)
+        self.send(f"trick.var_validate_address({bool(validate)})", channel)
 
-    def variable_exists(self, name):
+    def variable_exists(self, name: str) -> bool:
         """
         Determine if name is known to the memory manager.
 
@@ -867,12 +877,12 @@ class VariableServer(object):
             If the next message on the synchronous channel is not a
             response to a var_exists inquiry.
         """
-        self.send('trick.var_exists("{0}")'.format(name))
+        self.send(f'trick.var_exists("{name}")')
         message = self.readline()
         _assert_message_type(message, Message.Indicator.VAR_EXISTS)
         return message.data == "1"
 
-    def freeze(self, freeze=True):
+    def freeze(self, freeze: bool = True) -> None:
         """
         Freeze or unfreeze the sim.
 
@@ -882,9 +892,9 @@ class VariableServer(object):
             True to freeze the sim.
             False to unfreeze it.
         """
-        self.send("trick.exec_{0}()".format("freeze" if bool(freeze) else "run"))
+        self.send(f"trick.exec_{'freeze' if bool(freeze) else 'run'}()")
 
-    def checkpoint(self, filename):
+    def checkpoint(self, filename: str) -> None:
         """
         Dump a checkpoint.
 
@@ -894,9 +904,9 @@ class VariableServer(object):
             The checkpoint file name. The checkpoint will be saved in the
             directory containing the sim's input file.
         """
-        self.send('trick.checkpoint("' + filename + '")')
+        self.send(f'trick.checkpoint("{filename}")')
 
-    def load_checkpoint(self, filename):
+    def load_checkpoint(self, filename: str) -> None:
         """
         Load a checkpoint. The path is relative to the directory containing
         the sim's S_main executable.
@@ -906,9 +916,9 @@ class VariableServer(object):
         filename : str
             The checkpoint file name.
         """
-        self.send('trick.load_checkpoint("' + filename + '")')
+        self.send(f'trick.load_checkpoint("{filename}")')
 
-    def enable_real_time(self, enable=True):
+    def enable_real_time(self, enable: bool = True) -> None:
         """
         Toggle real-time execution.
 
@@ -918,9 +928,9 @@ class VariableServer(object):
             True so synchronize sim execution with the real-time clock.
             False to run as quickly as possible.
         """
-        self.send("trick.real_time_{0}able()".format("en" if bool(enable) else "dis"))
+        self.send(f"trick.real_time_{'en' if bool(enable) else 'dis'}able()")
 
-    def send(self, command, channel=Channel.SYNC):
+    def send(self, command: str, channel: _Channel | str = _Channel.SYNC) -> None:
         """
         Append a newline to command and send it, blocking until all data
         has been sent. Calling this directly is only necessary if you
@@ -942,16 +952,16 @@ class VariableServer(object):
             The channel on which to send. You should almost certainly
             leave this as the default.
         """
-        command = "{0}\n".format(command)
-
-        for channel in {
+        data = f"{command}\n".encode()
+        sockets = {
             self.Channel.SYNC: [self._synchronous_socket],
             self.Channel.ASYNC: [self._asynchronous_socket],
             self.Channel.BOTH: [self._synchronous_socket, self._asynchronous_socket],
-        }[channel]:
-            channel.sendall(command.encode())
+        }[_Channel(channel)]
+        for sock in sockets:
+            sock.sendall(data)
 
-    def readline(self, synchronous_channel=True):
+    def readline(self, synchronous_channel: bool = True) -> Message:
         """
         Read a newline-terminated line, blocking if necessary. Calling
         this directly is only necessary if you have directly called
@@ -975,17 +985,15 @@ class VariableServer(object):
             If the remote endpoint has closed the connection.
         """
         file_interface = (
-            self._synchronous_file_interface
-            if synchronous_channel
-            else self._asynchronous_file_interface
+            self._synchronous_file_interface if synchronous_channel else self._asynchronous_file_interface
         )
         line = file_interface.readline()
         if not line:
             raise IOError("The remote endpoint has closed the connection")
-        line = line.rstrip(os.linesep).split("\t", 1)
-        return Message(int(line[0]), line[1])
+        indicator, _, data = line.rstrip(os.linesep).partition("\t")
+        return Message(int(indicator), data)
 
-    def _var_add(self, name, units=None, channel=Channel.ASYNC):
+    def _var_add(self, name: str, units: str | None = None, channel: _Channel | str = _Channel.ASYNC) -> None:
         """
         Send a var_add command to the variable server.
 
@@ -998,14 +1006,10 @@ class VariableServer(object):
         channel : Channel
             The channel to affect.
         """
-        self.send(
-            'trick.var_add("{0}"{1})'.format(
-                name, ', "{0}"'.format(units) if units is not None else ""
-            ),
-            channel,
-        )
+        units_text = f', "{units}"' if units is not None else ""
+        self.send(f'trick.var_add("{name}"{units_text})', channel)
 
-    def _var_remove(self, name):
+    def _var_remove(self, name: str) -> None:
         """
         Send a var_remove command to the variable server.
 
@@ -1013,12 +1017,10 @@ class VariableServer(object):
         ----------
         name : str
             The variable's name.
-        channel : Channel
-            The channel to affect.
         """
-        self.send('trick.var_remove("{0}")'.format(name), self.Channel.ASYNC)
+        self.send(f'trick.var_remove("{name}")', self.Channel.ASYNC)
 
-    def _var_send(self, channel=Channel.SYNC):
+    def _var_send(self, channel: _Channel | str = _Channel.SYNC) -> None:
         """
         Send a var_send command to the variable server.
 
@@ -1029,7 +1031,7 @@ class VariableServer(object):
         """
         self.send("trick.var_send()", channel)
 
-    def _read_values(self, synchronous_channel=True):
+    def _read_values(self, synchronous_channel: bool = True) -> list[str]:
         """
         Read a set of variable values.
 
@@ -1055,7 +1057,7 @@ class VariableServer(object):
         _assert_message_type(message, Message.Indicator.VAR_SEND)
         return message.data.split("\t")
 
-    def _read_stl_size(self):
+    def _read_stl_size(self) -> int:
         """
         Read the size of an STL container.
 
@@ -1080,7 +1082,7 @@ class VariableServer(object):
         _assert_value_count(1, len(values))
         return int(values[0])
 
-    def _var_clear(self, channel=Channel.ASYNC):
+    def _var_clear(self, channel: _Channel | str = _Channel.ASYNC) -> None:
         """
         Send a var_clear command to the variable server.
 
@@ -1091,41 +1093,46 @@ class VariableServer(object):
         """
         self.send("trick.var_clear()", channel)
 
-    def close(self):
+    def close(self) -> None:
         """
         Close the connection and release resources. No methods can be
         called after this one. A new connection can be established only
         by creating a new instance.
         """
-        # In Python 3, self._asynchronous_file_interface.close() hangs if
-        # shutdown isn't called first. Something to do with self._thread
-        # always blocking on a read from the asynchronous_socket. I suspect
-        # Python 3's new io module.
+        if not getattr(self, "_open", False):
+            return
+        # self._asynchronous_file_interface.close() hangs if shutdown
+        # isn't called first: self._thread is always blocked on a read
+        # from the asynchronous socket.
         self._open = False
-        self._synchronous_socket.shutdown(socket.SHUT_RDWR)
-        self._asynchronous_socket.shutdown(socket.SHUT_RDWR)
+        for sock in (self._synchronous_socket, self._asynchronous_socket):
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass  # the sim already closed it
         self._synchronous_file_interface.close()
         self._asynchronous_file_interface.close()
         self._synchronous_socket.close()
         self._asynchronous_socket.close()
-        self._thread.join()
+        if self._thread is not threading.current_thread():
+            self._thread.join()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "VariableServer" + str(self._synchronous_socket.getpeername())
 
 
 def find_simulation(
-    host=None,
-    port=None,
-    user=None,
-    pid=None,
-    version=None,
-    sim_directory=None,
-    s_main=None,
-    input_file=None,
-    tag=None,
-    timeout=None,
-):
+    host: str | None = None,
+    port: int | None = None,
+    user: str | None = None,
+    pid: int | None = None,
+    version: str | None = None,
+    sim_directory: str | None = None,
+    s_main: str | None = None,
+    input_file: str | None = None,
+    tag: str | None = None,
+    timeout: float | None = None,
+) -> VariableServer:
     """
     Listen for simulations on the multicast channel over which all sims broadcast
     their existence. Connect to the one that matches the provided arguments that
@@ -1183,7 +1190,7 @@ def find_simulation(
     )
     file_interface = sock.makefile()
 
-    def candidate_matches(candidate):
+    def candidate_matches(candidate: list[str]) -> bool:
         for parameter, candidate_parameter in zip(
             [host, port, user, pid, sim_directory, s_main, input_file, version, tag],
             candidate,
@@ -1212,14 +1219,14 @@ def find_simulation(
         # 8: tag
         candidate = file_interface.readline().split("\t")[:9]
 
-        if not str(sim_directory).startswith("/"):
+        if not str(sim_directory).startswith("/") and len(candidate) > 4:
             candidate[4] = os.path.basename(candidate[4])
 
         if candidate_matches(candidate):
             return VariableServer(candidate[0], candidate[1])
 
 
-def _parse_value(text):
+def _parse_value(text: str) -> tuple[str, str | None]:
     """
     Parse a variable server value with optional units.
 
@@ -1241,7 +1248,7 @@ def _parse_value(text):
     return text, None
 
 
-def _assert_message_type(message, indicator):
+def _assert_message_type(message: Message, indicator: int) -> None:
     """
     Raise an error if the message indicator does not match the expected
     indicator.
@@ -1262,7 +1269,7 @@ def _assert_message_type(message, indicator):
         raise UnexpectedMessageError(indicator, message.indicator)
 
 
-def _assert_units_conversion(name, expected_units, actual_units):
+def _assert_units_conversion(name: str, expected_units: str | None, actual_units: str | None) -> None:
     """
     Raise an error if the actual units do not match the expected units.
 
@@ -1284,7 +1291,7 @@ def _assert_units_conversion(name, expected_units, actual_units):
         raise UnitsConversionError(name, expected_units)
 
 
-def _assert_value_count(expected, actual):
+def _assert_value_count(expected: int, actual: int) -> None:
     """
     Raise an error if actual does not match expected.
 

@@ -218,8 +218,11 @@ namespace Trick
                     r.status = FlushResult::Status::Pending;
                     return r;
                 }
-                r.status = FlushResult::Status::Error;
-                r.note   = "send: " + errno_text(e);
+                r.status        = FlushResult::Status::Error;
+                r.client_closed = (e == EPIPE || e == ECONNRESET);
+                r.note          = (r.client_closed ? "the client closed the connection during a reply (send: "
+                                                   : "send: ")
+                       + errno_text(e) + (r.client_closed ? ")" : "");
                 return r;
             }
             return r;

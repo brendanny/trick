@@ -2,18 +2,14 @@
 # Called by ci.yml. Do not add push/pull_request triggers here.
 #
 # Runs tools/vs-ci.sh in three builds:
-#   plain  conformance suite, SIM_test_varserv, VS unit tests; must pass
+#   plain  VS unit tests, the conformance suite (with every regression test
+#          for the old server's defects), a soak and SIM_test_varserv
 #   asan   the same under AddressSanitizer + UndefinedBehaviorSanitizer
-#   tsan   the same under ThreadSanitizer
+#   tsan   the same under ThreadSanitizer; the soak runs 10 minutes
+#          (8 clients in mixed modes, a checkpoint reload every 10 s)
 #
-# Phase 0: the sanitizer jobs record the old server's reports and do not
-# fail on them (continue-on-error). Later phases make them gates.
-#
-# Phase 5: each build also runs the conformance suite (with every
-# known-defect test, which must pass), SIM_test_varserv and a soak against
-# the rewritten server (TRICK_VS_REWRITE=1). The tsan soak is the Phase 5
-# exit test: 8 clients in mixed modes and a checkpoint reload every 10 s for
-# 10 minutes.
+# All three must pass. A sanitizer report that tools/vs-tsan.supp or the
+# other suppressions in tools/vs-sanitizer-env.sh do not cover fails the job.
 #
 # The core job builds libtrick_var_server on its own (it needs only a C++17
 # compiler and GoogleTest) on each supported floor: GCC 8.5 on Rocky 8, GCC
@@ -163,7 +159,6 @@ jobs:
   vs:
     name: vs ${{ matrix.kind }}
     runs-on: ubuntu-24.04
-    continue-on-error: ${{ matrix.kind != 'plain' }}
     strategy:
       fail-fast: false
       matrix:

@@ -188,8 +188,9 @@ namespace Trick
                     const FlushResult f = _connection->flush();
                     if (f.status == FlushResult::Status::Error)
                     {
+                        // A client that leaves in the middle of a reply is not an error.
                         if (!f.note.empty())
-                            _hooks.log(session, f.note, true);
+                            _hooks.log(session, f.note, !f.client_closed);
                         session.request_exit();
                     }
                 }

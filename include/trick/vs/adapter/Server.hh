@@ -205,11 +205,13 @@ namespace Trick
                     void start_runner(std::unique_ptr<Connection> connection, const std::string& peer_host,
                                       uint16_t peer_port);
                     void reap_runners();
+                    /** Stop every session runner (the server was disabled). Any thread. */
+                    void disconnect_all();
                     void stop_listener();
                     Expected<void> start_listener();
                     Expected<Listener> open_main_listener();
                     void refresh_job_times(bool force, bool retime = false);
-                    /** Run this thread on the listen thread's CPUs (var_server_cpu_set), as the old threads did. */
+                    /** Run this thread on the listen thread's CPUs (get_listen_thread().cpu_set), as the old threads did. */
                     void apply_affinity();
 
                     VariableServer& _vs;

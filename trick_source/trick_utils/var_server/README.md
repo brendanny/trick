@@ -16,8 +16,8 @@ included by a header that ICG or SWIG parses.
 | 2 | `CommandParser` (typed commands or Python fallback), `AsciiEncoder`, `BinaryEncoder`, `Packetizer`, `FixedReply`, `Units`, `CLocale`; golden replay against the Phase 0 captures; libFuzzer targets | done |
 | 3 | `SystemInterface` (syscall seam), `Fd`, `Address`, `AddressFilter` (IPv4, IPv6, CIDR), `Endpoint` (bind-address rules), `LineReader`, `WriteQueue`, `Listener`, `Connection` (TCP, UDP, multicast), `Poller`, `Beacon`, `ListenLoop`; tests on loopback sockets and with a hooked `SystemInterface` | done |
 | 4 | Adapter in `libtrick` (`sim_services/VariableServer/Vs*.cpp`, headers in `include/trick/vs/adapter/`): `MemoryResolver` (REF2 owned by `RefPtr`), staging plans from `ATTRIBUTES`, pointer validation and re-resolving, `Sampler`, `UdUnitsConverter`; `TimeVar` in the core. `VsAdapter_test` replays every golden case on a real Memory Manager. | done |
-| 5 | `Session`, `SessionRunner`, `SessionRegistry`, `TripleBuffer` in the core; the adapter's `Server` (the plan's `VariableServer::Impl`) runs the jobs, the listener and the runners; Python fallback through `ip_parse`; the `var_*` façade reaches the runner's session through a `thread_local`. Selected with `TRICK_VS_REWRITE=1`; the old server stays the default. | done |
-| 6 | Switch-over: remove the old server and the selector | next |
+| 5 | `Session`, `SessionRunner`, `SessionRegistry`, `TripleBuffer` in the core; the adapter's `Server` (the plan's `VariableServer::Impl`) runs the jobs, the listener and the runners; Python fallback through `ip_parse`; the `var_*` façade reaches the runner's session through a `thread_local`. | done |
+| 6 | Switch-over: the old server, `connection_handlers/` and the selector are removed; `VariableServer` forwards to `Server`; the Python client is updated for Python 3.11 | done |
 
 ## Build and test
 
@@ -117,14 +117,14 @@ the old server's rules. It does no I/O and starts no thread:
   Python line fails; `var_server_set_python_commands(False)` (decision 4)
   refuses lines that are not typed commands.
 
-To run the rewritten server in a SIM, set `TRICK_VS_REWRITE=1` in its
-environment. The SIM log then says "the rewritten variable server is
-running". After updating Trick, rebuild a SIM from clean (`make spotless`):
-SIM builds do not notice changes to Trick headers, and `VariableServer` has a
-new member.
+After updating Trick, rebuild a SIM from clean (`make spotless`): SIM
+builds do not notice changes to Trick headers, and `VariableServer` changed.
 
 `test/SIM_vs_conformance/soak/vs_soak.py` runs 8 clients in every copy and
 write mode while a control client reloads a checkpoint every 10 s.
+
+`docs/developer_docs/Variable-Server.md` describes how the core and the
+adapter fit together.
 
 ## Rules
 

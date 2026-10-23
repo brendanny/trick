@@ -10,18 +10,17 @@
 #
 # Exit status:
 #   plain  non-zero if any test fails
-#   asan, tsan  non-zero if any test fails for a reason other than a
-#          sanitizer report. Sanitizer reports are the Phase 0 baseline:
-#          they are summarized, not failed on. Set VS_CI_FAIL_ON_REPORTS=1
-#          to fail on them.
+#   asan, tsan  non-zero if any test fails or any sanitizer report remains
+#          after the suppressions (tools/vs-sanitizer-env.sh). Set
+#          VS_CI_FAIL_ON_REPORTS=0 to summarize reports without failing.
 #
 # Environment:
 #   VS_PYTHON            Python 3.11+ for the test harness (default: python3)
 #   VS_CONF_SIM_WRAPPER  command that starts each SIM, for example
 #                        "setarch x86_64 -R" for TSan on kernels with high
 #                        ASLR entropy
-#   VS_SOAK_MINUTES      length of the soak of the rewritten server (default 2;
-#                        the Phase 5 exit test is 10 under tsan)
+#   VS_SOAK_MINUTES      length of the soak (default 2; CI runs 10 under tsan)
+#   VS_CI_FAIL_ON_REPORTS  1 (default) to fail on sanitizer reports
 
 set -uo pipefail
 
@@ -137,7 +136,12 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     [[ -f "$out/sanitizer-summary.md" ]] && cat "$out/sanitizer-summary.md" >> "$GITHUB_STEP_SUMMARY"
 fi
 
-if [[ "${VS_CI_FAIL_ON_REPORTS:-0}" == 1 && $reports -gt 0 ]]; then
+if [[ "$kind" != plain && ! -f "$out/sanitizer-summary.md" ]]; then
+    echo "The sanitizer summary was not written; failing." >&2
+    failures=$((failures + 1))
+fi
+if [[ "${VS_CI_FAIL_ON_REPORTS:-1}" == 1 && $reports -gt 0 ]]; then
+    echo "$reports sanitizer report signature(s); see $out/sanitizer-summary.md." >&2
     failures=$((failures + 1))
 fi
 [[ $failures -eq 0 ]]

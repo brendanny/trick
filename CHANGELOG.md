@@ -1,5 +1,32 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Replace the variable server with a C++17 implementation: a core library, `libtrick_var_server`, with no Trick dependency, and an adapter in `libtrick`. The commands, reply bytes, beacon, S_define jobs and checkpointed settings are unchanged, and old checkpoints load. Typed commands run when they arrive instead of once per `var_cycle`. See "Changes in the C++17 variable server" in the variable server documentation for the behavior that changed on purpose. **Rebuild each simulation from clean (`make spotless`) after updating Trick.**
+- Update the Python variable server client (`trick.variable_server`) for Python 3.11, with type hints, a dataclass `Variable` and `enum` types for `Channel`, `CopyMode` and `Message.Indicator`. Its public API is unchanged.
+- `var_server_create_tcp_socket`, `var_server_create_udp_socket` and `var_server_create_multicast_socket` return non-zero on failure.
+- `"127.0.0.1"` as a source address binds the loopback interface only, for UDP and multicast sockets too.
+
+### Added
+
+- `var_send_ip_errors(bool)`: send a client's Python errors to it as `VS_IP_ERROR` (-1) messages.
+- `var_server_set_python_commands(bool)` and `var_server_get_python_commands()`: turn off the Python fallback, so only variable server commands run.
+- IPv6 variable server sockets, selected with a numeric IPv6 source address such as `"::"`.
+
+### Removed
+
+- Remove `trick_source/trick_utils/connection_handlers` (`libtrick_connection_handlers`), `VariableServerSession`, `VariableReference` and the per-client `VariableServerSessionThread` objects, with `VariableServer::get_vst` and `get_session`.
+
+### Deprecated
+
+- `JSONVariableServer`.
+
+### Fixed
+
+- Fix variable server defects found by the new conformance suite: buffer overflows with long strings and short-based enums, byteswap errors for strings, pointers and bitfields, a divide by zero after `var_cycle(0)`, a stalled session after a long command with no newline, reads of freed memory after an STL container moves its elements, and races between `var_add`/`var_clear` and the main thread's copy.
+
 ## [25.1.1] - 2026-09-04
 
 ### Changed

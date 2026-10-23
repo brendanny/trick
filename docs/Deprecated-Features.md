@@ -13,3 +13,9 @@ Deprecated: 19
 To be Removed: 21
 
 Moving this environment variable to conform to the rest of the world.  In 19 if TRICK_CPPC is found in the environment a warning is emitted and the variable is used.  In 21, the variable will no longer be recognized.
+### JSONVariableServer
+
+Deprecated: the first release after 25.1 (with the C++17 variable server)
+To be Removed: the release after that
+
+The JSON variable server (`trick_jsonvs.vs`) has no IP allowlist, so any host that can reach its port can run commands, and its request parser has a known stack overflow. Use the variable server or the web server instead.
