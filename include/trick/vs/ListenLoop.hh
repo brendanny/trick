@@ -78,6 +78,15 @@ namespace Trick
 
                 const std::vector<Listener>& listeners() const noexcept { return _listeners; }
 
+                /** Give the listeners back, in the order they were added. Only while run() is not running. */
+                std::vector<Listener> take_listeners() noexcept
+                {
+                    std::vector<Listener> out = std::move(_listeners);
+                    _listeners.clear();
+                    _items.clear();
+                    return out;
+                }
+
                 void set_beacon_period(std::chrono::milliseconds period) noexcept { _beacon_period = period; }
 
                 /**

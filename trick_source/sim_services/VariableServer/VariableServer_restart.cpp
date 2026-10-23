@@ -1,10 +1,15 @@
 
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 #include "trick/message_proto.h"
 #include "trick/message_type.h"
 #include "trick/tc_proto.h"
 
 int Trick::VariableServer::restart() {
+    if (impl != NULL) {
+        return impl->server->restart();
+    }
+
     listen_thread.restart() ;
     if ( listen_thread.get_pthread_id() == 0 ) {
         listen_thread.create_thread() ;
@@ -26,6 +31,10 @@ int Trick::VariableServer::restart() {
 
 // Suspend variable server processing prior to reloading a checkpoint.
 int Trick::VariableServer::suspendPreCheckpointReload() {
+    if (impl != NULL) {
+        return impl->server->suspend_pre_checkpoint_reload();
+    }
+
 
     // Pause listening on all listening threads
     listen_thread.pause_listening() ;
@@ -45,6 +54,10 @@ int Trick::VariableServer::suspendPreCheckpointReload() {
 
 // Resume variable server processing after reloading a MemoryManager (ASCII) checkpoint.
 int Trick::VariableServer::resumePostCheckpointReload() {
+    if (impl != NULL) {
+        return impl->server->resume_post_checkpoint_reload();
+    }
+
     std::map<pthread_t, VariableServerSessionThread*>::iterator pos ;
 
     // Resume all session threads

@@ -160,8 +160,12 @@ std::string Trick::ExternalApplication::create_arguments_string() {
     std::ostringstream oss;
 
     switch (host_source) {
-        case AUTO:
-            host = var_server_get_hostname();
+        case AUTO: {
+            // var_server_get_hostname() returns a copy the caller frees.
+            const char * vs_host = var_server_get_hostname();
+            host = vs_host != NULL ? vs_host : "";
+            free((void *)vs_host);
+        }
         case USER:
             oss << " --host " << host;
         case NONE:

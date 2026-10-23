@@ -8,8 +8,32 @@
 #include "trick/message_type.h"
 #include "trick/memorymanager_c_intf.h"
 #include "trick/map_trick_units_to_udunits.hh"
+#include "trick/vs/adapter/Server.hh"
+
+#include <atomic>
 
 extern Trick::VariableServer * the_vs ;
+
+namespace {
+    /*
+     * Rewrite Phase 5: when Python runs a line for a session of the rewritten server, the
+     * runner thread's current session takes the command, typed as the parser would type it.
+     * Otherwise (the old server, or no session on this thread) the old code below runs.
+     */
+    bool run_in_session(const Trick::vs::Command& command) {
+        Trick::vs::Session * session = Trick::vs::adapter::Server::current_session();
+        if (session == NULL) {
+            return false;
+        }
+        session->execute(command);
+        return true;
+    }
+
+    // var_server_set_python_commands (decision 4): on by default.
+    std::atomic<bool> python_commands(true);
+}
+
+namespace cmd = Trick::vs::cmd;
 
 Trick::VariableServerSessionThread * get_vst() {
     return the_vs->get_vst(pthread_self()) ;
@@ -20,6 +44,9 @@ Trick::VariableServerSession * get_session() {
 }
 
 int var_add(std::string in_name) {
+    if (run_in_session(cmd::VarAdd { in_name, std::nullopt })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -29,6 +56,9 @@ int var_add(std::string in_name) {
 }
 
 int var_add(std::string in_name, std::string in_units) {
+    if (run_in_session(cmd::VarAdd { in_name, in_units })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -38,6 +68,9 @@ int var_add(std::string in_name, std::string in_units) {
 }
 
 int var_remove(std::string in_name) {
+    if (run_in_session(cmd::VarRemove { in_name })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -47,6 +80,9 @@ int var_remove(std::string in_name) {
 }
 
 int var_units(std::string var_name , std::string units_name) {
+    if (run_in_session(cmd::VarUnits { var_name, units_name })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -56,6 +92,9 @@ int var_units(std::string var_name , std::string units_name) {
 }
 
 int var_exists(std::string in_name) {
+    if (run_in_session(cmd::VarExists { in_name })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -66,6 +105,9 @@ int var_exists(std::string in_name) {
 
 int var_get_stl_size(std::string in_name)
 {
+    if (run_in_session(cmd::VarGetStlSize { in_name })) {
+        return 0;
+    }
     Trick::VariableServerSession *session = get_session();
 
     if (session != NULL)
@@ -76,6 +118,9 @@ int var_get_stl_size(std::string in_name)
 }
 
 int var_send_once(std::string in_name) {
+    if (run_in_session(cmd::VarSendOnce { in_name, std::nullopt })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -85,6 +130,9 @@ int var_send_once(std::string in_name) {
 }
 
 int var_send_once(std::string in_name, int num) {
+    if (run_in_session(cmd::VarSendOnce { in_name, num })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -94,6 +142,9 @@ int var_send_once(std::string in_name, int num) {
 }
 
 int var_send() {
+    if (run_in_session(cmd::VarSend {})) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -103,6 +154,9 @@ int var_send() {
 }
 
 int var_clear() {
+    if (run_in_session(cmd::VarClear {})) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -114,6 +168,9 @@ int var_clear() {
 }
 
 int var_cycle(double in_rate) {
+    if (run_in_session(cmd::VarCycle { in_rate })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -123,6 +180,9 @@ int var_cycle(double in_rate) {
 }
 
 int var_pause() {
+    if (run_in_session(cmd::VarPause {})) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -133,6 +193,9 @@ int var_pause() {
 }
 
 int var_unpause() {
+    if (run_in_session(cmd::VarUnpause {})) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -143,6 +206,9 @@ int var_unpause() {
 }
 
 int var_exit() {
+    if (run_in_session(cmd::VarExit {})) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -152,6 +218,9 @@ int var_exit() {
 }
 
 int var_validate_address(int on_off) {
+    if (run_in_session(cmd::VarValidateAddress { on_off != 0 })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -161,6 +230,9 @@ int var_validate_address(int on_off) {
 }
 
 int var_debug(int level) {
+    if (run_in_session(cmd::VarDebug { level })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -170,6 +242,9 @@ int var_debug(int level) {
 }
 
 int var_ascii() {
+    if (run_in_session(cmd::VarAscii {})) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -179,6 +254,9 @@ int var_ascii() {
 }
 
 int var_binary() {
+    if (run_in_session(cmd::VarBinary {})) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -193,6 +271,9 @@ int var_retry_bad_ref() {
 }
 
 int var_binary_nonames() {
+    if (run_in_session(cmd::VarBinaryNoNames {})) {
+        return 0;
+    }
     Trick::VariableServerSession * session  = get_session();
 
     if (session != NULL ) {
@@ -202,6 +283,9 @@ int var_binary_nonames() {
 }
 
 int var_set_copy_mode(int mode) {
+    if (run_in_session(cmd::VarSetCopyMode { mode })) {
+        return 0;
+    }
     Trick::VariableServerSession * session = get_session();
 
     if (session != NULL ) {
@@ -215,6 +299,9 @@ int var_set_copy_mode(int mode) {
 }
 
 int var_set_write_mode(int mode) {
+    if (run_in_session(cmd::VarSetWriteMode { mode })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->var_set_write_mode(mode) ;
@@ -223,6 +310,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int var_set_send_stdio(int mode) {
+    if (run_in_session(cmd::VarSetSendStdio { mode != 0 })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->set_send_stdio((bool)mode) ;
@@ -231,6 +321,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int var_sync(int mode) {
+    if (run_in_session(cmd::VarSync { mode })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->var_sync(mode) ;
@@ -243,6 +336,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int var_set_frame_multiple(unsigned int mult) {
+    if (run_in_session(cmd::VarSetFrameMultiple { mult })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->var_set_frame_multiple(mult) ;
@@ -251,6 +347,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int var_set_frame_offset(unsigned int offset) {
+    if (run_in_session(cmd::VarSetFrameOffset { offset })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->var_set_frame_offset(offset) ;
@@ -259,6 +358,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int var_set_freeze_frame_multiple(unsigned int mult) {
+    if (run_in_session(cmd::VarSetFreezeFrameMultiple { mult })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->var_set_freeze_frame_multiple(mult) ;
@@ -267,6 +369,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int var_set_freeze_frame_offset(unsigned int offset) {
+    if (run_in_session(cmd::VarSetFreezeFrameOffset { offset })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->var_set_freeze_frame_offset(offset) ;
@@ -275,6 +380,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int var_byteswap(bool on_off) {
+    if (run_in_session(cmd::VarByteswap { on_off })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->var_byteswap(on_off) ;
@@ -283,6 +391,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int var_write_stdio(int stream , std::string text ) {
+    if (run_in_session(cmd::VarWriteStdio { stream, text })) {
+        return 0;
+    }
     // std::cout << "Executing var_write_stdio" << std::endl;
     Trick::VariableServerSession * session = get_session();
     if (session != NULL and session->get_send_stdio() == true) {
@@ -298,6 +409,9 @@ int var_write_stdio(int stream , std::string text ) {
 }
 
 int var_set_client_tag( std::string text ) {
+    if (run_in_session(cmd::VarSetClientTag { text })) {
+        return 0;
+    }
     Trick::VariableServerSessionThread * vst = get_vst();
     if (vst != NULL) {
 
@@ -312,6 +426,9 @@ int var_set_client_tag( std::string text ) {
 }
 
 int var_send_list_size() {
+    if (run_in_session(cmd::VarSendListSize {})) {
+        return 0;
+    }
 
     Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
@@ -321,6 +438,9 @@ int var_send_list_size() {
 }
 
 int send_sie_resource() {
+    if (run_in_session(cmd::SendSieResource {})) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->send_sie_resource() ;
@@ -329,6 +449,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int send_sie_class() {
+    if (run_in_session(cmd::SendSieClass {})) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->send_sie_class() ;
@@ -337,6 +460,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int send_sie_enum() {
+    if (run_in_session(cmd::SendSieEnum {})) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         session->send_sie_enum() ;
@@ -345,6 +471,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int send_sie_top_level_objects() {
+    if (run_in_session(cmd::SendSieTopLevelObjects {})) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         return session->send_sie_top_level_objects() ;
@@ -353,6 +482,9 @@ Trick::VariableServerSession * session = get_session();
 }
 
 int send_file(std::string file_name) {
+    if (run_in_session(cmd::SendFile { file_name })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         return session->send_file(file_name) ;
@@ -363,6 +495,9 @@ Trick::VariableServerSession * session = get_session();
 
 // Command to turn on log to playback file
 int var_server_log_on() {
+    if (run_in_session(cmd::VarServerLog { true })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         return session->set_log(true) ;
@@ -372,6 +507,9 @@ Trick::VariableServerSession * session = get_session();
 
 // Command to turn off log to playback file
 int var_server_log_off() {
+    if (run_in_session(cmd::VarServerLog { false })) {
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         return session->set_log(false) ;
@@ -381,6 +519,10 @@ Trick::VariableServerSession * session = get_session();
 
 // Command to turn on log to playback file
 int var_server_session_log_on() {
+    if (Trick::vs::Session * vs_session = Trick::vs::adapter::Server::current_session()) {
+        vs_session->set_server_session_log(true);
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         return session->set_session_log(true) ;
@@ -390,6 +532,10 @@ Trick::VariableServerSession * session = get_session();
 
 // Command to turn off log to playback file
 int var_server_session_log_off() {
+    if (Trick::vs::Session * vs_session = Trick::vs::adapter::Server::current_session()) {
+        vs_session->set_server_session_log(false);
+        return 0;
+    }
 Trick::VariableServerSession * session = get_session();
     if (session != NULL ) {
         return session->set_session_log(false) ;
@@ -458,6 +604,9 @@ extern "C" const char * var_server_get_user_tag(void) {
  */
 extern "C" void var_server_set_user_tag(const char * in_tag) {
     the_vs->get_listen_thread().set_user_tag(std::string(in_tag));
+    if (Trick::vs::adapter::Server * server = Trick::vs::adapter::Server::active()) {
+        server->config_changed();
+    }
 }
 
 /**
@@ -484,8 +633,8 @@ extern "C" void var_server_set_enabled(int on_off) {
  * C wrapper Trick::VariableServer::create_udp_socket
  */
 extern "C" int var_server_create_tcp_socket(const char * source_address, unsigned short port) {
-    the_vs->create_tcp_socket(source_address, port) ;
-    return 0 ;
+    // The old server returns 0 even on failure; the rewritten one returns non-zero (change on purpose).
+    return the_vs->create_tcp_socket(source_address, port) ;
 }
 
 /**
@@ -494,8 +643,8 @@ extern "C" int var_server_create_tcp_socket(const char * source_address, unsigne
  * C wrapper Trick::VariableServer::create_udp_socket
  */
 extern "C" int var_server_create_udp_socket(const char * source_address, unsigned short port) {
-    the_vs->create_udp_socket(source_address, port) ;
-    return 0 ;
+    // The old server returns 0 even on failure; the rewritten one returns non-zero (change on purpose).
+    return the_vs->create_udp_socket(source_address, port) ;
 }
 
 /**
@@ -569,18 +718,47 @@ int var_set_base( const char  * var , T value , const char * units ) {
 }
 
 int var_set( const char  * var , double value , const char * units ) {
+    if (Trick::vs::adapter::Server * server = Trick::vs::adapter::Server::active()) {
+        cmd::VarSet c { var != NULL ? var : "", cmd::SetValue(value), std::nullopt };
+        if (units != NULL) {
+            c.units = std::string(units);
+        }
+        return server->var_set(c);
+    }
     return var_set_base(var, value, units) ;
 }
 
 int var_set( const char  * var , long long value , const char * units ) {
+    if (Trick::vs::adapter::Server * server = Trick::vs::adapter::Server::active()) {
+        cmd::VarSet c { var != NULL ? var : "", cmd::SetValue(value), std::nullopt };
+        if (units != NULL) {
+            c.units = std::string(units);
+        }
+        return server->var_set(c);
+    }
     return var_set_base(var, value, units) ;
 }
 
 int var_set( const char  * var , const char * value , const char * units ) {
+    if (Trick::vs::adapter::Server * server = Trick::vs::adapter::Server::active()) {
+        cmd::VarSet c { var != NULL ? var : "", value != NULL ? cmd::SetValue(std::string(value)) : cmd::SetValue(cmd::NoneValue {}), std::nullopt };
+        if (units != NULL) {
+            c.units = std::string(units);
+        }
+        return server->var_set(c);
+    }
     return var_set_base(var, value, units) ;
 }
 
 int var_set( const char  * var , void * value , const char * units ) {
+    Trick::vs::adapter::Server * server = Trick::vs::adapter::Server::active();
+    if (server != NULL && value == NULL) {
+        cmd::VarSet c { var != NULL ? var : "", cmd::SetValue(cmd::NoneValue {}), std::nullopt };
+        if (units != NULL) {
+            c.units = std::string(units);
+        }
+        return server->var_set(c);
+    }
     return var_set_base(var, value, units) ;
 }
 
@@ -615,3 +793,21 @@ int var_get_ip_check_bypass() { return the_vs->get_bypass_ip_check(); }
 void var_add_ip(const std::string& ip) { the_vs->add_ip(ip); }
 
 void var_remove_ip(const std::string& ip) { the_vs->remove_ip(ip); }
+
+// Rewrite decision 3: opt in to VS_IP_ERROR replies. The old server has no such reply.
+int var_send_ip_errors(bool on_off) {
+    run_in_session(cmd::VarSendIpErrors { on_off });
+    return 0;
+}
+
+// Rewrite decision 4: turn the Python fallback off (typed commands only). The old server ignores it.
+void var_server_set_python_commands(bool on_off) {
+    python_commands.store(on_off);
+    if (Trick::vs::adapter::Server * server = Trick::vs::adapter::Server::active()) {
+        server->set_python_commands(on_off);
+    }
+}
+
+bool var_server_get_python_commands() {
+    return python_commands.load();
+}

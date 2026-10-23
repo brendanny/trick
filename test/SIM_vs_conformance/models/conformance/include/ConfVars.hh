@@ -58,6 +58,10 @@ class ConfVars
         int init();
         int shutdown();
 
+        /* Append `count` elements to vec, so it moves its elements, then set vec[0] to `first`.
+           For test_stl_element_after_the_vector_moves. */
+        void grow_vec(int count, double first);
+
         /* Scalars, one per TRICK_TYPE */
         char c;                 /* -- char */
         signed char sc;         /* -- signed char */

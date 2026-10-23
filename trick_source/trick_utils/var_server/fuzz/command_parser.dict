@@ -22,6 +22,7 @@
 "var_binary"
 "var_binary_nonames"
 "var_byteswap"
+"var_send_ip_errors"
 "var_validate_address"
 "var_debug"
 "var_set_client_tag"

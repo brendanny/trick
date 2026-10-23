@@ -3,11 +3,16 @@
 #include <sys/time.h>
 
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 #include "trick/variable_server_proto.h"
 #include "trick/variable_server_sync_types.h"
 #include "trick/TrickConstant.hh"
 
 int Trick::VariableServer::freeze_init() {
+    if (impl != NULL) {
+        return impl->server->freeze_init();
+    }
+
 
     long long next_call_tics = TRICK_MAX_LONG_LONG ;
 

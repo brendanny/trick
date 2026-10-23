@@ -22,6 +22,18 @@
 #include <string>
 #include <vector>
 
+#ifndef SWIG
+namespace Trick {
+namespace vs {
+namespace adapter {
+// The rewritten server (rewrite Phase 5). Defined in trick/vs/adapter/Server.hh,
+// which ICG and SWIG never parse.
+struct ServerHandle;
+}
+}
+}
+#endif
+
 namespace Trick {
 
 /**
@@ -383,6 +395,11 @@ received.
 
     /** Skip checks against allowlist. Allow any connections to VS. UNSECURE MODE.\n */
     bool bypass_ip_check;
+
+#ifndef SWIG
+    /** The rewritten server when TRICK_VS_REWRITE=1 selects it (rewrite Phase 5), else null.\n */
+    Trick::vs::adapter::ServerHandle* impl; /**< trick_io(**) trick_units(--) */
+#endif
 };
 }
 
@@ -449,5 +466,12 @@ int var_set_ip_check_bypass(bool b);
 int var_get_ip_check_bypass();
 void var_add_ip(const std::string& ip);
 void var_remove_ip(const std::string& ip);
+
+// Rewrite decisions 3 and 4 (used by the rewritten server; the old server ignores them).
+// var_send_ip_errors: send a VS_IP_ERROR (-1) reply when a Python line from this client fails.
+int var_send_ip_errors(bool on_off);
+// var_server_set_python_commands: false runs only typed var_* commands; other lines are refused.
+void var_server_set_python_commands(bool on_off);
+bool var_server_get_python_commands();
 
 #endif

@@ -58,6 +58,7 @@ namespace Trick
             const char* name_of(const cmd::VarBinaryNoNames&) noexcept { return "var_binary_nonames"; }
 
             const char* name_of(const cmd::VarByteswap&) noexcept { return "var_byteswap"; }
+            const char* name_of(const cmd::VarSendIpErrors&) noexcept { return "var_send_ip_errors"; }
 
             const char* name_of(const cmd::VarValidateAddress&) noexcept { return "var_validate_address"; }
 

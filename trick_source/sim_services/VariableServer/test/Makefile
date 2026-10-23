@@ -24,7 +24,7 @@ TRICK_CXXFLAGS += -I$(GTEST_HOME)/include -I$(TRICK_HOME)/include -g -Wno-sign-c
 # So just list the libraries once. If we run into circular dependency issues in the future, we may need to explore
 # other options or list the libraries multiple times. 
 # For reference, neither -all_load nor -force_load is meant to resolve circular dependencies for macOS.
-TRICK_LIB_NAMES = trick_mm trick_units trick_comm trick_pyip trick trick_var_binary_parser trick_connection_handlers
+TRICK_LIB_NAMES = trick_mm trick_units trick_comm trick_pyip trick trick_var_binary_parser trick_connection_handlers trick_var_server
 ifeq ($(TRICK_HOST_TYPE),Linux)
     TRICK_LIBS = -L${TRICK_LIB_DIR} -Wl,--start-group $(addprefix -l,$(TRICK_LIB_NAMES)) -Wl,--end-group
 else ifeq ($(TRICK_HOST_TYPE),Darwin)
@@ -113,7 +113,7 @@ $(OBJ_DIR)/io_VsAdapterTypes.o: VsAdapterTypes.hh $(CONF_MODEL)/conformance/incl
 $(OBJ_DIR)/ConfVars.o: $(CONF_MODEL)/conformance/src/ConfVars.cpp | $(OBJ_DIR)
 	$(TRICK_CXX) $(TRICK_CXXFLAGS) -I$(CONF_MODEL) -c $< -o $@
 
-$(OBJ_DIR)/VsAdapter_test.o: VsAdapter_test.cc VsAdapterTypes.hh $(VS_CORE_TEST_DIR)/GoldenReplay.hh $(VS_CORE_TEST_DIR)/golden_cases.inc | $(OBJ_DIR)
+$(OBJ_DIR)/VsAdapter_test.o: VsAdapter_test.cc VsAdapterTypes.hh $(VS_CORE_TEST_DIR)/GoldenReplay.hh $(VS_CORE_TEST_DIR)/SessionHarness.hh $(VS_CORE_TEST_DIR)/golden_cases.inc | $(OBJ_DIR)
 	$(TRICK_CXX) $(TRICK_CXXFLAGS) $(VS_ADAPTER_FLAGS) -c $< -o $@
 
 VsAdapter_test: $(OBJ_DIR)/VsAdapter_test.o $(OBJ_DIR)/io_VsAdapterTypes.o $(OBJ_DIR)/io_ConfVars.o $(OBJ_DIR)/ConfVars.o

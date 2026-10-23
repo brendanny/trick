@@ -98,7 +98,11 @@ int parent_http_handler(struct mg_connection* conn, void *data) {
 
 void handle_HTTP_GET_vs_connections(struct mg_connection* conn, void *cbdata) {
     std::stringstream ss;
-    ss << *the_vs << std::endl;
+    if (the_vs != NULL) {
+        ss << *the_vs << std::endl;
+    } else {
+        ss << "{\"variable_server_connections\":[\n]}" << std::endl;
+    }
     std::string someJSON = ss.str();
 
     http_send_ok(conn, someJSON.c_str(), someJSON.length(), 100);

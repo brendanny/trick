@@ -43,6 +43,12 @@ namespace Trick {
             bool get_broadcast() ;
             void set_broadcast(bool in_broadcast) ;
 
+            /** True if the input file set the port or source address (var_server_set_port, ...). */
+            bool get_user_requested_address() ;
+
+            /** Record the address a listen socket was bound to, as init_listen_device does (rewrite Phase 5). */
+            void set_bound_address(const std::string& hostname, unsigned short port) ;
+
             virtual int init_listen_device() ;
             virtual int check_and_move_listen_device() ;
 

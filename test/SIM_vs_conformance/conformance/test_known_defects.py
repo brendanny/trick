@@ -2,8 +2,10 @@
 
 Each test starts its own SIM, because the defect can crash it or damage its
 memory. They run only with --run-known-defects. They are expected to fail
-on the old server (xfail) and to pass after the rewrite. When a test passes,
-remove its xfail mark in the same change that fixes the defect.
+on the old server (xfail) and to pass after the rewrite. With
+TRICK_VS_REWRITE=1 the SIM runs the rewritten server (Phase 5), and every
+test here must pass: the xfail marks apply only to the old server. Phase 6
+removes the old server and these marks.
 
 Run them under ASan to see the memory errors that do not crash the SIM:
 see ../README.md.
@@ -15,10 +17,13 @@ import struct
 import time
 
 import pytest
-from conftest import HOST
+from conftest import HOST, rewrite_selected
 from vsclient import RawSession
 
 pytestmark = [pytest.mark.known_defect]
+
+# The marks below expect a failure only from the old server.
+OLD_SERVER = not rewrite_selected()
 
 P = "conf.vars."
 
@@ -34,6 +39,7 @@ def assert_alive(sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="strings of 4096 bytes or more overflow the stage buffer (VariableReference.cpp stageValue)"
 )
 def test_long_string_ascii(fresh_sim) -> None:
@@ -46,6 +52,7 @@ def test_long_string_ascii(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="ASCII runs strlen past a char array with no NUL (VariableReference.cpp write_escaped_string)"
 )
 def test_char_array_without_nul_ascii(fresh_sim) -> None:
@@ -60,6 +67,7 @@ def test_char_array_without_nul_ascii(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="ASCII reads every enum as a 4-byte int, past a short enum's buffer (VariableReference.cpp writeValueAscii)"
 )
 def test_short_enum_ascii(fresh_sim) -> None:
@@ -72,6 +80,7 @@ def test_short_enum_ascii(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="byteswap swaps the declared array length for one element (VariableReference.cpp byteswap_var)"
 )
 def test_byteswap_indexed_element(fresh_sim) -> None:
@@ -91,6 +100,7 @@ def test_byteswap_indexed_element(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="var_cycle(0) then scheduled copy mode divides by zero (VariableServerSession_commands.cpp)"
 )
 def test_cycle_zero_then_scheduled(fresh_sim) -> None:
@@ -103,6 +113,7 @@ def test_cycle_zero_then_scheduled(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="a command of 200 KB or more with no newline stalls the session (TCPConnection::read)"
 )
 def test_long_command_without_newline(fresh_sim) -> None:
@@ -115,6 +126,7 @@ def test_long_command_without_newline(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="var_add and var_clear change the list while the main thread copies it"
 )
 def test_list_changes_during_scheduled_copy(fresh_sim) -> None:
@@ -151,6 +163,7 @@ def test_list_changes_during_scheduled_copy(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="byteswap sends char*, std::string and wchar_t* values as zeros (VariableReference.cpp byteswap_var)"
 )
 def test_byteswap_strings(fresh_sim) -> None:
@@ -172,6 +185,7 @@ def test_byteswap_strings(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="byteswap counts the declared dimensions, so an element reached through a pointer is zeros"
 )
 def test_byteswap_pointer_element(fresh_sim) -> None:
@@ -185,7 +199,7 @@ def test_byteswap_pointer_element(fresh_sim) -> None:
     assert reply == struct.pack(">iii", 0, 12 + len(body) - 4, 1) + body
 
 
-@pytest.mark.xfail(reason="byteswap sends a bitfield value in host byte order")
+@pytest.mark.xfail(OLD_SERVER, reason="byteswap sends a bitfield value in host byte order")
 def test_byteswap_bitfield(fresh_sim) -> None:
     with RawSession(HOST, fresh_sim.port) as s:
         reply = s.run_case(
@@ -198,6 +212,7 @@ def test_byteswap_bitfield(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="an unindexed pointer stages nothing: get_size() is asked about the pointer's own address"
 )
 def test_unindexed_pointer(fresh_sim) -> None:
@@ -210,6 +225,7 @@ def test_unindexed_pointer(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    OLD_SERVER,
     reason="a char array reached through std::vector<T*> comes back as its first character"
 )
 def test_vector_of_pointers_char_array(fresh_sim) -> None:
@@ -219,3 +235,17 @@ def test_vector_of_pointers_char_array(fresh_sim) -> None:
         )
     assert_alive(fresh_sim)
     assert reply == b"0\tlabel 1\n"
+
+
+@pytest.mark.xfail(
+    OLD_SERVER,
+    reason="an STL element keeps its first address; after the vector moves its elements, it is read from freed memory"
+)
+def test_stl_element_after_the_vector_moves(fresh_sim) -> None:
+    with RawSession(HOST, fresh_sim.port) as s:
+        before = s.run_case(f'trick.var_pause()\ntrick.var_add("{P}vec[0]")\ntrick.var_send()\n')
+        # Grow the vector far past its capacity, so it moves its elements, then change element 0.
+        after = s.run_case("conf.vars.grow_vec(4096, 42.0)\ntrick.var_send()\n")
+    assert_alive(fresh_sim)
+    assert before == b"0\t1.5\n"
+    assert after == b"0\t42\n"

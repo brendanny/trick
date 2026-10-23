@@ -64,8 +64,10 @@ int Trick::Executive::shutdown() {
         }
     }
 
-    /* Stop new connections to the Variable Server. */
-    the_vs->shutdownConnections();
+    /* Stop new connections to the Variable Server. A sim may have no variable server. */
+    if (the_vs != NULL) {
+        the_vs->shutdownConnections();
+    }
 
     try {
 

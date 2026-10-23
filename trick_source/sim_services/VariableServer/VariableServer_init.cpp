@@ -1,8 +1,13 @@
 
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 #include "trick/exec_proto.hh"
 
 int Trick::VariableServer::init() {
+    if (impl != NULL) {
+        return impl->server->init();
+    }
+
     /* Start up the listen thread for the input processor variable server.
        The thread is started whenever the variable server is enabled OR broadcasting
        is on (broadcast defaults on). This lets a sim announce itself on the multicast

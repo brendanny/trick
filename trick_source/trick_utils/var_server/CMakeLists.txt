@@ -28,6 +28,9 @@ set(TRICK_VS_SOURCES
     Packetizer.cpp
     Poller.cpp
     Schedule.cpp
+    Session.cpp
+    SessionRegistry.cpp
+    SessionRunner.cpp
     Snapshot.cpp
     SystemInterface.cpp
     TimeVar.cpp
@@ -56,6 +59,10 @@ else()
         find_package(GTest REQUIRED)
     endif()
 endif()
+
+# Session runners are std::threads.
+find_package(Threads REQUIRED)
+target_link_libraries(trick_var_server PUBLIC Threads::Threads)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(trick_var_server PRIVATE -Wall -Wextra -Wpedantic)

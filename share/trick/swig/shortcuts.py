@@ -81,16 +81,44 @@ if hasattr(top.cvar, 'trick_vs'):
     set_var_server_log_off = top.cvar.trick_vs.vs.set_var_server_log_off
     var_server_cpu_set = top.cvar.trick_vs.vs.get_listen_thread().cpu_set
 
-    # Send all output to stdout/stderr through var_write_stdio.
+    # Send all output to stdout/stderr through var_write_stdio. A variable server
+    # session that asked for stdio (var_set_send_stdio) gets the text; otherwise it
+    # goes to the sim's own stdout or stderr. The rewritten server also keeps the
+    # stderr text of a failed command for its session log (rewrite Phase 5).
     class VarWriteStdio:
         def __init__(self, in_stream):
             self.stream = in_stream
         def write(self, text):
-            trick.var_write_stdio(self.stream.fileno() , text)
+            text = str(text)
+            trick.var_write_stdio(self.stream.fileno(), text)
+            return len(text)
+        def writelines(self, lines):
+            for line in lines:
+                self.write(line)
         def flush(self):
             self.stream.flush()
+        def fileno(self):
+            return self.stream.fileno()
+        def isatty(self):
+            return False
+        def writable(self):
+            return True
+        def readable(self):
+            return False
+        @property
+        def encoding(self):
+            return getattr(self.stream, 'encoding', 'utf-8')
+        @property
+        def errors(self):
+            return getattr(self.stream, 'errors', 'strict')
+        def __getattr__(self, name):
+            return getattr(self.stream, name)
     sys.stdout = VarWriteStdio(sys.stdout)
     sys.stderr = VarWriteStdio(sys.stderr)
+
+    # Rewrite decision 4: run only typed var_* commands from clients (Python lines are refused).
+    set_var_server_python_commands = trick.var_server_set_python_commands
+    get_var_server_python_commands = trick.var_server_get_python_commands
 
 # from real time injector
 if hasattr(top.cvar, 'trick_inject'):

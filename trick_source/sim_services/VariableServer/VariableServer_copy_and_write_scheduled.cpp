@@ -3,9 +3,14 @@
 #include <sys/time.h>
 
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 #include "trick/TrickConstant.hh"
 
 int Trick::VariableServer::copy_and_write_scheduled() {
+    if (impl != NULL) {
+        return impl->server->copy_and_write_scheduled();
+    }
+
 
     long long next_call_tics = TRICK_MAX_LONG_LONG;
 

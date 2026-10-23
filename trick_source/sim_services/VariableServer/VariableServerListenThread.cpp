@@ -105,6 +105,15 @@ void Trick::VariableServerListenThread::set_broadcast(bool in_broadcast) {
 }
 
 // Called from default data
+bool Trick::VariableServerListenThread::get_user_requested_address() {
+    return _user_requested_address ;
+}
+
+void Trick::VariableServerListenThread::set_bound_address(const std::string& hostname, unsigned short port) {
+    _requested_source_address = hostname ;
+    _requested_port = port ;
+}
+
 int Trick::VariableServerListenThread::init_listen_device() {
     int ret = _listener->initialize();
     _requested_port = _listener->getPort();

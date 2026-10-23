@@ -170,6 +170,12 @@ namespace Trick
                     bool on = false;
             };
 
+            /** var_send_ip_errors(on): send a VS_IP_ERROR reply when a Python line fails (decision 3). */
+            struct VarSendIpErrors
+            {
+                    bool on = false;
+            };
+
             struct VarExit
             {
             };
@@ -230,7 +236,7 @@ namespace Trick
                            cmd::VarSetFrameMultiple, cmd::VarSetFrameOffset, cmd::VarSetFreezeFrameMultiple,
                            cmd::VarSetFreezeFrameOffset, cmd::VarAscii, cmd::VarBinary, cmd::VarBinaryNoNames,
                            cmd::VarByteswap, cmd::VarValidateAddress, cmd::VarDebug, cmd::VarSetClientTag,
-                           cmd::VarSetSendStdio, cmd::VarWriteStdio, cmd::VarServerLog, cmd::VarExit,
+                           cmd::VarSetSendStdio, cmd::VarWriteStdio, cmd::VarServerLog, cmd::VarSendIpErrors, cmd::VarExit,
                            cmd::SendSieResource, cmd::SendSieClass, cmd::SendSieEnum,
                            cmd::SendSieTopLevelObjects, cmd::SendFile, cmd::VarSet, cmd::Fallback>;
 

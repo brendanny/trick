@@ -31,6 +31,11 @@ from vsclient import wait_for_server
 HOST = "127.0.0.1"
 
 
+def rewrite_selected() -> bool:
+    """True when the SIM runs the rewritten variable server (rewrite Phase 5)."""
+    return os.environ.get("TRICK_VS_REWRITE") == "1"
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("vs-conformance")
     group.addoption(
@@ -138,10 +143,11 @@ class RunningSim:
         return self.proc.returncode
 
 
-def start_sim(config: pytest.Config, log_name: str) -> RunningSim:
+def start_sim(config: pytest.Config, log_name: str, extra_env: dict[str, str] | None = None) -> RunningSim:
     exe = find_sim_exe(config)
     port = free_port()
     env = dict(os.environ)
+    env.update(extra_env or {})
     env["VS_CONF_PORT"] = str(port)
     env["VS_CONF_PARENT_PID"] = str(os.getpid())
     log_dir = SIM_DIR / "conformance_logs"

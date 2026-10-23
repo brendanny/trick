@@ -61,6 +61,13 @@ namespace Trick
                  * for a name that did not resolve.
                  */
                 virtual std::optional<int64_t> stl_size() const = 0;
+
+                /**
+                 * Why the name did not resolve, or the last problem staging hit (a NULL
+                 * pointer, a bad address), for the session log. Cleared on read. The
+                 * default has nothing to say.
+                 */
+                virtual std::string take_note() { return std::string(); }
         };
 
         class Resolver

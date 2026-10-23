@@ -407,6 +407,9 @@ TEST(CommandParserArguments, BoolTypemapRejectsStrings)
     EXPECT_FALSE(as<cmd::VarByteswap>("trick.var_byteswap(0.0)").on);
     EXPECT_TRUE(as<cmd::VarByteswap>("trick.var_byteswap(0.5)").on);
     expect_fallback("trick.var_byteswap(\"1\")");
+    EXPECT_TRUE(as<cmd::VarSendIpErrors>("trick.var_send_ip_errors(True)").on);
+    EXPECT_FALSE(as<cmd::VarSendIpErrors>("trick.var_send_ip_errors(0)").on);
+    expect_fallback("trick.var_send_ip_errors(\"1\")");
     expect_fallback("trick.var_byteswap(None)");
 }
 

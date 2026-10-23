@@ -65,14 +65,8 @@ namespace Trick
 
             using RefPtr = std::unique_ptr<REF2, RefFree>;
 
-            /**
-             * ref_attributes() as a RefPtr. Null if the name does not resolve. Calls are
-             * serialized by ref_attributes_lock(): ref_attributes() is not thread-safe.
-             */
+            /** ref_attributes() as a RefPtr. Null if the name does not resolve. Safe on any thread. */
             RefPtr resolve_ref(const std::string& name);
-
-            /** The lock around every ref_attributes() call the variable server makes. */
-            std::mutex& ref_attributes_lock() noexcept;
 
             /** How to stage one resolved name. Made by make_plan(). */
             struct StagePlan
@@ -129,6 +123,9 @@ namespace Trick
                         return std::unique_lock<std::shared_mutex>(_memory);
                     }
 
+                    /** The lock itself, for a caller that must wait for it in its own way. */
+                    std::shared_mutex& memory_mutex() const noexcept { return _memory; }
+
                     /** Call with write_lock() held, after simulation memory was replaced. */
                     void memory_replaced() noexcept { _epoch.fetch_add(1, std::memory_order_acq_rel); }
 
@@ -162,7 +159,7 @@ namespace Trick
 
                     /** The last problem staging hit (a NULL pointer, a bad address), for the session log. Cleared on
                         read. */
-                    std::string take_note() { return std::move(_note); }
+                    std::string take_note() override { return std::move(_note); }
 
                 private:
                     void resolve_again();

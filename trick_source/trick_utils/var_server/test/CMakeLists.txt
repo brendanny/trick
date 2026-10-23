@@ -12,6 +12,8 @@ add_executable(trick_var_server_test
     GoldenReplay_test.cpp
     ListenLoop_test.cpp
     Schedule_test.cpp
+    Session_test.cpp
+    SessionRunner_test.cpp
     Snapshot_test.cpp
     SocketFaults_test.cpp
     Sockets_test.cpp

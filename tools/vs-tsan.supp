@@ -11,3 +11,25 @@ race:SWIG_Python_NewShadowInstance
 race:SWIG_Python_NewPointerObj
 race:SWIG_Python_TypeQuery
 race:SWIG_Py_Void
+race:SwigPyObject_own
+race:SWIG_Python_ConvertPtrAndOwn
+
+# Rewrite Phase 5 soak (soak/vs_soak.py). These races are outside the
+# variable server's own state:
+#
+# * A copy reads simulation memory while the simulation writes it: a model on
+#   the main thread, or a client's Python line on its session runner (SWIG
+#   setters and var_set called from Python). Trick does not lock model
+#   memory; the old server read it the same way. The variable server's own
+#   state is never shared this way: a checkpoint load takes the memory lock
+#   for writing, and a typed var_set takes it for writing too.
+race:Trick::vs::Snapshot::add
+# * The message system stamps each message with the executive's time, read
+#   without synchronization from whatever thread publishes.
+race:Trick::MessagePublisher::publish
+# * A checkpoint load rewrites the ThreadBase fields of Trick threads that are
+#   running (MessageListen reads its priority).
+race:Trick::ThreadBase::execute_priority
+# * trick.stop() (and the sim control panel's Stop) sets the executive's stop
+#   time from a variable server session thread, without synchronization.
+race:Trick::Executive::stop

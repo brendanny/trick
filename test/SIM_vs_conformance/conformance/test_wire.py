@@ -12,8 +12,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from cases import CASES, NAMES, Case
-from conftest import HOST
+from cases import CASES, EXPECTED_TO_CHANGE, NAMES, Case
+from conftest import HOST, rewrite_selected
 from vsclient import RawSession
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "goldens"
@@ -63,7 +63,82 @@ def test_reply_matches_golden(sim, pytestconfig: pytest.Config, case: Case) -> N
 
     assert golden.exists(), f"no golden file {golden.name}; run with --update-goldens"
     expected = golden.read_bytes()
+    if rewrite_selected() and case.name in EXPECTED_TO_CHANGE:
+        check_changed_case(case.name, actual)
+        return
     assert actual == expected, describe_mismatch(expected, actual)
+
+
+# ----------------------------------------------------------------------
+# Cases that record an old defect (EXPECTED_TO_CHANGE). The rewritten server
+# fixes them, so its bytes differ on purpose; these checks are the same as
+# trick_utils/var_server/test/GoldenReplay.hh.
+# ----------------------------------------------------------------------
+
+# An unindexed pointer to numbers (dptr) sends the array it points to.
+FIXES = {"ascii_pointers": (b"0\t\t0.5\t", b"0\t0.5,1,1.5,2\t0.5\t")}
+
+ELEMENT_SIZE = {4: 2, 5: 2, 6: 4, 7: 4, 10: 4, 18: 4, 19: 4, 25: 4,
+                8: 8, 9: 8, 14: 8, 15: 8, 11: 8}
+
+
+def decode(data: bytes, names: bool, swap: bool) -> list[tuple[int, int, list[tuple[str, int, bytes]]]]:
+    """Messages as (type, size, [(name, type, value)]); ints read swapped if `swap`."""
+    order = ">" if swap else "<"
+    out, pos = [], 0
+    while pos + 12 <= len(data):
+        mtype, size, count = struct.unpack_from(order + "iii", data, pos)
+        pos += 12
+        values = []
+        for _ in range(count):
+            name = ""
+            if names:
+                (n,) = struct.unpack_from(order + "i", data, pos)
+                pos += 4
+                name = data[pos : pos + n].decode()
+                pos += n
+            vtype, vsize = struct.unpack_from(order + "ii", data, pos)
+            pos += 8
+            values.append((name, vtype, data[pos : pos + vsize]))
+            pos += vsize
+        out.append((mtype, size, values))
+    assert pos == len(data), "trailing bytes"
+    return out
+
+
+def swap_elements(value: bytes, n: int) -> bytes:
+    return b"".join(value[i : i + n][::-1] for i in range(0, len(value), n))
+
+
+def check_changed_case(name: str, actual: bytes) -> None:
+    expected = (GOLDEN_DIR / f"{name}.bin").read_bytes()
+    if name in FIXES:
+        old, new = FIXES[name]
+        assert old in expected, f"{name}: the golden no longer has the bytes the fix replaces"
+        fixed = expected.replace(old, new, 1)
+        assert actual == fixed, describe_mismatch(fixed, actual)
+        return
+    # A byteswap case: the structure is the golden's; a value may differ only if
+    # it is the unswapped capture's value of the same variable, correctly swapped.
+    nonames = "_nonames_" in name
+    suffix = name[name.rfind("_"):]
+    want = decode(expected, not nonames, True)
+    have = decode(actual, not nonames, True)
+    names = decode((GOLDEN_DIR / f"byteswap{suffix}.bin").read_bytes(), True, True)
+    native = {v[0]: v for m in decode((GOLDEN_DIR / f"binary{suffix}.bin").read_bytes(), True, False) for v in m[2]}
+    assert len(have) == len(want)
+    changed = 0
+    for (wt, ws, wv), (ht, hs, hv), (_, _, nv) in zip(want, have, names):
+        assert (ht, hs, len(hv)) == (wt, ws, len(wv))
+        for (wn, wtype, wval), (hn, htype, hval), (var, _, _) in zip(wv, hv, nv):
+            assert (hn, htype, len(hval)) == (wn, wtype, len(wval)), var
+            if hval == wval:
+                continue
+            changed += 1
+            ref = native[var][2]
+            size = ELEMENT_SIZE.get(htype, len(hval) if htype in (12, 13, 21) else 1)
+            assert hval == swap_elements(ref, size), f"{name}: {var} is not the correctly swapped value"
+    assert changed > 0, f"{name} is in EXPECTED_TO_CHANGE but nothing changed"
 
 
 # Goldens that are not command cases: test_beacon.py records beacon.bin.

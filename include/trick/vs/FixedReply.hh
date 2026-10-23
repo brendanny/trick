@@ -41,6 +41,12 @@ namespace Trick
         /** Text from stdout (stream 1) or stderr (2): "4 <stream> <length>\n<text>". */
         std::string stdio_reply(int stream, std::string_view text);
 
+        /**
+         * A Python line failed (VS_IP_ERROR, sent only after var_send_ip_errors(True),
+         * decision 3): "-1 <length>\n<text>", as stdio, in ASCII and binary mode.
+         */
+        std::string ip_error_reply(std::string_view text);
+
     } // namespace vs
 } // namespace Trick
 

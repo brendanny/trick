@@ -5,7 +5,9 @@
 #
 # Run it from a configured Trick tree (./configure done). It builds Trick,
 # runs the variable server unit tests, the conformance suite and
-# SIM_test_varserv, and writes a summary to vs-ci-<kind>/summary.md.
+# SIM_test_varserv, and writes a summary to vs-ci-<kind>/summary.md. The
+# suite, SIM_test_varserv and a soak (soak/vs_soak.py) also run against the
+# rewritten server (TRICK_VS_REWRITE=1, Phase 5).
 #
 # Exit status:
 #   plain  non-zero if any test fails
@@ -19,6 +21,8 @@
 #   VS_CONF_SIM_WRAPPER  command that starts each SIM, for example
 #                        "setarch x86_64 -R" for TSan on kernels with high
 #                        ASLR entropy
+#   VS_SOAK_MINUTES      length of the soak of the rewritten server (default 2;
+#                        the Phase 5 exit test is 10 under tsan)
 
 set -uo pipefail
 
@@ -110,11 +114,25 @@ if step "Build SIM_vs_conformance" "$out/build-conformance.log" bash -c "cd '$co
     fi
 fi
 
+# The rewritten server (Phase 5), selected with TRICK_VS_REWRITE=1: the same
+# suite, every known-defect test (each must pass), the old-checkpoint test,
+# and a short soak with checkpoint reloads.
+if [[ -x "$(ls "$conf"/S_main_*.exe 2>/dev/null | head -n 1)" ]]; then
+    step "Conformance suite, rewritten server" "$out/conformance-rewrite.log" \
+        env TRICK_VS_REWRITE=1 "$venv/bin/python" -m pytest "$conf/conformance" -q -rs --run-known-defects \
+        --junitxml="$repo/trick_test/SIM_vs_conformance_rewrite.xml" ${wrapper:+--sim-wrapper "$wrapper"}
+    step "Soak, rewritten server (${VS_SOAK_MINUTES:-2} min)" "$out/soak-rewrite.log" \
+        env TRICK_VS_REWRITE=1 "$venv/bin/python" "$conf/soak/vs_soak.py" --minutes "${VS_SOAK_MINUTES:-2}" \
+        ${wrapper:+--wrapper "$wrapper"}
+fi
+
 # SIM_test_varserv: modes, UDP, multicast, freeze, var_set, stdio.
 varserv="$repo/test/SIM_test_varserv"
 if step "Build SIM_test_varserv" "$out/build-varserv.log" bash -c "cd '$varserv' && trick-CP -t"; then
     exe="$(ls "$varserv"/T_main_*_test.exe | head -n 1)"
     step "SIM_test_varserv" "$out/varserv.log" bash -c "cd '$varserv' && timeout 600 $wrapper '$exe' RUN_test/unit_test.py"
+    step "SIM_test_varserv, rewritten server" "$out/varserv-rewrite.log" \
+        bash -c "cd '$varserv' && TRICK_VS_REWRITE=1 timeout 600 $wrapper '$exe' RUN_test/unit_test.py"
 fi
 
 # Sanitizer summary.

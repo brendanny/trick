@@ -1,5 +1,6 @@
 
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 
 #include "trick/Message_proto.hh"
 #include "trick/message_proto.h"
@@ -14,22 +15,40 @@ Trick::VariableServer::VariableServer()
     : enabled(false)
     , info_msg(false)
     , log(false)
+    , session_log(false)
     , allow_connections(false)
     , bypass_ip_check(false)
+    , impl(NULL)
 {
     the_vs = this ;
     pthread_mutex_init(&map_mutex, NULL);
+    // Rewrite Phase 5: TRICK_VS_REWRITE=1 selects the rewritten server. Phase 6 makes it the only one.
+    if (Trick::vs::adapter::Server::selected()) {
+        impl = new Trick::vs::adapter::ServerHandle { std::make_shared<Trick::vs::adapter::Server>(*this) };
+    }
 }
 
 Trick::VariableServer::~VariableServer() {
     the_vs = NULL;
+    // Runners that were abandoned at shutdown keep their own reference to the server.
+    delete impl;
+    impl = NULL;
 }
 
 void Trick::VariableServer::shutdownConnections() {
+    if (impl != NULL) {
+        impl->server->shutdown_connections();
+        return;
+    }
     listen_thread.shutdownConnections();
 }
 
 std::ostream& Trick::operator<< (std::ostream& s, Trick::VariableServer& vs) {
+    if (vs.impl != NULL) {
+        s << vs.impl->server->connections_json();
+        s.flush();
+        return s;
+    }
     std::map < pthread_t , VariableServerSessionThread * >::iterator it ;
 
     s << "{\"variable_server_connections\":[\n";
@@ -62,6 +81,9 @@ void Trick::VariableServer::set_enabled(bool on_off) {
     }
 
     enabled = on_off ;
+    if (impl != NULL) {
+        impl->server->config_changed();
+    }
 }
 
 bool Trick::VariableServer::get_info_msg() {
@@ -73,12 +95,18 @@ void Trick::VariableServer::set_var_server_info_msg_on() {
     for ( auto& session_it : var_server_sessions ) {
         session_it.second->set_info_message(info_msg);
     }
+    if (impl != NULL) {
+        impl->server->config_changed();
+    }
 }
 
 void Trick::VariableServer::set_var_server_info_msg_off() {
     info_msg = false;
     for ( auto& session_it : var_server_sessions ) {
         session_it.second->set_info_message(info_msg);
+    }
+    if (impl != NULL) {
+        impl->server->config_changed();
     }
 }
 
@@ -96,6 +124,9 @@ void Trick::VariableServer::set_var_server_log_on() {
     for ( auto& session_it : var_server_sessions ) {
         session_it.second->set_log(true);
     }
+    if (impl != NULL) {
+        impl->server->config_changed();
+    }
 }
 
 void Trick::VariableServer::set_var_server_log_off() {
@@ -103,6 +134,9 @@ void Trick::VariableServer::set_var_server_log_off() {
     // turn log off for all current vs clients
     for ( auto& session_it : var_server_sessions ) {
         session_it.second->set_log(false);
+    }
+    if (impl != NULL) {
+        impl->server->config_changed();
     }
 }
 
@@ -112,6 +146,9 @@ void Trick::VariableServer::set_var_server_session_log_on() {
     for ( auto& session_it : var_server_sessions ) {
         session_it.second->set_session_log(true);
     }
+    if (impl != NULL) {
+        impl->server->config_changed();
+    }
 }
 
 void Trick::VariableServer::set_var_server_session_log_off() {
@@ -119,6 +156,9 @@ void Trick::VariableServer::set_var_server_session_log_off() {
     // turn log off for all current vs clients
     for ( auto& session_it : var_server_sessions ) {
         session_it.second->set_session_log(false);
+    }
+    if (impl != NULL) {
+        impl->server->config_changed();
     }
 }
 
@@ -179,10 +219,16 @@ void Trick::VariableServer::delete_session(pthread_t thread_id) {
 
 void Trick::VariableServer::set_copy_data_job( Trick::JobData * in_job ) {
     copy_data_job = in_job ;
+    if (impl != NULL) {
+        impl->server->set_copy_data_job(in_job);
+    }
 }
 
 void Trick::VariableServer::set_copy_and_write_freeze_job( Trick::JobData * in_job ) {
     copy_and_write_freeze_job = in_job ;
+    if (impl != NULL) {
+        impl->server->set_copy_and_write_freeze_job(in_job);
+    }
 }
 
 bool Trick::VariableServer::set_allow_connections(const bool& b)
@@ -193,7 +239,11 @@ bool Trick::VariableServer::set_allow_connections(const bool& b)
         add_ip("127.0.0.1");
     }
 
-    return allow_connections = b;
+    allow_connections = b;
+    if (impl != NULL) {
+        impl->server->config_changed();
+    }
+    return allow_connections;
 }
 
 bool Trick::VariableServer::get_allow_connections() { return allow_connections; }
@@ -207,7 +257,11 @@ bool Trick::VariableServer::set_bypass_ip_check(const bool& b)
             "INTERPRETER!\nYOU BETTER KNOW WHAT YOU'RE DOING!\n");
     }
 
-    return bypass_ip_check = b;
+    bypass_ip_check = b;
+    if (impl != NULL) {
+        impl->server->config_changed();
+    }
+    return bypass_ip_check;
 }
 
 bool Trick::VariableServer::get_bypass_ip_check() { return bypass_ip_check; }
@@ -220,6 +274,9 @@ void Trick::VariableServer::add_ip(const std::string& ip)
     message_publish(MSG_INFO, msg.c_str());
 
     ip_allowlist.insert(ip);
+    if (impl != NULL) {
+        impl->server->config_changed();
+    }
 }
 
 void Trick::VariableServer::remove_ip(const std::string& ip)
@@ -228,6 +285,9 @@ void Trick::VariableServer::remove_ip(const std::string& ip)
     message_publish(MSG_INFO, msg.c_str());
 
     ip_allowlist.erase(ip);
+    if (impl != NULL) {
+        impl->server->config_changed();
+    }
 }
 
 bool Trick::VariableServer::check_ip(const std::string& ip)

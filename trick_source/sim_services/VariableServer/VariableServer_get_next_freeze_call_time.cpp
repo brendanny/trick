@@ -1,10 +1,15 @@
 
 #include <iostream>
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 #include "trick/variable_server_sync_types.h"
 #include "trick/TrickConstant.hh"
 
 int Trick::VariableServer::get_next_freeze_call_time() {
+    if (impl != NULL) {
+        return impl->server->get_next_freeze_call_time();
+    }
+
 
     long long next_call_tics = TRICK_MAX_LONG_LONG;
 

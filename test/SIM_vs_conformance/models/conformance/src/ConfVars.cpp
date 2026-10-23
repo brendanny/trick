@@ -145,3 +145,10 @@ int ConfVars::init()
 }
 
 int ConfVars::shutdown() { return 0; }
+
+void ConfVars::grow_vec(int count, double first)
+{
+    for (int i = 0; i < count; ++i)
+        vec.push_back(static_cast<double>(i));
+    vec[0] = first;
+}

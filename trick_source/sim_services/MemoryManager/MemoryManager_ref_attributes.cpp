@@ -6,8 +6,6 @@
 #include "trick/MemoryManager.hh"
 #include "trick/RefParseContext.hh"
 
-extern int REF_debug;
-
 REF2 *Trick::MemoryManager::ref_attributes(const char* name) {
 
     std::stringstream reference_sstream;
@@ -16,8 +14,6 @@ REF2 *Trick::MemoryManager::ref_attributes(const char* name) {
 
     /** @par Design Details: */
     reference_sstream << name;
-
-    REF_debug = 0;
 
     /** @li Create a parse context. */
     context = new RefParseContext(this, &reference_sstream);

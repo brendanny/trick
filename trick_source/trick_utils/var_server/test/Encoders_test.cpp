@@ -476,6 +476,7 @@ TEST(FixedReply, Stdio)
     EXPECT_EQ(stdio_reply(1, "hello from stdio"), "4 1 16\nhello from stdio");
     EXPECT_EQ(stdio_reply(2, "error text\n"), "4 2 11\nerror text\n");
     EXPECT_EQ(stdio_reply(1, ""), "4 1 0\n");
+    EXPECT_EQ(ip_error_reply("NameError: x\n"), "-1 13\nNameError: x\n");
 }
 
 // ---------------------------------------------------------------------------

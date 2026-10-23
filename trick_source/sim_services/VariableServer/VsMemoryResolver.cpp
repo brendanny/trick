@@ -28,18 +28,11 @@ namespace Trick
                 }
             }
 
-            std::mutex& ref_attributes_lock() noexcept
-            {
-                static std::mutex m;
-                return m;
-            }
-
             RefPtr resolve_ref(const std::string& name)
             {
-                // ref_attributes() writes the parser's global debug flag on every call
-                // (MemoryManager_ref_attributes.cpp), so two calls at once race (TSan,
-                // Phase 4). The old server called it from every session thread.
-                std::lock_guard<std::mutex> guard(ref_attributes_lock());
+                // The parser is pure and the scanner reentrant. ref_attributes() used to write
+                // the parser's global debug flag (REF_debug) on every call, which raced when
+                // two threads resolved at once (TSan, Phase 4); that write was removed.
                 return RefPtr(ref_attributes(name.c_str()));
             }
 
@@ -243,14 +236,17 @@ namespace Trick
                 , _name(std::move(name))
             {
                 resolve_again();
+                _note = _plan.note; // why the name is BAD_REF, if it is
             }
 
             void MemoryVar::resolve_again()
             {
+                // Read the epoch first: if memory is replaced while the name is looked up, the
+                // old epoch makes the next copy look it up again.
+                _epoch = _resolver.memory_epoch();
                 _ref   = resolve_ref(_name);
                 _plan  = make_plan(_ref.get());
                 _units = (_ref && _ref->attr && _ref->attr->units) ? _ref->attr->units : "";
-                _epoch = _resolver.memory_epoch();
             }
 
             std::optional<int64_t> MemoryVar::stl_size() const

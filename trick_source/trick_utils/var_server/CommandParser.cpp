@@ -809,6 +809,12 @@ namespace Trick
                             return cmd::VarByteswap { *v };
                         return fallback();
                     }
+                    if (name == "var_send_ip_errors")
+                    {
+                        if (auto v = as_bool(a))
+                            return cmd::VarSendIpErrors { *v };
+                        return fallback();
+                    }
                 }
 
                 if (name == "var_write_stdio")
@@ -982,6 +988,10 @@ namespace Trick
                         return call("var_set_freeze_frame_offset", std::to_string(c.offset));
                     }
                     std::string operator()(const cmd::VarByteswap& c) const { return call("var_byteswap", py_bool(c.on)); }
+                    std::string operator()(const cmd::VarSendIpErrors& c) const
+                    {
+                        return call("var_send_ip_errors", py_bool(c.on));
+                    }
                     std::string operator()(const cmd::VarValidateAddress& c) const
                     {
                         return call("var_validate_address", py_bool(c.on));

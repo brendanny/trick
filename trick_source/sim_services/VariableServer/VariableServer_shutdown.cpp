@@ -1,4 +1,5 @@
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 
 #include "trick/message_proto.h"
 #include "trick/message_type.h"
@@ -19,6 +20,10 @@ namespace
 }
 
 int Trick::VariableServer::shutdown() {
+    if (impl != NULL) {
+        return impl->server->shutdown();
+    }
+
     // Shut down all listen threads. These only ever block in accept() and never enter the
     // Python interpreter, so an asynchronous cancel is safe for them.
     listen_thread.cancel_thread() ;

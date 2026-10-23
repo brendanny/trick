@@ -1,7 +1,12 @@
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 #include "trick/exec_proto.h"
 
 int Trick::VariableServer::copy_and_write_freeze() {
+    if (impl != NULL) {
+        return impl->server->copy_and_write_freeze();
+    }
+
 
     pthread_mutex_lock(&map_mutex) ;
     for ( auto it = var_server_sessions.begin() ; it != var_server_sessions.end() ; ++it ) {

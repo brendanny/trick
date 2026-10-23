@@ -126,5 +126,16 @@ namespace Trick
             return out;
         }
 
+        std::string ip_error_reply(std::string_view text)
+        {
+            std::string out;
+            append_number(out, static_cast<int32_t>(MessageType::IpError));
+            out += ' ';
+            append_number(out, text.size());
+            out += '\n';
+            out += text;
+            return out;
+        }
+
     } // namespace vs
 } // namespace Trick

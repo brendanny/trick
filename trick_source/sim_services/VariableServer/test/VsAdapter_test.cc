@@ -8,8 +8,12 @@
 //    expect from the rewrite.
 // 3. Unit tests for the staging plans, pointer validation, re-resolving,
 //    STL sizes, units and the Sampler.
+// 4. Phase 5: the golden cases through a real Session on the Memory Manager
+//    (var_set included), and sessions copied on the main thread while
+//    runners change their lists and memory is reloaded.
 
 #include "GoldenReplay.hh"
+#include "SessionHarness.hh"
 #include "VsAdapterTypes.hh"
 
 #include "trick/MemoryManager.hh"
@@ -20,7 +24,9 @@
 #include "trick/vs/TimeVar.hh"
 #include "trick/vs/adapter/MemoryResolver.hh"
 #include "trick/vs/adapter/Sampler.hh"
+#include "trick/vs/adapter/Server.hh"
 #include "trick/vs/adapter/UdUnitsConverter.hh"
+#include "trick/vs/SessionRegistry.hh"
 #include "trick/vs/testing/Fakes.hh"
 
 #include <atomic>
@@ -476,7 +482,7 @@ TEST(Sampler, StagesInOrderWithTheTime)
     Sampler sampler(resolver, clock);
     std::vector<std::unique_ptr<ResolvedVar>> vars;
     vars.push_back(resolver.resolve(P + "i32"));
-    vars.push_back(std::make_unique<TimeVar>(clock));
+    vars.push_back(std::make_unique<TimeVar>());
     vars.push_back(resolver.resolve(P + "no_such_member"));
     Snapshot s;
     sampler.sample(s, vars, false);
@@ -530,4 +536,149 @@ TEST(Sampler, ConcurrentCopiesAndMemoryReloads)
     a.join();
     b.join();
     EXPECT_GT(copies.load(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// 4. Phase 5: sessions on the Memory Manager
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    /** A FakeHost that reads memory under the resolver's lock and writes with the real var_set. */
+    class MemoryHost : public FakeHost
+    {
+        public:
+            explicit MemoryHost(MemoryResolver& r)
+                : resolver(r)
+            {
+                memory = [this](const std::function<void()>& read) {
+                    auto lock = lock_shared_releasing_gil(resolver.memory_mutex());
+                    read();
+                };
+            }
+
+            int var_set(const cmd::VarSet& c) override
+            {
+                auto lock = lock_shared_releasing_gil(resolver.memory_mutex());
+                return assign_variable(c.name.c_str(), c.value, c.units ? c.units->c_str() : nullptr);
+            }
+
+            MemoryResolver& resolver;
+    };
+
+    class SessionOnMemory : public ::testing::TestWithParam<GoldenCase>
+    {
+    };
+} // namespace
+
+TEST_P(SessionOnMemory, MatchesTheCapture)
+{
+    const GoldenCase& gc  = GetParam();
+    const std::string why = case_precondition(gc, true);
+    if (why == "python")
+        return;
+    if (!why.empty() && why.rfind("var_set", 0) != 0) // var_set runs here: it has a real Memory Manager
+        GTEST_SKIP() << why;
+    MemoryResolver resolver;
+    UdUnitsConverter units;
+    Trick::vs::testing::FakeClock clock;
+    MemoryHost host(resolver);
+    check_case_output(gc, run_case_in_session(gc, resolver, units, clock, host));
+}
+
+INSTANTIATE_TEST_SUITE_P(Conformance, SessionOnMemory, ::testing::ValuesIn(golden_cases),
+                         [](const ::testing::TestParamInfo<GoldenCase>& info) { return std::string(info.param.name); });
+
+TEST(SessionOnMemory, VarSetCodesMatchTheOldServer)
+{
+    MemoryResolver resolver;
+    auto lock = resolver.read_lock();
+    EXPECT_EQ(assign_variable((P + "settable").c_str(), cmd::SetValue(7LL), nullptr), 0);
+    EXPECT_EQ(conf->vars.settable, 7);
+    EXPECT_EQ(assign_variable((P + "read_only").c_str(), cmd::SetValue(1LL), nullptr), 1);
+    EXPECT_EQ(assign_variable((P + "no_such_member").c_str(), cmd::SetValue(1LL), nullptr), 2);
+    EXPECT_EQ(assign_variable((P + "settable_d").c_str(), cmd::SetValue(150.0), "cm"), 0);
+    EXPECT_DOUBLE_EQ(conf->vars.settable_d, 1.5);
+    EXPECT_EQ(assign_variable((P + "settable_str").c_str(), cmd::SetValue(std::string("x")), nullptr), 0);
+    EXPECT_EQ(conf->vars.settable_str, "x");
+    // Put the values back for the other tests.
+    EXPECT_EQ(assign_variable((P + "settable").c_str(), cmd::SetValue(12LL), nullptr), 0);
+    EXPECT_EQ(assign_variable((P + "settable_d").c_str(), cmd::SetValue(2.0), nullptr), 0);
+    EXPECT_EQ(assign_variable((P + "settable_str").c_str(), cmd::SetValue(std::string("before")), nullptr), 0);
+}
+
+TEST(SessionOnMemory, AnStlElementFollowsTheVectorAcrossCopies)
+{
+    MemoryResolver resolver;
+    UdUnitsConverter units;
+    Trick::vs::testing::FakeClock clock;
+    MemoryHost host(resolver);
+    StringOutput out;
+    Session session(host, resolver, units, clock, clock, out, SessionConfig {});
+    session.handle_batch("trick.var_pause()\ntrick.var_add(\"conf.vars.vec[0]\")\ntrick.var_send()\n");
+    EXPECT_EQ(out.take(), "0\t1.5\n");
+    const std::vector<double> saved = conf->vars.vec;
+    {
+        auto lock = resolver.write_lock(); // as the main thread holds it while models run
+        conf->vars.grow_vec(4096, 42.0);
+    }
+    session.handle_batch("trick.var_send()\n");
+    EXPECT_EQ(out.take(), "0\t42\n");
+    auto lock      = resolver.write_lock();
+    conf->vars.vec = saved;
+}
+
+TEST(SessionOnMemory, MainThreadCopiesRunnerChangesAndReloads)
+{
+    // The Phase 5 thread split on a real Memory Manager. Under TSan (with the
+    // Memory Manager compiled with TSan too) this shows races between the
+    // main thread's copies, a runner that changes its list and sends, and a
+    // checkpoint reload taking the memory lock.
+    MemoryResolver resolver;
+    UdUnitsConverter units;
+    Trick::vs::testing::FakeClock clock;
+    clock.is_real_time = true;
+    MemoryHost host(resolver);
+    StringOutput out;
+    auto session = std::make_shared<Session>(host, resolver, units, clock, clock, out, SessionConfig {});
+    std::atomic<int> wakes { 0 };
+    session->set_waker([&] { ++wakes; });
+    SessionRegistry registry;
+    registry.add(session);
+    session->handle_batch("trick.var_add(\"conf.vars.i32\")\ntrick.var_add(\"conf.vars.vec[1]\")\n"
+                          "trick.var_set_copy_mode(2)\ntrick.var_set_write_mode(1)\n");
+
+    std::atomic<bool> stop { false };
+    std::atomic<long long> frames { 0 };
+    std::thread main_thread([&] {
+        long long frame = 0;
+        while (!stop)
+        {
+            registry.refresh(frame, 0);
+            registry.copy_top(frame);
+            registry.copy_scheduled(frame * 1000);
+            if (frame % 200 == 199)
+            {
+                auto lock = resolver.write_lock(); // a checkpoint reload
+                resolver.memory_replaced();
+            }
+            ++frame;
+            ++frames;
+        }
+    });
+    const char* names[] = { "conf.vars.d", "conf.vars.str", "conf.vars.label_ptrs[0].text", "conf.vars.dptr" };
+    for (int i = 0; i < 400; ++i)
+    {
+        const std::string n = names[i % 4];
+        session->handle_batch(i % 2 ? "trick.var_remove(\"" + n + "\")\n" : "trick.var_add(\"" + n + "\")\n");
+        if (i % 25 == 0)
+            session->handle_batch("trick.var_set_copy_mode(" + std::to_string(i % 3) + ")\ntrick.var_send()\n");
+        session->on_wake();
+        session->on_deadline();
+        out.take();
+    }
+    stop = true;
+    main_thread.join();
+    EXPECT_GT(frames.load(), 0);
+    EXPECT_FALSE(session->exiting());
 }

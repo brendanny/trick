@@ -16,7 +16,8 @@ included by a header that ICG or SWIG parses.
 | 2 | `CommandParser` (typed commands or Python fallback), `AsciiEncoder`, `BinaryEncoder`, `Packetizer`, `FixedReply`, `Units`, `CLocale`; golden replay against the Phase 0 captures; libFuzzer targets | done |
 | 3 | `SystemInterface` (syscall seam), `Fd`, `Address`, `AddressFilter` (IPv4, IPv6, CIDR), `Endpoint` (bind-address rules), `LineReader`, `WriteQueue`, `Listener`, `Connection` (TCP, UDP, multicast), `Poller`, `Beacon`, `ListenLoop`; tests on loopback sockets and with a hooked `SystemInterface` | done |
 | 4 | Adapter in `libtrick` (`sim_services/VariableServer/Vs*.cpp`, headers in `include/trick/vs/adapter/`): `MemoryResolver` (REF2 owned by `RefPtr`), staging plans from `ATTRIBUTES`, pointer validation and re-resolving, `Sampler`, `UdUnitsConverter`; `TimeVar` in the core. `VsAdapter_test` replays every golden case on a real Memory Manager. | done |
-| 5 | Sessions, runners, jobs, Python bridge, `var_*` façade | next |
+| 5 | `Session`, `SessionRunner`, `SessionRegistry`, `TripleBuffer` in the core; the adapter's `Server` (the plan's `VariableServer::Impl`) runs the jobs, the listener and the runners; Python fallback through `ip_parse`; the `var_*` façade reaches the runner's session through a `thread_local`. Selected with `TRICK_VS_REWRITE=1`; the old server stays the default. | done |
+| 6 | Switch-over: remove the old server and the selector | next |
 
 ## Build and test
 
@@ -96,6 +97,34 @@ system call goes through a `SystemInterface`, so tests can make one fail.
 * `ListenLoop` accepts clients and sends the beacon every 2 s. Its owner
   answers, through `ListenPolicy`, whether connections are open and whether
   an address is allowed.
+
+## Sessions (Phase 5)
+
+`Session` holds one client's variable list, modes and output format, with
+the old server's rules. It does no I/O and starts no thread:
+
+* The runner thread (`SessionRunner`) owns it. It runs commands when they
+  arrive, copies and sends on the `var_cycle` deadline, and sends what the
+  main thread copied as soon as it is woken (`WRITE_WHEN_COPIED`).
+* The main thread runs the jobs through `SessionRegistry`. It reads the
+  variable list and the schedule only through copies the runner publishes
+  (`std::atomic_store` of a `shared_ptr<const T>`), copies into the producer
+  slot of a `TripleBuffer`, and owns `next_tics`.
+* A snapshot carries the list it was copied from; one from an older list is
+  never sent. While a file is sent, other replies wait, so they never mix
+  with the file's bytes.
+* `var_send_ip_errors(True)` (decision 3) sends `-1 <length>\n<text>` when a
+  Python line fails; `var_server_set_python_commands(False)` (decision 4)
+  refuses lines that are not typed commands.
+
+To run the rewritten server in a SIM, set `TRICK_VS_REWRITE=1` in its
+environment. The SIM log then says "the rewritten variable server is
+running". After updating Trick, rebuild a SIM from clean (`make spotless`):
+SIM builds do not notice changes to Trick headers, and `VariableServer` has a
+new member.
+
+`test/SIM_vs_conformance/soak/vs_soak.py` runs 8 clients in every copy and
+write mode while a control client reloads a checkpoint every 10 s.
 
 ## Rules
 

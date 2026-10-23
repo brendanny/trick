@@ -22,6 +22,10 @@ trick.exec_set_enable_freeze(True)
 trick.exec_set_freeze_command(True)
 trick.exec_set_terminate_time(36000.0)
 
+# test_checkpoint.py: write RUN_conformance/chkpnt_post_init.
+if os.environ.get("VS_CONF_CHECKPOINT") == "1":
+    trick.checkpoint_post_init(True)
+
 # Do not leave an orphan SIM if the test process dies.
 _parent = int(os.environ.get("VS_CONF_PARENT_PID", "0"))
 

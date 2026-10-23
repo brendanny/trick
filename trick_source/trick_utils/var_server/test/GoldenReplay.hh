@@ -217,6 +217,11 @@ namespace vs_test
             void send(const std::vector<SessionVar>& vars, MessageType type)
             {
                 Snapshot snapshot;
+                if (_clock != nullptr && _clock->tic_value() > 0)
+                {
+                    snapshot.time_tics = _clock->time_tics();
+                    snapshot.time_s    = static_cast<double>(snapshot.time_tics) / static_cast<double>(_clock->tic_value());
+                }
                 std::vector<VarFormat> formats;
                 auto stage_all = [&] {
                     for (const SessionVar& v : vars)
@@ -247,7 +252,7 @@ namespace vs_test
             std::unique_ptr<ResolvedVar> resolve(const std::string& name)
             {
                 if (name == TimeVar::variable_name && _clock != nullptr)
-                    return std::make_unique<TimeVar>(*_clock);
+                    return std::make_unique<TimeVar>();
                 return _resolver.resolve(name);
             }
 

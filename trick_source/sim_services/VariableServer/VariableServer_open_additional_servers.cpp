@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include "trick/VariableServer.hh"
+#include "trick/vs/adapter/Server.hh"
 #include "trick/message_proto.h"
 #include "trick/message_type.h"
 
@@ -9,6 +10,10 @@
 #include "trick/TCPClientListener.hh"
 
 int Trick::VariableServer::create_tcp_socket(const char * address, unsigned short in_port ) {
+    if (impl != NULL) {
+        return impl->server->create_tcp_socket(address, in_port);
+    }
+
     // Open a VariableServerListenThread to manage this server
 
     TCPClientListener * listener = new TCPClientListener();
@@ -35,6 +40,10 @@ int Trick::VariableServer::create_tcp_socket(const char * address, unsigned shor
 }
 
 int Trick::VariableServer::create_udp_socket(const char * address, unsigned short in_port ) {
+    if (impl != NULL) {
+        return impl->server->create_udp_socket(address, in_port);
+    }
+
     // UDP sockets are created without a listen thread, and represent only 1 session
     // Create a VariableServerSessionThread to manage this session
 
@@ -61,6 +70,10 @@ int Trick::VariableServer::create_udp_socket(const char * address, unsigned shor
 }
 
 int Trick::VariableServer::create_multicast_socket(const char * mcast_address, const char * address, unsigned short in_port ) {
+    if (impl != NULL) {
+        return impl->server->create_multicast_socket(mcast_address, address, in_port);
+    }
+
 
     // Multicast sockets are created without a listen thread, and represent only 1 session
     // Create a VariableServerSessionThread to manage this session
