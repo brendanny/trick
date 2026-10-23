@@ -83,7 +83,9 @@ Runners read simulation memory under the shared side of a
 `std::shared_mutex`. The `preload_checkpoint` job takes the exclusive side
 and keeps it until `resumePostCheckpointReload`, so no runner reads memory
 while the Memory Manager replaces it. A client that connects during a load
-waits until the load ends.
+gets its session at once; its first memory read and its first Python line
+wait until the load ends. The listener never waits, because the `restart`
+job stops and starts it in the middle of the load.
 
 * A Python line runs under the shared lock.
 * A typed `var_set` takes the exclusive lock (`Server::write_memory`).
