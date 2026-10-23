@@ -13,8 +13,8 @@ included by a header that ICG or SWIG parses.
 | Phase | Contents | State |
 | --- | --- | --- |
 | 1 | Data types and interfaces: `WireTypes`, `FieldDesc`, `Snapshot`, `Schedule`, `Command`, `Expected`, `Interfaces` (Resolver, Clock, UnitConverter, CommandFallback); test fakes in `trick/vs/testing/Fakes.hh` | done |
-| 2 | Command parser, ASCII and binary encoders, packetizer | next |
-| 3 | Sockets, poller, beacon, address filter | |
+| 2 | `CommandParser` (typed commands or Python fallback), `AsciiEncoder`, `BinaryEncoder`, `Packetizer`, `FixedReply`, `Units`, `CLocale`; golden replay against the Phase 0 captures; libFuzzer targets | done |
+| 3 | Sockets, poller, beacon, address filter | next |
 
 ## Build and test
 
@@ -30,6 +30,43 @@ cmake -S trick_source/trick_utils/var_server -B build-vs-core -DCMAKE_CXX_FLAGS=
 cmake --build build-vs-core
 ctest --test-dir build-vs-core
 ```
+
+## Golden replay
+
+`test/GoldenReplay_test.cpp` runs every case of
+`test/SIM_vs_conformance/conformance/cases.py` through the parser and the
+encoders, with the conformance SIM's variables modeled in
+`test/ConformanceModel.hh`, and compares the bytes with the Phase 0 captures
+in `goldens/`. It reads the cases from `test/golden_cases.inc`; after a change
+to `cases.py`, run `tools/vs-export-golden-cases.py` (CI checks that the file
+is current). With UDUNITS installed, the units cases run too.
+
+Cases in `EXPECTED_TO_CHANGE` record an old defect that the rewrite fixes.
+For those, the structure must match the capture, and each changed value must
+be the correctly swapped value from the unswapped capture.
+
+## Fuzzing
+
+The libFuzzer targets need Clang:
+
+```bash
+cmake -S trick_source/trick_utils/var_server -B build-vs-fuzz \
+  -DCMAKE_CXX_COMPILER=clang++ -DTRICK_VS_FUZZ=ON -DBUILD_TESTING=OFF
+cmake --build build-vs-fuzz
+mkdir -p corpus-parser corpus-encoders
+build-vs-fuzz/fuzz/vs_command_parser_fuzz -max_total_time=3600 \
+  -dict=trick_source/trick_utils/var_server/fuzz/command_parser.dict \
+  corpus-parser trick_source/trick_utils/var_server/fuzz/corpus/command_parser
+build-vs-fuzz/fuzz/vs_encoders_fuzz -max_total_time=600 -max_len=8192 corpus-encoders
+```
+
+libFuzzer adds new inputs to the first corpus directory only, so the seeds in
+the source tree stay as they are.
+
+`vs_command_parser_fuzz` checks that a batch is all typed or one Fallback
+that holds the input unchanged, and that every typed command survives
+`to_python()` and `parse_line()` unchanged. `vs_encoders_fuzz` encodes
+random valid values and checks the sizes of what comes out.
 
 ## Rules
 

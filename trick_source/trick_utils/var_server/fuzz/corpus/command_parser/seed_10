@@ -1,0 +1,3 @@
+trick.var_set_frame_multiple(0x_ff)
+trick.var_set_frame_offset(1_0)
+trick.var_byteswap(1.0)

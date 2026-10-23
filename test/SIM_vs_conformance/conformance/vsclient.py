@@ -43,7 +43,7 @@ class RawSession:
         except OSError:
             pass
 
-    def __enter__(self) -> "RawSession":
+    def __enter__(self) -> RawSession:
         return self
 
     def __exit__(self, *exc: object) -> None:

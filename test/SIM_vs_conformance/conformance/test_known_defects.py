@@ -172,6 +172,32 @@ def test_byteswap_strings(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    reason="byteswap counts the declared dimensions, so an element reached through a pointer is zeros"
+)
+def test_byteswap_pointer_element(fresh_sim) -> None:
+    with RawSession(HOST, fresh_sim.port) as s:
+        reply = s.run_case(
+            "trick.var_pause()\ntrick.var_binary_nonames()\ntrick.var_byteswap(True)\n"
+            f'trick.var_add("{P}dptr[3]")\ntrick.var_send()\n'
+        )
+    assert_alive(fresh_sim)
+    body = struct.pack(">ii", 11, 8) + struct.pack(">d", 2.0)
+    assert reply == struct.pack(">iii", 0, 12 + len(body) - 4, 1) + body
+
+
+@pytest.mark.xfail(reason="byteswap sends a bitfield value in host byte order")
+def test_byteswap_bitfield(fresh_sim) -> None:
+    with RawSession(HOST, fresh_sim.port) as s:
+        reply = s.run_case(
+            "trick.var_pause()\ntrick.var_binary_nonames()\ntrick.var_byteswap(True)\n"
+            f'trick.var_add("{P}bits.s4")\ntrick.var_send()\n'
+        )
+    assert_alive(fresh_sim)
+    body = struct.pack(">ii", 12, 4) + struct.pack(">i", -3)
+    assert reply == struct.pack(">iii", 0, 12 + len(body) - 4, 1) + body
+
+
+@pytest.mark.xfail(
     reason="a char array reached through std::vector<T*> comes back as its first character"
 )
 def test_vector_of_pointers_char_array(fresh_sim) -> None:

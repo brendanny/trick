@@ -244,7 +244,7 @@ CASES: list[Case] = [
             f'trick.var_add("{P}pos", "xx")',
             f'trick.var_add("{P}unitless", "xx")',
             f'trick.var_add("{P}pos", "--")',
-            f'trick.var_add("time", "xx")',
+            'trick.var_add("time", "xx")',
         )
         + SEND,
     ),
@@ -441,5 +441,9 @@ assert len(NAMES) == len(set(NAMES)), "case names must be unique"
 EXPECTED_TO_CHANGE = {
     "byteswap_strings": "string values are zeros; test_byteswap_strings",
     "byteswap_nonames_strings": "string values are zeros; test_byteswap_strings",
+    "byteswap_pointers": "pointer element values are zeros; test_byteswap_pointer_element",
+    "byteswap_nonames_pointers": "pointer element values are zeros; test_byteswap_pointer_element",
+    "byteswap_structured": "bitfields are not swapped; test_byteswap_bitfield",
+    "byteswap_nonames_structured": "bitfields are not swapped; test_byteswap_bitfield",
 }
 assert set(EXPECTED_TO_CHANGE) <= set(NAMES)

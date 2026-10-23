@@ -1,0 +1,1 @@
+trick.var_send_once("a.x,a.y", 2)

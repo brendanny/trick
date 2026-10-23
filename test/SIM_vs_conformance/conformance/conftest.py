@@ -17,7 +17,6 @@ import signal
 import socket
 import subprocess
 import sys
-import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,7 +26,7 @@ HERE = Path(__file__).resolve().parent
 SIM_DIR = HERE.parent
 sys.path.insert(0, str(HERE))
 
-from vsclient import wait_for_server  # noqa: E402
+from vsclient import wait_for_server
 
 HOST = "127.0.0.1"
 

@@ -8,11 +8,18 @@
 cmake_minimum_required(VERSION 3.20...4.4)
 
 set(TRICK_VS_SOURCES
+    AsciiEncoder.cpp
+    BinaryEncoder.cpp
+    CLocale.cpp
     Command.cpp
+    CommandParser.cpp
     FieldDesc.cpp
+    FixedReply.cpp
     Interfaces.cpp
+    Packetizer.cpp
     Schedule.cpp
     Snapshot.cpp
+    Units.cpp
     WireTypes.cpp
 )
 
@@ -43,4 +50,10 @@ endif()
 
 if(TRICK_VS_BUILD_TESTS)
     add_subdirectory(test)
+endif()
+
+# libFuzzer targets (Clang only): cmake -DTRICK_VS_FUZZ=ON -DCMAKE_CXX_COMPILER=clang++
+option(TRICK_VS_FUZZ "Build the variable server fuzz targets (Clang)" OFF)
+if(TRICK_VS_FUZZ)
+    add_subdirectory(fuzz)
 endif()

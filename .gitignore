@@ -76,3 +76,8 @@ archive/
 /vs-ci-*/
 sanitizer_logs/
 test/SIM_vs_conformance/conformance_logs/
+# Variable server fuzzing (trick_source/trick_utils/var_server/README.md)
+build-vs-*/
+corpus-parser/
+corpus-encoders/
+fuzz-out/

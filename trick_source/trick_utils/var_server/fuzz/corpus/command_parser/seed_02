@@ -1,0 +1,2 @@
+trick.var_add("ball.obj.state.pos[0]", "ft")
+trick.var_send()

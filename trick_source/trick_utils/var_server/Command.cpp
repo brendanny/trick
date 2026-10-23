@@ -76,8 +76,6 @@ namespace Trick
 
             const char* name_of(const cmd::VarExit&) noexcept { return "var_exit"; }
 
-            const char* name_of(const cmd::VarRetryBadRef&) noexcept { return "var_retry_bad_ref"; }
-
             const char* name_of(const cmd::SendSieResource&) noexcept { return "send_sie_resource"; }
 
             const char* name_of(const cmd::SendSieClass&) noexcept { return "send_sie_class"; }

@@ -53,7 +53,6 @@ TEST(Command, NamesMatchThePythonApi)
     EXPECT_STREQ(command_name(cmd::SendSieTopLevelObjects { }), "send_sie_top_level_objects");
     EXPECT_STREQ(command_name(cmd::VarServerLog { true }), "var_server_log_on");
     EXPECT_STREQ(command_name(cmd::VarServerLog { false }), "var_server_log_off");
-    EXPECT_STREQ(command_name(cmd::VarRetryBadRef { }), "var_retry_bad_ref");
 }
 
 TEST(Command, FallbackHoldsTheLine)

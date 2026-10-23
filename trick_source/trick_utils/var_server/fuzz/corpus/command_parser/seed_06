@@ -1,0 +1,3 @@
+trick.var_set("a.d", 1.5)
+trick.var_set("a.i", -7, "m")
+trick.var_set("a.p", None)

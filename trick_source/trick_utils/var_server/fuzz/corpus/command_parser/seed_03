@@ -1,0 +1,1 @@
+trick.var_add("a.enabled"); trick.var_add("a.ran_count"); trick.var_send(); trick.var_clear();

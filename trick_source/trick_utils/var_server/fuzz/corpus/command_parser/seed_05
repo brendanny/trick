@@ -1,0 +1,2 @@
+trick.var_validate_address(True)
+trick.var_set_write_mode(False)

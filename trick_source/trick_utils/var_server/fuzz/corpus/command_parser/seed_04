@@ -1,0 +1,3 @@
+trick.var_cycle(0.25)
+trick.var_debug(3)
+trick.var_sync(1)

@@ -16,6 +16,7 @@ with the fakes in trick/vs/testing/Fakes.hh.
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -53,6 +54,13 @@ namespace Trick
 
                 /** The Resolver::memory_epoch() when this name was looked up. */
                 virtual uint64_t epoch() const = 0;
+
+                /**
+                 * The number of elements, if the variable is an STL container that
+                 * Trick can size (var_get_stl_size). Empty for anything else, and
+                 * for a name that did not resolve.
+                 */
+                virtual std::optional<int64_t> stl_size() const = 0;
         };
 
         class Resolver
@@ -106,6 +114,10 @@ namespace Trick
                  * A conversion from `from` to `to`. Fails if either name is not a unit
                  * or the units are not compatible. Old Trick unit names are mapped
                  * first. The caller handles "xx" (base units) and "--" (no conversion).
+                 *
+                 * Returns a null pointer when the conversion is the identity. The
+                 * ASCII encoder then prints 64-bit integers exactly, as the old
+                 * server did when UDUNITS gave it its trivial converter.
                  */
                 virtual Expected<std::unique_ptr<Conversion>> converter(std::string_view from, std::string_view to) = 0;
 

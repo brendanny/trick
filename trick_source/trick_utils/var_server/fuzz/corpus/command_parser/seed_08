@@ -1,0 +1,3 @@
+trick.var_units("a.b", "m/s")
+trick.var_exists("x")
+trick.var_get_stl_size("v")

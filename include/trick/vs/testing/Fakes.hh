@@ -13,6 +13,7 @@ in place of the Memory Manager, the executive, UDUNITS and Python.
 #include <cstring>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -58,6 +59,7 @@ namespace Trick
                     std::vector<unsigned char> bytes;
                     std::string units;
                     bool valid_address = true;
+                    std::optional<int64_t> stl_size;
             };
 
             class FakeResolvedVar : public ResolvedVar
@@ -94,6 +96,8 @@ namespace Trick
 
                     uint64_t epoch() const override { return _epoch; }
 
+                    std::optional<int64_t> stl_size() const override { return _var ? _var->stl_size : std::nullopt; }
+
                     int stage_calls            = 0;
                     bool last_validate_address = false;
 
@@ -127,6 +131,13 @@ namespace Trick
                     }
 
                     void remove(const std::string& name) { _vars.erase(name); }
+
+                    /** The variable with this exact name, or null. */
+                    std::shared_ptr<FakeVariable> find(const std::string& name) const
+                    {
+                        auto it = _vars.find(name);
+                        return it == _vars.end() ? nullptr : it->second;
+                    }
 
                     std::unique_ptr<ResolvedVar> resolve(std::string_view name) override
                     {
@@ -177,6 +188,10 @@ namespace Trick
 
                     Expected<std::unique_ptr<Conversion>> converter(std::string_view from, std::string_view to) override
                     {
+                        if (from == to)
+                        {
+                            return std::unique_ptr<Conversion>();
+                        }
                         auto it = _table.find({ std::string(from), std::string(to) });
                         if (it == _table.end())
                         {

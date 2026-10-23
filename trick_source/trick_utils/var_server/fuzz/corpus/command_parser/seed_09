@@ -1,0 +1,1 @@
+trick.var_write_stdio(2, "oops\n\x41\u00e9")

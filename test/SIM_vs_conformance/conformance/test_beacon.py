@@ -41,7 +41,7 @@ def beacon_for_port(group: str, port: int, timeout_s: float = 6.0) -> list[str] 
         while time.monotonic() < deadline:
             try:
                 data, _ = s.recvfrom(4096)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             fields = data.decode(errors="replace").split("\t")
             if len(fields) > 1 and fields[1] == str(port):

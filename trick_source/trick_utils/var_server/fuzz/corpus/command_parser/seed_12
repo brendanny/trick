@@ -1,0 +1,2 @@
+print("not typed")
+trick.var_send()

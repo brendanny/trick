@@ -102,22 +102,22 @@ namespace Trick
 
             struct VarSetFrameMultiple
             {
-                    long long multiple = 1;
+                    uint32_t multiple = 1; ///< after the C conversion to unsigned int
             };
 
             struct VarSetFrameOffset
             {
-                    long long offset = 0;
+                    uint32_t offset = 0; ///< after the C conversion to unsigned int
             };
 
             struct VarSetFreezeFrameMultiple
             {
-                    long long multiple = 1;
+                    uint32_t multiple = 1; ///< after the C conversion to unsigned int
             };
 
             struct VarSetFreezeFrameOffset
             {
-                    long long offset = 0;
+                    uint32_t offset = 0; ///< after the C conversion to unsigned int
             };
 
             // Format
@@ -174,11 +174,6 @@ namespace Trick
             {
             };
 
-            /** Deprecated; the old server only prints a warning. */
-            struct VarRetryBadRef
-            {
-            };
-
             // Files
             struct SendSieResource
             {
@@ -206,6 +201,10 @@ namespace Trick
             {
             };
 
+            inline bool operator==(NoneValue, NoneValue) noexcept { return true; }
+
+            inline bool operator!=(NoneValue, NoneValue) noexcept { return false; }
+
             /** The value of var_set: a float, an integer, a string or None. */
             using SetValue = std::variant<double, long long, std::string, NoneValue>;
 
@@ -232,7 +231,7 @@ namespace Trick
                            cmd::VarSetFreezeFrameOffset, cmd::VarAscii, cmd::VarBinary, cmd::VarBinaryNoNames,
                            cmd::VarByteswap, cmd::VarValidateAddress, cmd::VarDebug, cmd::VarSetClientTag,
                            cmd::VarSetSendStdio, cmd::VarWriteStdio, cmd::VarServerLog, cmd::VarExit,
-                           cmd::VarRetryBadRef, cmd::SendSieResource, cmd::SendSieClass, cmd::SendSieEnum,
+                           cmd::SendSieResource, cmd::SendSieClass, cmd::SendSieEnum,
                            cmd::SendSieTopLevelObjects, cmd::SendFile, cmd::VarSet, cmd::Fallback>;
 
         /**
