@@ -445,5 +445,6 @@ EXPECTED_TO_CHANGE = {
     "byteswap_nonames_pointers": "pointer element values are zeros; test_byteswap_pointer_element",
     "byteswap_structured": "bitfields are not swapped; test_byteswap_bitfield",
     "byteswap_nonames_structured": "bitfields are not swapped; test_byteswap_bitfield",
+    "ascii_pointers": "an unindexed pointer (dptr) stages nothing; test_unindexed_pointer",
 }
 assert set(EXPECTED_TO_CHANGE) <= set(NAMES)

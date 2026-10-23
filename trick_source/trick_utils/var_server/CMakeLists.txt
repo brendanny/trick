@@ -30,6 +30,7 @@ set(TRICK_VS_SOURCES
     Schedule.cpp
     Snapshot.cpp
     SystemInterface.cpp
+    TimeVar.cpp
     Units.cpp
     WireTypes.cpp
     WriteQueue.cpp

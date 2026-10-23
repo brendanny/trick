@@ -27,8 +27,10 @@ failed=0
 files=()
 while IFS= read -r f; do
     files+=("$f")
-done < <(find "${dirs[@]}" -type f \( -name '*.cpp' -o -name '*.hh' -o -name '*.h' \) \
-    -not -path '*/test/*' -not -path '*/testing/*' | sort)
+done < <( (find "${dirs[@]}" -type f \( -name '*.cpp' -o -name '*.hh' -o -name '*.h' \) \
+    -not -path '*/test/*' -not -path '*/testing/*'
+    # The adapter (Phase 4) lives beside the old server in libtrick; its files start with "Vs".
+    find trick_source/sim_services/VariableServer -maxdepth 1 -type f -name 'Vs*.cpp') | sort)
 
 if out=$(grep -nE "^[[:space:]]*#[[:space:]]*include[[:space:]]*<(${headers})>" "${files[@]}"); then
     echo "iostream headers included:"
@@ -42,10 +44,10 @@ if out=$(grep -nE "$uses" "${files[@]}"); then
 fi
 
 for h in $(find include/trick/vs -name '*.hh' -not -path '*/testing/*' | sort); do
-    if "$cxx" -std=c++17 -x c++ -E -H -Iinclude "$h" -o /dev/null 2>&1 \
+    if "$cxx" -std=c++17 -x c++ -E -H -Iinclude -Itrick_source "$h" -o /dev/null 2>&1 \
         | grep -E "^\.+ .*/(${headers})$" > /dev/null; then
         echo "$h includes an iostreams header indirectly:"
-        "$cxx" -std=c++17 -x c++ -E -H -Iinclude "$h" -o /dev/null 2>&1 | grep -E "^\.+ .*/(${headers})$" | head -5
+        "$cxx" -std=c++17 -x c++ -E -H -Iinclude -Itrick_source "$h" -o /dev/null 2>&1 | grep -E "^\.+ .*/(${headers})$" | head -5
         failed=1
     fi
 done

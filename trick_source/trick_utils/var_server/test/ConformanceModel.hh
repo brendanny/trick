@@ -153,8 +153,9 @@ namespace vs_test
             big[k] = k + 0.25;
         add_array<double>(r, P + "big", WireType::Double, big);
 
-        // Pointers: an unindexed pointer to numbers stages nothing.
-        add_array<double>(r, P + "dptr", WireType::Double, {}, "m");
+        // Pointers: an unindexed pointer to numbers stages the array it points to
+        // (Phase 4 fix; the old server staged nothing).
+        add_array<double>(r, P + "dptr", WireType::Double, { 0.5, 1.0, 1.5, 2.0 }, "m");
         r.set_scalar(P + "dptr[0]", WireType::Double, 0.5, "m");
         r.set_scalar(P + "dptr[1]", WireType::Double, 1.0, "m");
         r.set_scalar(P + "dptr[3]", WireType::Double, 2.0, "m");

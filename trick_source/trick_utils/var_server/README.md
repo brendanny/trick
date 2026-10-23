@@ -15,7 +15,8 @@ included by a header that ICG or SWIG parses.
 | 1 | Data types and interfaces: `WireTypes`, `FieldDesc`, `Snapshot`, `Schedule`, `Command`, `Expected`, `Interfaces` (Resolver, Clock, UnitConverter, CommandFallback); test fakes in `trick/vs/testing/Fakes.hh` | done |
 | 2 | `CommandParser` (typed commands or Python fallback), `AsciiEncoder`, `BinaryEncoder`, `Packetizer`, `FixedReply`, `Units`, `CLocale`; golden replay against the Phase 0 captures; libFuzzer targets | done |
 | 3 | `SystemInterface` (syscall seam), `Fd`, `Address`, `AddressFilter` (IPv4, IPv6, CIDR), `Endpoint` (bind-address rules), `LineReader`, `WriteQueue`, `Listener`, `Connection` (TCP, UDP, multicast), `Poller`, `Beacon`, `ListenLoop`; tests on loopback sockets and with a hooked `SystemInterface` | done |
-| 4 | Resolver, sampler and units over the Memory Manager (in `sim_services`) | next |
+| 4 | Adapter in `libtrick` (`sim_services/VariableServer/Vs*.cpp`, headers in `include/trick/vs/adapter/`): `MemoryResolver` (REF2 owned by `RefPtr`), staging plans from `ATTRIBUTES`, pointer validation and re-resolving, `Sampler`, `UdUnitsConverter`; `TimeVar` in the core. `VsAdapter_test` replays every golden case on a real Memory Manager. | done |
+| 5 | Sessions, runners, jobs, Python bridge, `var_*` façade | next |
 
 ## Build and test
 
@@ -33,6 +34,11 @@ ctest --test-dir build-vs-core
 ```
 
 ## Golden replay
+
+`test/GoldenReplay.hh` holds the executor and the checks, so two tests use
+them: `GoldenReplay_test.cpp` here, on a model of the conformance SIM, and
+`sim_services/VariableServer/test/VsAdapter_test.cc`, on a real Memory
+Manager that holds the conformance SIM's own `ConfVars` (run through ICG).
 
 `test/GoldenReplay_test.cpp` runs every case of
 `test/SIM_vs_conformance/conformance/cases.py` through the parser and the

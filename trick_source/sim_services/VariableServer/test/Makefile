@@ -46,9 +46,9 @@ VARIABLE_REFERENCE_TESTS = VariableReference_test \
 
 VARIABLE_SESSION_TESTS = VariableServerSession_test
 
-TESTS = $(VARIABLE_REFERENCE_TESTS) $(VARIABLE_SESSION_TESTS) VariableServerSessionThread_test VariableServerListenThread_test VariableServer_test
+TESTS = $(VARIABLE_REFERENCE_TESTS) $(VARIABLE_SESSION_TESTS) VariableServerSessionThread_test VariableServerListenThread_test VariableServer_test VsAdapter_test
 
-TEST_OBJS = $(addprefix $(OBJ_DIR)/, $(addsuffix .o, $(TESTS)))
+TEST_OBJS = $(addprefix $(OBJ_DIR)/, $(addsuffix .o, $(filter-out VsAdapter_test,$(TESTS))))
 
 TO_ICG = VariableReference_test
 
@@ -92,6 +92,32 @@ VariableServerListenThread_test: %: $(OBJ_DIR)/%.o
 
 VariableServer_test: %: $(OBJ_DIR)/%.o
 	$(TRICK_CXX) $(TRICK_SYSTEM_LDFLAGS) $(TRICK_CXXFLAGS) -o $@ $^ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) $(TRICK_EXEC_LINK_LIBS)
+
+# ----------------------------------------------------------------------------
+# VsAdapter_test (rewrite Phase 4): the new adapter on a Memory Manager that
+# holds the conformance SIM's own ConfVars, replaying the golden captures.
+# ----------------------------------------------------------------------------
+CONF_DIR   := $(TRICK_HOME)/test/SIM_vs_conformance
+CONF_MODEL := $(CONF_DIR)/models
+VS_CORE_TEST_DIR := $(TRICK_HOME)/trick_source/trick_utils/var_server/test
+VS_ADAPTER_FLAGS := -std=c++17 -I$(CONF_MODEL) -I$(VS_CORE_TEST_DIR) -DVS_CONFORMANCE_DIR=\"$(CONF_DIR)\"
+
+$(OBJ_DIR)/io_ConfVars.o: $(CONF_MODEL)/conformance/include/ConfVars.hh | $(OBJ_DIR)
+	${TRICK_HOME}/bin/trick-ICG -sim_services -o ./io_src $(TRICK_CXXFLAGS) -I$(CONF_MODEL) $<
+	$(TRICK_CXX) $(TRICK_CXXFLAGS) -I$(CONF_MODEL) -c io_src/io_ConfVars.cpp -o $@
+
+$(OBJ_DIR)/io_VsAdapterTypes.o: VsAdapterTypes.hh $(CONF_MODEL)/conformance/include/ConfVars.hh | $(OBJ_DIR)
+	${TRICK_HOME}/bin/trick-ICG -sim_services -o ./io_src $(TRICK_CXXFLAGS) -I$(CONF_MODEL) $<
+	$(TRICK_CXX) $(TRICK_CXXFLAGS) -I$(CONF_MODEL) -c io_src/io_VsAdapterTypes.cpp -o $@
+
+$(OBJ_DIR)/ConfVars.o: $(CONF_MODEL)/conformance/src/ConfVars.cpp | $(OBJ_DIR)
+	$(TRICK_CXX) $(TRICK_CXXFLAGS) -I$(CONF_MODEL) -c $< -o $@
+
+$(OBJ_DIR)/VsAdapter_test.o: VsAdapter_test.cc VsAdapterTypes.hh $(VS_CORE_TEST_DIR)/GoldenReplay.hh $(VS_CORE_TEST_DIR)/golden_cases.inc | $(OBJ_DIR)
+	$(TRICK_CXX) $(TRICK_CXXFLAGS) $(VS_ADAPTER_FLAGS) -c $< -o $@
+
+VsAdapter_test: $(OBJ_DIR)/VsAdapter_test.o $(OBJ_DIR)/io_VsAdapterTypes.o $(OBJ_DIR)/io_ConfVars.o $(OBJ_DIR)/ConfVars.o
+	$(TRICK_CXX) $(TRICK_SYSTEM_LDFLAGS) $(TRICK_CXXFLAGS) -o $@ $^ -L${TRICK_HOME}/lib_${TRICK_HOST_CPU} $(TRICK_LIBS) -ltrick_var_server $(TRICK_EXEC_LINK_LIBS)
 
 
 code-coverage: test

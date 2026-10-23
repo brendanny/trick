@@ -79,10 +79,10 @@ ut_dir="$repo/trick_source/sim_services/VariableServer/test"
 if step "Build VS unit tests" "$out/build-unit-tests.log" make -C "$ut_dir" VariableReference_test \
         VariableReference_writeValueAscii_test VariableReference_writeValueBinary_test \
         VariableServerSession_test VariableServerSessionThread_test VariableServerListenThread_test \
-        VariableServer_test; then
+        VariableServer_test VsAdapter_test; then
     for t in VariableReference_test VariableReference_writeValueAscii_test VariableReference_writeValueBinary_test \
              VariableServerSession_test VariableServerSessionThread_test VariableServerListenThread_test \
-             VariableServer_test; do
+             VariableServer_test VsAdapter_test; do
         step "Unit: $t" "$out/unit-$t.log" bash -c "cd '$ut_dir' && ./$t --gtest_output=xml:'$repo/trick_test/$t.xml'"
     done
 fi

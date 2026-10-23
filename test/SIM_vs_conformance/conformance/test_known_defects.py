@@ -198,6 +198,18 @@ def test_byteswap_bitfield(fresh_sim) -> None:
 
 
 @pytest.mark.xfail(
+    reason="an unindexed pointer stages nothing: get_size() is asked about the pointer's own address"
+)
+def test_unindexed_pointer(fresh_sim) -> None:
+    with RawSession(HOST, fresh_sim.port) as s:
+        reply = s.run_case(
+            f'trick.var_pause()\ntrick.var_add("{P}dptr")\ntrick.var_send()\n'
+        )
+    assert_alive(fresh_sim)
+    assert reply == b"0\t0.5,1,1.5,2\n"
+
+
+@pytest.mark.xfail(
     reason="a char array reached through std::vector<T*> comes back as its first character"
 )
 def test_vector_of_pointers_char_array(fresh_sim) -> None:

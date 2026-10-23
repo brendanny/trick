@@ -21,7 +21,7 @@ VS_GOLDEN_CASE("ascii_big_array_split",
                false)
 VS_GOLDEN_CASE("ascii_pointers",
                "trick.var_pause()\ntrick.var_add(\"conf.vars.dptr\")\ntrick.var_add(\"conf.vars.dptr[0]\")\ntrick.var_add(\"conf.vars.dptr[3]\")\ntrick.var_add(\"conf.vars.iptr_null\")\ntrick.var_add(\"conf.vars.inner_ptr\")\ntrick.var_add(\"conf.vars.inner_ptr[0].a\")\ntrick.var_add(\"conf.vars.inner_ptr[0].b[1]\")\ntrick.var_add(\"conf.vars.vptr\")\ntrick.var_add(\"conf.vars.fp\")\ntrick.var_send()\n",
-               false)
+               true)
 VS_GOLDEN_CASE("ascii_structured",
                "trick.var_pause()\ntrick.var_add(\"conf.vars.inner\")\ntrick.var_add(\"conf.vars.inner.a\")\ntrick.var_add(\"conf.vars.inner.b\")\ntrick.var_add(\"conf.vars.inner.b[1]\")\ntrick.var_add(\"conf.vars.bits\")\ntrick.var_add(\"conf.vars.bits.u3\")\ntrick.var_add(\"conf.vars.bits.u5\")\ntrick.var_add(\"conf.vars.bits.s4\")\ntrick.var_add(\"conf.vars.bits.s12\")\ntrick.var_send()\n",
                false)
