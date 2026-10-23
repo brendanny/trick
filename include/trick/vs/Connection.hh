@@ -14,7 +14,9 @@ wants_write() is true, tells the runner when to call them.
     datagram's sender; the old server checked an address it had not set.
   * Multicast: as UDP, but replies go to the group. The socket does not
     join the group and drops datagrams that it sent itself; the old server
-    joined the group and could run its own replies as commands.
+    joined the group and could run its own replies as commands. When it is
+    bound to loopback, commands come only from this host, and replies leave
+    from a second socket that can reach the group.
 */
 
 #ifndef TRICK_VS_CONNECTION_HH
@@ -206,6 +208,9 @@ namespace Trick
                 /** True if a datagram from `sender` is one this socket sent (multicast only). */
                 virtual bool is_own(const Address& /*sender*/) const { return false; }
 
+                /** The socket replies are sent from. */
+                virtual int send_fd() const noexcept { return _fd.get(); }
+
                 /** True if replies follow the sender of each batch (UDP), not a fixed address. */
                 virtual bool reply_to_sender() const noexcept { return true; }
 
@@ -227,20 +232,32 @@ namespace Trick
 
                 ConnectionKind kind() const noexcept override { return ConnectionKind::Multicast; }
 
+                /** The address replies leave from: the bound socket, or the sender socket. */
+                Address send_address() const;
+
             protected:
                 bool is_own(const Address& sender) const override;
 
                 bool reply_to_sender() const noexcept override { return false; }
 
+                int send_fd() const noexcept override { return _sender ? _sender.get() : _fd.get(); }
+
             private:
-                MulticastConnection(Fd fd, Address local, std::string hostname, Address group,
+                MulticastConnection(Fd fd, Fd sender, Address local, std::string hostname, Address group,
                                     std::vector<Address> own_hosts, const ConnectionOptions& options)
                     : UdpConnection(std::move(fd), local, std::move(hostname), options)
+                    , _sender(std::move(sender))
                     , _own_hosts(std::move(own_hosts))
                 {
                     _reply_to = group;
                 }
 
+                /**
+                 * When the socket is bound to loopback (decision 12), replies leave from
+                 * this second socket, bound to no address: a loopback interface usually
+                 * has no multicast, so the bound socket could not reach the group.
+                 */
+                Fd _sender;
                 std::vector<Address> _own_hosts;
         };
 

@@ -78,7 +78,8 @@ system call goes through a `SystemInterface`, so tests can make one fail.
 
 * `Listener` binds by the old rules (`Endpoint.hh`): `""`, `"localhost"` or
   the host name bind every interface; a numeric IPv6 address, such as `"::"`,
-  turns IPv6 on.
+  turns IPv6 on. `"127.0.0.1"` binds loopback only, for every socket kind
+  (decision 12; the old UDP code bound every interface for it).
 * `TcpConnection` reads batches of complete lines (`LineReader`). A line
   longer than 200000 bytes is discarded up to its newline; the old server
   stalled on it. Replies wait in a bounded `WriteQueue`; only a full queue

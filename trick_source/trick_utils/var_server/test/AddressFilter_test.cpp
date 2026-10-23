@@ -181,17 +181,22 @@ TEST(Endpoint, EveryInterfaceForTheDefaultNames)
     }
 }
 
-TEST(Endpoint, LoopbackIsEveryInterfaceForUdpOnly)
+TEST(Endpoint, LoopbackBindsLoopbackForEveryKind)
 {
+    // Decision 12: the old UDP code bound every interface for "127.0.0.1".
     HookedSystem sys;
-    auto tcp = resolve_bind_address(sys, "127.0.0.1", 0, SocketKind::Tcp);
-    ASSERT_TRUE(tcp);
-    EXPECT_TRUE(tcp.value().address.is_loopback());
-    EXPECT_EQ(tcp.value().hostname, "127.0.0.1");
-    auto udp = resolve_bind_address(sys, "127.0.0.1", 0, SocketKind::Udp);
-    ASSERT_TRUE(udp);
-    EXPECT_TRUE(udp.value().address.is_any());
-    EXPECT_EQ(udp.value().hostname, "testhost");
+    for (SocketKind kind : { SocketKind::Tcp, SocketKind::Udp })
+    {
+        auto t = resolve_bind_address(sys, "127.0.0.1", 0, kind);
+        ASSERT_TRUE(t);
+        EXPECT_TRUE(t.value().address.is_loopback());
+        EXPECT_FALSE(t.value().address.is_any());
+        EXPECT_EQ(t.value().hostname, "127.0.0.1");
+    }
+    // "localhost" keeps the old rule: every interface.
+    auto local = resolve_bind_address(sys, "localhost", 0, SocketKind::Udp);
+    ASSERT_TRUE(local);
+    EXPECT_TRUE(local.value().address.is_any());
 }
 
 TEST(Endpoint, NumericAddresses)

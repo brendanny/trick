@@ -44,8 +44,10 @@ namespace Trick
             const std::string host_name = sys.hostname();
             BindTarget t;
 
-            if (requested.empty() || requested == "localhost" || (!host_name.empty() && requested == host_name)
-                || (kind == SocketKind::Udp && requested == "127.0.0.1"))
+            // Decision 12: "127.0.0.1" binds loopback for every socket kind. The old UDP
+            // code bound every interface for it. `kind` is kept for future rules.
+            (void)kind;
+            if (requested.empty() || requested == "localhost" || (!host_name.empty() && requested == host_name))
             {
                 t.address  = Address::any(AF_INET, port);
                 t.hostname = host_name;

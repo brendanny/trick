@@ -6,8 +6,8 @@ UDPConnection::initialize), so input files keep working:
 
   * "", "localhost" or this host's name binds every interface (0.0.0.0),
     and the server reports this host's name.
-  * For UDP and multicast sockets, "127.0.0.1" also binds every interface,
-    as the old UDP code did.
+  * "127.0.0.1" binds loopback only, for every socket kind (rewrite decision
+    12). The old UDP and multicast code bound every interface for it.
   * A numeric IPv4 address binds that address and is reported as given.
   * A numeric IPv6 address binds an IPv6 socket (rewrite decision 6: IPv6 is
     turned on by the source address). "::" binds every interface, accepts

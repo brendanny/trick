@@ -320,7 +320,7 @@ namespace Trick
                     return r;
                 }
                 const std::string_view data = _queue.front();
-                const ssize_t n = sys().sendto(_fd.get(), data.data(), data.size(), send_flags, _reply_to.data(),
+                const ssize_t n = sys().sendto(send_fd(), data.data(), data.size(), send_flags, _reply_to.data(),
                                                _reply_to.length());
                 if (n >= 0)
                 {
@@ -373,22 +373,39 @@ namespace Trick
             auto fd = open_datagram(sys, bind_to);
             if (!fd)
                 return fd.error();
-            const Fd& s   = fd.value();
-            const int one = 1;
-            if (group->family() == AF_INET)
-            {
+            const Fd& s = fd.value();
+
+            auto multicast_options = [&sys](const Fd& socket, int family) {
+                const int one = 1;
+                if (family == AF_INET)
+                {
 #ifdef IP_MULTICAST_ALL
-                // Linux delivers a group's datagrams to every socket on the port unless
-                // this is off. The server sends to the group; it never reads from it.
-                const int zero = 0;
-                sys.setsockopt(s.get(), IPPROTO_IP, IP_MULTICAST_ALL, &zero, sizeof zero);
+                    // Linux delivers a group's datagrams to every socket on the port unless
+                    // this is off. The server sends to the group; it never reads from it.
+                    const int zero = 0;
+                    sys.setsockopt(socket.get(), IPPROTO_IP, IP_MULTICAST_ALL, &zero, sizeof zero);
 #endif
-                const unsigned char loop = 1; // local clients listen to the group too
-                sys.setsockopt(s.get(), IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof loop);
-            }
-            else
+                    const unsigned char loop = 1; // local clients listen to the group too
+                    sys.setsockopt(socket.get(), IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof loop);
+                }
+                else
+                {
+                    sys.setsockopt(socket.get(), IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &one, sizeof one);
+                }
+            };
+            multicast_options(s, group->family());
+
+            // Decision 12: bound to loopback, the socket takes commands only from this
+            // host. It cannot reach the group (loopback has no multicast), so replies
+            // leave from a second socket bound to no address.
+            Fd sender;
+            if (bind_to.is_loopback())
             {
-                sys.setsockopt(s.get(), IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &one, sizeof one);
+                auto opened = open_datagram(sys, Address::any(group->family(), 0));
+                if (!opened)
+                    return opened.error();
+                sender = std::move(opened.value());
+                multicast_options(sender, group->family());
             }
 
             const Address local = local_address(s);
@@ -404,13 +421,33 @@ namespace Trick
             else
                 own.push_back(local);
 
-            return std::unique_ptr<MulticastConnection>(new MulticastConnection(
-                std::move(fd.value()), local, target.value().hostname, *group, std::move(own), options));
+            if (sender)
+            {
+                // Its datagrams leave from this host's interfaces.
+                const std::vector<Address> all = sys.local_addresses();
+                own.insert(own.end(), all.begin(), all.end());
+            }
+
+            return std::unique_ptr<MulticastConnection>(new MulticastConnection(std::move(fd.value()), std::move(sender),
+                                                                                local, target.value().hostname, *group,
+                                                                                std::move(own), options));
+        }
+
+        Address MulticastConnection::send_address() const
+        {
+            if (!_sender)
+                return _local;
+            Address a;
+            socklen_t length = Address::capacity();
+            if (sys().getsockname(_sender.get(), a.data(), &length) != 0)
+                return Address();
+            return Address(a.data(), length);
         }
 
         bool MulticastConnection::is_own(const Address& sender) const
         {
-            if (sender.port() != _local.port())
+            const uint16_t send_port = _sender ? send_address().port() : _local.port();
+            if (sender.port() != _local.port() && sender.port() != send_port)
                 return false;
             if (sender.is_loopback())
                 return true;

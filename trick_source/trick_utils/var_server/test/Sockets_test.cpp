@@ -312,8 +312,8 @@ TEST(UdpConnection, OneDatagramIsOneBatchAndRepliesGoToTheSender)
     ASSERT_TRUE(u) << u.error().message;
     UdpConnection& server = *u.value();
     EXPECT_EQ(server.kind(), ConnectionKind::Udp);
-    // As the old UDP code: "127.0.0.1" binds every interface.
-    EXPECT_TRUE(server.local().is_any());
+    // Decision 12: "127.0.0.1" binds loopback only.
+    EXPECT_TRUE(server.local().is_loopback());
     const Address server_address = *Address::parse("127.0.0.1", server.local().port());
 
     Address client_address;
@@ -417,10 +417,11 @@ namespace
     }
 } // namespace
 
-TEST(MulticastConnection, RepliesGoToTheGroupAndAreNotReadBack)
+namespace
 {
-    const char* group = "224.10.10.77";
-    auto m            = MulticastConnection::open(system_interface(), group, "127.0.0.1", 0);
+    void multicast_round_trip(const char* group, const char* source)
+    {
+    auto m            = MulticastConnection::open(system_interface(), group, source, 0);
     ASSERT_TRUE(m) << m.error().message;
     MulticastConnection& server = *m.value();
     EXPECT_EQ(server.kind(), ConnectionKind::Multicast);
@@ -452,6 +453,15 @@ TEST(MulticastConnection, RepliesGoToTheGroupAndAreNotReadBack)
     ::close(listener);
     ::close(client);
 }
+} // namespace
+
+TEST(MulticastConnection, BoundToLoopback)
+{
+    // Decision 12: commands only from this host; replies still reach the group.
+    multicast_round_trip("224.10.10.77", "127.0.0.1");
+}
+
+TEST(MulticastConnection, BoundToEveryInterface) { multicast_round_trip("224.10.10.78", ""); }
 
 TEST(MulticastConnection, GroupMustBeMulticast)
 {
