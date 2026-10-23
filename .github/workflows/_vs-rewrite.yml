@@ -11,7 +11,11 @@
 #
 # The core job builds libtrick_var_server on its own (it needs only a C++17
 # compiler and GoogleTest) on each supported floor: GCC 8.5 on Rocky 8, GCC
-# and Clang on Ubuntu, Apple Clang on macOS. These jobs must pass.
+# and Clang on Ubuntu, Apple Clang on macOS. These jobs must pass. The tests
+# include the golden replay: the new encoders against the Phase 0 captures.
+#
+# The fuzz job runs the libFuzzer targets (Clang) for a few minutes each. The
+# Phase 2 exit run was one hour on the parser with no crash.
 name: Variable Server
 
 on:
@@ -68,6 +72,47 @@ jobs:
           cmake --build build-vs-core --parallel
       - name: Test
         run: ctest --test-dir build-vs-core --output-on-failure
+      - name: Golden cases are current
+        if: matrix.name == 'ubuntu24-gcc'
+        run: python3 tools/vs-export-golden-cases.py --check
+
+  fuzz:
+    name: vs fuzz
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y cmake clang libclang-rt-18-dev
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Build
+        run: |
+          cmake -S trick_source/trick_utils/var_server -B build-vs-fuzz \
+            -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DTRICK_VS_FUZZ=ON -DBUILD_TESTING=OFF
+          cmake --build build-vs-fuzz --parallel
+      - name: Fuzz the command parser (5 minutes)
+        run: |
+          mkdir -p fuzz-out/parser-corpus
+          cp trick_source/trick_utils/var_server/fuzz/corpus/command_parser/* fuzz-out/parser-corpus/
+          build-vs-fuzz/fuzz/vs_command_parser_fuzz -max_total_time=300 \
+            -dict=trick_source/trick_utils/var_server/fuzz/command_parser.dict \
+            -artifact_prefix=fuzz-out/ fuzz-out/parser-corpus
+      - name: Fuzz the encoders (5 minutes)
+        run: |
+          mkdir -p fuzz-out/encoders-corpus
+          build-vs-fuzz/fuzz/vs_encoders_fuzz -max_total_time=300 -max_len=8192 \
+            -artifact_prefix=fuzz-out/ fuzz-out/encoders-corpus
+      - name: Upload crashes
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: vs-fuzz-crashes
+          path: |
+            fuzz-out/crash-*
+            fuzz-out/leak-*
+            fuzz-out/timeout-*
+          if-no-files-found: ignore
+          retention-days: 14
 
   vs:
     name: vs ${{ matrix.kind }}
