@@ -12,6 +12,7 @@ import os
 import socket
 import struct
 import time
+from pathlib import Path
 
 import pytest
 
@@ -72,3 +73,43 @@ def test_beacon_fields(sim, group: str) -> None:
     assert fields[11] == "1\n"
     assert fields[0] == socket.gethostname()
     assert fields[2] == (os.environ.get("USER") or fields[2])
+
+
+GOLDEN = Path(__file__).parent / "goldens" / "beacon.bin"
+
+
+def test_beacon_golden(sim, pytestconfig) -> None:
+    """Record one real beacon, so the new encoder can be checked byte for byte.
+
+    The host, user, PID, paths, version and port differ per run and per
+    machine, so this test compares only the fields that do not. The core
+    library's replay test reads the recorded beacon's fields and checks that
+    format_beacon() gives back the same bytes.
+    """
+    data = None
+    try:
+        s = open_listener(GROUPS[0])
+    except OSError as e:
+        pytest.skip(f"cannot join multicast group {GROUPS[0]}: {e}")
+    with s:
+        deadline = time.monotonic() + 6.0
+        while time.monotonic() < deadline and data is None:
+            try:
+                d, _ = s.recvfrom(4096)
+            except TimeoutError:
+                continue
+            fields = d.decode(errors="replace").split("\t")
+            if len(fields) > 1 and fields[1] == str(sim.port):
+                data = d
+    if data is None:
+        pytest.skip("no beacon; multicast loopback may be off in this environment")
+
+    if pytestconfig.getoption("--update-goldens"):
+        GOLDEN.write_bytes(data)
+        return
+    assert GOLDEN.exists(), "no goldens/beacon.bin; run with --update-goldens"
+    want = GOLDEN.read_bytes().decode().split("\t")
+    have = data.decode().split("\t")
+    assert len(have) == len(want) == 12
+    for i in (6, 8, 10, 11):  # input file, user tag, enabled, mode
+        assert have[i] == want[i], (i, have[i], want[i])

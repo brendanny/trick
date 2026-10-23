@@ -25,3 +25,8 @@ add_executable(vs_encoders_fuzz Encoders_fuzz.cpp)
 target_link_libraries(vs_encoders_fuzz PRIVATE trick_var_server_fuzzlib)
 target_compile_options(vs_encoders_fuzz PRIVATE ${_vs_fuzz_flags})
 target_link_options(vs_encoders_fuzz PRIVATE ${_vs_fuzz_flags})
+
+add_executable(vs_line_reader_fuzz LineReader_fuzz.cpp)
+target_link_libraries(vs_line_reader_fuzz PRIVATE trick_var_server_fuzzlib)
+target_compile_options(vs_line_reader_fuzz PRIVATE ${_vs_fuzz_flags})
+target_link_options(vs_line_reader_fuzz PRIVATE ${_vs_fuzz_flags})

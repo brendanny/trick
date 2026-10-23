@@ -14,7 +14,8 @@ included by a header that ICG or SWIG parses.
 | --- | --- | --- |
 | 1 | Data types and interfaces: `WireTypes`, `FieldDesc`, `Snapshot`, `Schedule`, `Command`, `Expected`, `Interfaces` (Resolver, Clock, UnitConverter, CommandFallback); test fakes in `trick/vs/testing/Fakes.hh` | done |
 | 2 | `CommandParser` (typed commands or Python fallback), `AsciiEncoder`, `BinaryEncoder`, `Packetizer`, `FixedReply`, `Units`, `CLocale`; golden replay against the Phase 0 captures; libFuzzer targets | done |
-| 3 | Sockets, poller, beacon, address filter | next |
+| 3 | `SystemInterface` (syscall seam), `Fd`, `Address`, `AddressFilter` (IPv4, IPv6, CIDR), `Endpoint` (bind-address rules), `LineReader`, `WriteQueue`, `Listener`, `Connection` (TCP, UDP, multicast), `Poller`, `Beacon`, `ListenLoop`; tests on loopback sockets and with a hooked `SystemInterface` | done |
+| 4 | Resolver, sampler and units over the Memory Manager (in `sim_services`) | next |
 
 ## Build and test
 
@@ -63,10 +64,31 @@ build-vs-fuzz/fuzz/vs_encoders_fuzz -max_total_time=600 -max_len=8192 corpus-enc
 libFuzzer adds new inputs to the first corpus directory only, so the seeds in
 the source tree stay as they are.
 
-`vs_command_parser_fuzz` checks that a batch is all typed or one Fallback
+`vs_line_reader_fuzz` splits its input into random chunks and checks that
+no byte is lost or invented and that the batches do not depend on the
+chunking. `vs_command_parser_fuzz` checks that a batch is all typed or one Fallback
 that holds the input unchanged, and that every typed command survives
 `to_python()` and `parse_line()` unchanged. `vs_encoders_fuzz` encodes
 random valid values and checks the sizes of what comes out.
+
+## Network
+
+The network code never blocks and owns every descriptor through `Fd`. Each
+system call goes through a `SystemInterface`, so tests can make one fail.
+
+* `Listener` binds by the old rules (`Endpoint.hh`): `""`, `"localhost"` or
+  the host name bind every interface; a numeric IPv6 address, such as `"::"`,
+  turns IPv6 on.
+* `TcpConnection` reads batches of complete lines (`LineReader`). A line
+  longer than 200000 bytes is discarded up to its newline; the old server
+  stalled on it. Replies wait in a bounded `WriteQueue`; only a full queue
+  drops the client.
+* `UdpConnection` checks the allowlist against each datagram's sender.
+  `MulticastConnection` sends to its group but never reads from it, so it
+  cannot run its own replies as commands.
+* `ListenLoop` accepts clients and sends the beacon every 2 s. Its owner
+  answers, through `ListenPolicy`, whether connections are open and whether
+  an address is allowed.
 
 ## Rules
 

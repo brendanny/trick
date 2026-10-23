@@ -8,19 +8,31 @@
 cmake_minimum_required(VERSION 3.20...4.4)
 
 set(TRICK_VS_SOURCES
+    Address.cpp
+    AddressFilter.cpp
     AsciiEncoder.cpp
+    Beacon.cpp
     BinaryEncoder.cpp
     CLocale.cpp
     Command.cpp
     CommandParser.cpp
+    Connection.cpp
+    Endpoint.cpp
+    Fd.cpp
     FieldDesc.cpp
     FixedReply.cpp
     Interfaces.cpp
+    LineReader.cpp
+    ListenLoop.cpp
+    Listener.cpp
     Packetizer.cpp
+    Poller.cpp
     Schedule.cpp
     Snapshot.cpp
+    SystemInterface.cpp
     Units.cpp
     WireTypes.cpp
+    WriteQueue.cpp
 )
 
 if(COMMAND trick_add_library)

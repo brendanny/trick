@@ -1,18 +1,24 @@
 # Unit tests for libtrick_var_server. They link only that library and
 # GoogleTest, never libtrick.
 add_executable(trick_var_server_test
-    Command_test.cpp
+    AddressFilter_test.cpp
+    Buffers_test.cpp
     CommandParser_test.cpp
+    Command_test.cpp
     Encoders_test.cpp
     Expected_test.cpp
     Fakes_test.cpp
     FieldDesc_test.cpp
     GoldenReplay_test.cpp
+    ListenLoop_test.cpp
     Schedule_test.cpp
     Snapshot_test.cpp
+    SocketFaults_test.cpp
+    Sockets_test.cpp
     WireTypes_test.cpp
 )
-target_link_libraries(trick_var_server_test PRIVATE trick_var_server GTest::gtest_main)
+find_package(Threads REQUIRED)
+target_link_libraries(trick_var_server_test PRIVATE trick_var_server GTest::gtest_main Threads::Threads)
 target_compile_features(trick_var_server_test PRIVATE cxx_std_17)
 
 # The golden replay test reads the captures of test/SIM_vs_conformance.
