@@ -73,7 +73,7 @@ unsigned int insert_bitfield_any(unsigned int bitfield, /* In: Bitfiled to inser
         if (start + bits < 32)
             mask |= (0xFFFFFFFF << (start + bits));
         bitfield &= mask;
-        bitfield |= (value << start);
+        bitfield |= ((unsigned int)value << start);
     } else {
         /* Little endian */
 
@@ -92,7 +92,7 @@ unsigned int insert_bitfield_any(unsigned int bitfield, /* In: Bitfiled to inser
             mask |= (0xFFFFFFFF >> (start + bits));
 
         bitfield &= mask;
-        bitfield |= (value << (32 - (start + bits)));
+        bitfield |= ((unsigned int)value << (32 - (start + bits)));
     }
 
     return (bitfield);

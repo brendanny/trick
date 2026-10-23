@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <cstring>
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -145,12 +146,12 @@ class Socket {
     std::string receive () {
         char buffer[SOCKET_BUF_SIZE];
         int numBytes = recv(_socket_fd, buffer, SOCKET_BUF_SIZE, 0);
-        if (numBytes < 0) {
-        } else if (numBytes < SOCKET_BUF_SIZE) {
-            buffer[numBytes] = '\0';
+        if (numBytes <= 0) {
+            return std::string();
         }
-
-        return std::string(buffer);
+        // A full buffer has no room for a NUL; build the string from the byte count.
+        // Stop at the first NUL, as before.
+        return std::string(buffer, strnlen(buffer, numBytes));
     }
 
     void operator>> (std::string& ret) {

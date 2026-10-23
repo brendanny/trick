@@ -13,6 +13,8 @@ Trick::JobData::JobData() {
     /** @li initializes the job as enabled with 0 cycle rate. */
     disabled = false ;
     handled = false ;
+    isTopOfFrame = false ;
+    isEndOfFrame = false ;
     thread = 0 ;
     id = 0 ;
     sim_object_id = -1 ;
@@ -44,6 +46,8 @@ Trick::JobData::JobData(int in_thread, int in_id, std::string in_job_class_name 
     /** @li initializes the job according to arguments */
     disabled = false ;
     handled = false ;
+    isTopOfFrame = false ;
+    isEndOfFrame = false ;
     thread = in_thread ;
     id = in_id ;
     sim_object_id = -1 ;
