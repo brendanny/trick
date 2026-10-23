@@ -13,9 +13,12 @@
 # compiler and GoogleTest) on each supported floor: GCC 8.5 on Rocky 8, GCC
 # and Clang on Ubuntu, Apple Clang on macOS. These jobs must pass. The tests
 # include the golden replay: the new encoders against the Phase 0 captures.
+# The core-sanitizers job runs the same tests under ASan+UBSan and under TSan
+# (Clang); it must pass too.
 #
-# The fuzz job runs the libFuzzer targets (Clang) for a few minutes each. The
-# Phase 2 exit run was one hour on the parser with no crash.
+# The fuzz job runs the libFuzzer targets (Clang) for a few minutes each: the
+# command parser, the encoders and the line reader. The Phase 2 exit run was
+# one hour on the parser with no crash.
 name: Variable Server
 
 on:
@@ -76,6 +79,38 @@ jobs:
         if: matrix.name == 'ubuntu24-gcc'
         run: python3 tools/vs-export-golden-cases.py --check
 
+  core-sanitizers:
+    name: vs core ${{ matrix.kind }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kind: asan
+            flags: -fsanitize=address,undefined -fno-sanitize-recover=undefined
+          - kind: tsan
+            flags: -fsanitize=thread
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y cmake clang libclang-rt-18-dev libgtest-dev libudunits2-dev
+      - name: Allow ThreadSanitizer address layout
+        if: matrix.kind == 'tsan'
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Build
+        run: |
+          cmake -S trick_source/trick_utils/var_server -B build-vs-core \
+            -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            "-DCMAKE_CXX_FLAGS=-Werror -fno-omit-frame-pointer ${{ matrix.flags }}" \
+            "-DCMAKE_EXE_LINKER_FLAGS=${{ matrix.flags }}"
+          cmake --build build-vs-core --parallel
+      - name: Test
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+          ASAN_OPTIONS: detect_leaks=1
+        run: ctest --test-dir build-vs-core --output-on-failure
+
   fuzz:
     name: vs fuzz
     runs-on: ubuntu-24.04
@@ -102,6 +137,11 @@ jobs:
           mkdir -p fuzz-out/encoders-corpus
           build-vs-fuzz/fuzz/vs_encoders_fuzz -max_total_time=300 -max_len=8192 \
             -artifact_prefix=fuzz-out/ fuzz-out/encoders-corpus
+      - name: Fuzz the line reader (5 minutes)
+        run: |
+          mkdir -p fuzz-out/line-reader-corpus
+          build-vs-fuzz/fuzz/vs_line_reader_fuzz -max_total_time=300 -max_len=4096 \
+            -artifact_prefix=fuzz-out/ fuzz-out/line-reader-corpus
       - name: Upload crashes
         uses: actions/upload-artifact@v7
         if: failure()
