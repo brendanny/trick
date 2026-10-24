@@ -1,0 +1,33 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 4, "minor": 1, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "native",
+      "displayName": "C++26 with native reflection",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/native",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "ON",
+        "TRICK2_WARNINGS_AS_ERRORS": "ON",
+        "TRICK2_BOOTSTRAP_ONLY": "OFF"
+      }
+    },
+    {
+      "name": "bootstrap",
+      "displayName": "Runtime development without reflection",
+      "inherits": "native",
+      "binaryDir": "${sourceDir}/build/bootstrap",
+      "cacheVariables": { "TRICK2_BOOTSTRAP_ONLY": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "native", "configurePreset": "native" },
+    { "name": "bootstrap", "configurePreset": "bootstrap" }
+  ],
+  "testPresets": [
+    { "name": "native", "configurePreset": "native", "output": { "outputOnFailure": true } },
+    { "name": "bootstrap", "configurePreset": "bootstrap", "output": { "outputOnFailure": true } }
+  ]
+}
